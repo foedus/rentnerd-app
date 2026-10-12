@@ -1,0 +1,19 @@
+{
+  "name": "rentnerd-acceptance",
+  "private": true,
+  "description": "Locked Playwright acceptance tests for RentNerd (SPEC.md section 13). Do not edit outside the test-author/reviewer/adjudicator roles.",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "list": "playwright test --list",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-s3": "3.1150.0",
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.64.0",
+    "@types/node": "26.6.5",
+    "exceljs": "4.4.0",
+    "pdf-parse": "2.4.5",
+    "typescript": "7.0.2"
+  }
+}

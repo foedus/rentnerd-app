@@ -1,0 +1,1239 @@
+[
+  {
+    "id": "T001",
+    "title": "Scaffold the single npm package: src/client (React+Vite), src/server (Hono), src/worker, src/shared, src/cli; TypeScript, ESLint, Vitest unit and integration configs (--passWithNoTests), npm scripts dev/build/lint/typecheck/test:unit/test:integration; build emits dist/server.js, dist/worker.js, dist/migrate.js, dist/cli.js stubs; add dist/ and coverage/ to .gitignore; one trivial unit test",
+    "depends_on": [],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T002",
+    "title": "docker-compose.yml with services postgres (user/password rentnerd, databases rentnerd and rentnerd_test, port 5432), mailpit (1025/8025) and minio (9000, minio/minio12345) plus a one-shot bucket init creating rentnerd-test and rentnerd-dev; healthchecks so `docker compose up -d --wait` works; .env.example for local dev",
+    "depends_on": [
+      "T001"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T003",
+    "title": "Drizzle ORM setup and Postgres client from DATABASE_URL; dist/migrate.js applies migrations; GET /api/health (200 {\"status\":\"ok\"} or 503) and GET /healthz; integration test against the compose database",
+    "depends_on": [
+      "T002"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T004",
+    "title": "Hono web server on PORT (8080) serving the built Vite SPA with history fallback for non-/api paths, plus security headers (CSP default-src 'self', X-Content-Type-Options, Referrer-Policy same-origin, frame-ancestors 'none'); minimal React app",
+    "depends_on": [
+      "T003"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T005",
+    "title": "Dockerfile (multi-stage, Node LTS, includes postgresql-client) whose image runs node dist/server.js, dist/worker.js, dist/migrate.js and dist/cli.js from its WORKDIR; `./scripts/verify.sh` passes end to end including the Docker image build and the first acceptance test",
+    "depends_on": [
+      "T004"
+    ],
+    "criteria": [
+      "AC-PLAT-01"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T006",
+    "title": "Better Auth base setup (email/password, Drizzle adapter, user table extended with role admin|landlord|smoke, status invited|active|deactivated, lastSignInAt) and idempotent startup seeding of the smoke user from SMOKE_USER_EMAIL/SMOKE_USER_PASSWORD (role smoke, email verified, password re-synced on every start); integration tests",
+    "depends_on": [
+      "T005"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T007",
+    "title": "fly.toml for app rentnerd-app in region sjc: [processes] web = node dist/server.js and worker = node dist/worker.js, release_command node dist/migrate.js, http service on 8080 for web with a /api/health check every 15 s, env APP_URL/NODE_ENV/TZ, VM sizes from D-34",
+    "depends_on": [
+      "T005"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T008",
+    "title": "GitHub Actions workflow on push to main: start compose services, npm ci, ./scripts/verify.sh with ACCEPTANCE_BROWSERS=chromium,firefox,webkit, then flyctl deploy using the FLY_API_TOKEN repo secret, fly scale count web=1 worker=1, then ./scripts/smoke-prod.sh with the SMOKE_USER_* secrets; on smoke failure redeploy the previous release image and fail the run; workflow_dispatch input that forces the smoke step to fail (for the manual AC-PLAT-12 check)",
+    "depends_on": [
+      "T007"
+    ],
+    "criteria": [
+      "AC-PLAT-12"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T009",
+    "title": "First production deploy: push, watch the workflow to green, confirm https://rentnerd-app.fly.dev/healthz and /api/health return 200 with the database connected (use fly status / fly logs to debug); record the result in PROGRESS.md",
+    "depends_on": [
+      "T008",
+      "T006"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T010",
+    "title": "Test-mode safety (D-25): a config module validates the environment in web, worker and cli; with ENABLE_TEST_ROUTES=true it exits non-zero with an explanatory error unless NODE_ENV=test, FLY_APP_NAME is unset and the database name ends in _test; /api/test/* returns 404 when test routes are disabled",
+    "depends_on": [
+      "T009"
+    ],
+    "criteria": [
+      "AC-PLAT-05",
+      "AC-PLAT-07"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T011",
+    "title": "Test clock: TestClock table, process-wide clock offset applied to every Date in web, worker and cli (but real time for S3 request signing), POST /api/test/clock {\"now\": iso|null}; unit tests",
+    "depends_on": [
+      "T010"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T012",
+    "title": "Worker process with pg-boss (start/stop, graceful shutdown, queue registration) and POST /api/test/reset that empties all application tables in test mode",
+    "depends_on": [
+      "T011"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T013",
+    "title": "Email sending: Nodemailer SMTP transport, shared layout producing text and HTML parts with the footer \"RentNerd · private landlord tools\", email.send pg-boss queue (5 retries, exponential backoff), EmailLog table, POST /api/test/fail-next-email (fails every retry of the next email)",
+    "depends_on": [
+      "T012"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T014",
+    "title": "Auth core: Better Auth sessions (database sessions, 7-day lifetime refreshed at most daily, cookie with Max-Age, HttpOnly, SameSite=Lax, Secure in production), sign-up disabled, password 12-128 chars; API error envelope {error:{code,message,fields}}; 401 UNAUTHENTICATED for every /api route except health, auth and public invitation routes; 403 for POST/PATCH/PUT/DELETE without the app Origin; 403 for every write by the smoke user",
+    "depends_on": [
+      "T013"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T015",
+    "title": "Startup admin bootstrap (D-05): Invitation table; create the admin from ADMIN_EMAIL if no admin exists (role admin, status invited) and send the §10.1 administrator invitation once; warn when ADMIN_EMAIL differs from the existing admin; refuse to start in production without ADMIN_EMAIL; idempotent under concurrent starts",
+    "depends_on": [
+      "T014"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T016",
+    "title": "Public invitation routes GET /api/invitations/lookup and POST /api/invitations/accept (rate-limited 20/IP/15 min; sets password, verifies email, activates, signs in), GET/PATCH /api/me, and `node dist/cli.js resend-admin-invite`",
+    "depends_on": [
+      "T015"
+    ],
+    "criteria": [
+      "AC-API-01"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T017",
+    "title": "Admin user-management API: GET /api/users, GET/POST /api/invitations (creates the invited user row and sends §10.1), POST /api/invitations/{id}/resend and /revoke, POST /api/users/{id}/deactivate (revokes sessions) and /reactivate; landlords get 403 FORBIDDEN; the admin can't be deactivated",
+    "depends_on": [
+      "T016"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T018",
+    "title": "Client shell: React Router, TanStack Query, layout with \"Skip to main content\", header \"RentNerd\" home link and user menu (Account settings, Sign out), left navigation with admin-only Users and Activity log and a \"Menu\" button on narrow screens; unique \"{Page} – RentNerd\" titles and one h1 per page; \"Page not found\" with \"Go to dashboard\"; \"You don't have access to this page.\" guard; placeholder pages with correct h1 for every navigation route",
+    "depends_on": [
+      "T016"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T019",
+    "title": "Sign-in page /login, route guard redirecting signed-out users to /login and back to the requested page, sign out from the user menu, \"Incorrect email or password.\" for wrong, invited and deactivated users",
+    "depends_on": [
+      "T018",
+      "T017"
+    ],
+    "criteria": [
+      "AC-AUTH-01",
+      "AC-AUTH-02",
+      "AC-AUTH-03",
+      "AC-AUTH-09",
+      "AC-AUTH-10",
+      "AC-AUTH-12",
+      "AC-PLAT-02",
+      "AC-PLAT-06"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T020",
+    "title": "Rate limiting with a trusted client IP (Fly-Client-IP in production, socket address elsewhere; X-Forwarded-For ignored): sign-in 5 failures/15 min per email and 30/15 min per IP, 429 RATE_LIMITED, \"Too many attempts. Try again in a few minutes.\" on /login",
+    "depends_on": [
+      "T019"
+    ],
+    "criteria": [
+      "AC-AUTH-04"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T021",
+    "title": "Forgot password and reset password pages and flows: always the same on-screen message, email only for active verified users, at most 3 per address per hour and 20 requests per IP per hour, 1-hour single-use links, reset signs out all sessions and sends \"Your RentNerd password was changed\"",
+    "depends_on": [
+      "T020"
+    ],
+    "criteria": [
+      "AC-AUTH-05",
+      "AC-AUTH-06",
+      "AC-AUTH-07",
+      "AC-AUTH-11"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T022",
+    "title": "Accept invitation page /accept-invite: \"You're joining RentNerd as {email}.\", Your name prefilled, Password, Confirm password, Create account signs in and opens the Dashboard; invalid/expired/revoked/used token message",
+    "depends_on": [
+      "T019"
+    ],
+    "criteria": [
+      "AC-USR-03"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T023",
+    "title": "Shared form kit: React Hook Form + shared Zod schemas, labels with \"(required)\", field errors linked by aria-describedby, \"There is a problem\" error summary that takes focus and links to fields, \"{Thing} saved.\" messages in a polite live region, version-conflict alert with Reload, unexpected-error message; unit tests",
+    "depends_on": [
+      "T018"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T024",
+    "title": "Shared UI kit: React Aria confirmation dialog with Cancel (focus in, Escape closes, focus returns), aria-disabled button with an explanatory accessible description, money input (\"2150\", \"2,150\", \"2150.00\" -> $2,150.00), date display helpers in New York time (\"Jan 5, 2027\"), named data table in a horizontally scrollable region, pagination (Previous/Next, Page X of Y)",
+    "depends_on": [
+      "T023"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T025",
+    "title": "Users screen /users: table Name, Email, Role (Admin / Landlord / Smoke test (read-only)), Status (Active / Invited / Invitation expired / Invitation revoked / Deactivated), Last sign-in; Invite landlord dialog with \"A user with this email already exists.\"",
+    "depends_on": [
+      "T024",
+      "T022"
+    ],
+    "criteria": [
+      "AC-USR-01",
+      "AC-USR-02",
+      "AC-USR-04",
+      "AC-USR-06",
+      "AC-PLAT-04",
+      "AC-PLAT-08"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T026",
+    "title": "Users row actions: Resend invitation, Revoke invitation, Deactivate (dialog text from §11.23; open sessions are redirected to /login on their next request), Reactivate; no actions on the Admin and Smoke rows; landlords see the no-access page on /users and /activity",
+    "depends_on": [
+      "T025"
+    ],
+    "criteria": [
+      "AC-USR-05",
+      "AC-USR-07",
+      "AC-USR-09",
+      "AC-USR-10",
+      "AC-USR-11"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T027",
+    "title": "Account settings /account: Profile (Name, Save name -> \"Name saved.\" and the user menu updates; email read-only) and Change password (Current password is incorrect., 12-character and match validation, \"Password changed.\", revokes other sessions, password-changed email); hidden for the smoke user",
+    "depends_on": [
+      "T026",
+      "T021"
+    ],
+    "criteria": [
+      "AC-USR-12",
+      "AC-USR-13",
+      "AC-AUTH-08"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T028",
+    "title": "Audit log foundation: AuditLog table and a writer used inside the same transaction as each change, with field-level {field:[before, after]} changes formatted for people, never containing passwords, hashes, tokens or session ids; sign_in, sign_in_failed (no typed email for unknown accounts), sign_out, invite, deactivate, reactivate, password events recorded; smoke user sign-in/out not recorded",
+    "depends_on": [
+      "T027"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T029",
+    "title": "Owners API: GET/POST /api/owners, GET/PATCH/DELETE /api/owners/{id}, archive/restore; §6.3 validation (422 with fields), optimistic version (409 CONFLICT), pagination/sort/search, 404 NOT_FOUND, delete only when unreferenced; audit rows",
+    "depends_on": [
+      "T028"
+    ],
+    "criteria": [
+      "AC-API-04",
+      "AC-API-06"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T030",
+    "title": "Owners screens: /owners list (Search owners, Show archived, Add owner; columns Owner name, Owner type, City, Properties), /owners/new and /owners/:id/edit form with Save owner and Cancel, /owners/:id detail",
+    "depends_on": [
+      "T029",
+      "T024"
+    ],
+    "criteria": [
+      "AC-OWN-01",
+      "AC-OWN-02"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T031",
+    "title": "Properties API: Property and PropertyResponsible tables, GET/POST /api/properties, GET/PATCH /api/properties/{id}; unique name among non-archived, responsible landlords must be active Admin/Landlord users (smoke -> 422), default to the creator; derived type; GET /api/people",
+    "depends_on": [
+      "T029"
+    ],
+    "criteria": [
+      "AC-API-02",
+      "AC-API-05",
+      "AC-EML-14"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T032",
+    "title": "Units API: GET/POST /api/properties/{id}/units, GET/PATCH /api/units/{id}; unique label per property, use immutable after creation (422), owner override; Single-unit property support (unit \"Entire property\")",
+    "depends_on": [
+      "T031"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T033",
+    "title": "Properties list /properties: Search properties (name, address), Show archived, Add property (hidden for the smoke user), columns Property, Address, Owner, Type, Units, Occupied, Responsible landlords, empty state; smoke user sees no-access on editing routes",
+    "depends_on": [
+      "T032",
+      "T030"
+    ],
+    "criteria": [
+      "AC-PROP-10"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T034",
+    "title": "Add/Edit property form: all §11.8 fields, Owner select of non-archived owners with Add owner dialog, Responsible landlords multi-select (name and email, default the signed-in user, at least one), Single-unit property with Use, Save property",
+    "depends_on": [
+      "T033"
+    ],
+    "criteria": [
+      "AC-PROP-03",
+      "AC-OWN-04",
+      "AC-PLAT-03"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T035",
+    "title": "Property detail /properties/:id: summary (address, Type, Owner, Responsible landlords with name and email, NYC, BBL, year built, purchase price/date) and tabs Units, Values, Property taxes, Compliance, Investments (tab selectable via ?tab=), Units tab table and Add unit",
+    "depends_on": [
+      "T034"
+    ],
+    "criteria": [
+      "AC-PROP-01",
+      "AC-PROP-02",
+      "AC-PROP-04",
+      "AC-USR-14"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T036",
+    "title": "Unit screens: /properties/:id/units/new and /units/:id/edit (Use read-only on edit with the hint), /units/:id detail summary (Use, Bedrooms, Bathrooms, Square feet, Owner incl. override, Status)",
+    "depends_on": [
+      "T035"
+    ],
+    "criteria": [
+      "AC-UNIT-01",
+      "AC-UNIT-02",
+      "AC-UNIT-05"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T037",
+    "title": "Property values: API (GET/POST /api/properties/{id}/values, PATCH/DELETE /api/property-values/{id}), Values tab with table and Add value dialog, Current value with basis (D-15)",
+    "depends_on": [
+      "T035"
+    ],
+    "criteria": [
+      "AC-PROP-05",
+      "AC-PROP-06"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T038",
+    "title": "Property taxes: API (GET/POST /api/properties/{id}/taxes, PATCH/DELETE /api/property-taxes/{id}), unique tax year per property, Property taxes tab with Add tax year dialog",
+    "depends_on": [
+      "T037"
+    ],
+    "criteria": [
+      "AC-PROP-07"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T039",
+    "title": "Tenants API: GET/POST /api/tenants (search, pagination, archived), GET/PATCH/DELETE /api/tenants/{id}, archive/restore; Individual/Business rules and messages",
+    "depends_on": [
+      "T029"
+    ],
+    "criteria": [
+      "AC-API-03"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T040",
+    "title": "Tenant screens: /tenants list (Search tenants, Show archived, Add tenant), /tenants/new and /tenants/:id/edit form (Tenant type radio, conditional fields, Save tenant), /tenants/:id detail",
+    "depends_on": [
+      "T039",
+      "T024"
+    ],
+    "criteria": [
+      "AC-TEN-01",
+      "AC-TEN-02",
+      "AC-TEN-03"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T041",
+    "title": "Deactivating a landlord removes them from every property's responsible landlords and assigns the Admin to properties left with none",
+    "depends_on": [
+      "T026",
+      "T035"
+    ],
+    "criteria": [
+      "AC-USR-08"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T042",
+    "title": "src/shared calculations with exhaustive unit tests: date arithmetic (§7.7), money rounding half-up and formatting, rent in effect for none/percent/schedule (D-12, Feb 29), rent schedule periods (§7.3), whole months between dates",
+    "depends_on": [
+      "T001"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T043",
+    "title": "src/shared calculations with unit tests: effective end date, current term, lease rent on a date and last rent (§7.2), lease status rules 1-6 (§7.4) incl. superseded and moving out, unit occupancy and potential rent (D-16)",
+    "depends_on": [
+      "T042"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T044",
+    "title": "src/shared calculations with unit tests: tax reimbursement and its explanation (D-13), other income (§7.5), portfolio and per-property statistics (§7.6)",
+    "depends_on": [
+      "T043"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T045",
+    "title": "Lease data model: Lease, LeaseTenant, RentStep, LeaseExtension, ExtensionTenant, LeaseRevision tables and migrations; shared Zod schemas for lease and extension input",
+    "depends_on": [
+      "T044",
+      "T032",
+      "T039",
+      "T038"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T046",
+    "title": "POST /api/units/{id}/leases: all §6.9 validation (dates, one primary tenant, rent steps within term, residential/commercial fields, base tax year must exist), overlap rule with \"This unit already has a lease for those dates.\", replaceCurrentLease {endReason}, new tenants in the same transaction, version 1 LeaseRevision, audit",
+    "depends_on": [
+      "T045"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T047",
+    "title": "Lease read API: GET /api/leases (filters status repeatable, propertyId, unitId, tenantId, archived; derived status applied in code), GET /api/leases/{id} with tenants, rent steps, extensions, status, current term values, GET /api/leases/{id}/rent-schedule, /versions, /versions/{n}",
+    "depends_on": [
+      "T046"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T048",
+    "title": "Lease change API: PATCH and DELETE /api/leases/{id}, POST /api/leases/{id}/month-to-month and /end; every change re-validates §6.9, bumps the version (409 on mismatch) and writes a LeaseRevision with a readable summary such as \"Monthly rent: $2,150.00 → $2,200.00\"; delete removes versions, extensions, steps and documents",
+    "depends_on": [
+      "T047"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T049",
+    "title": "Extensions API: POST /api/leases/{id}/extensions (omitted terms copied from the previous term), PATCH/DELETE /api/extensions/{id} (latest only); start >= previous effective end + 1 day, master-tenant rule message, no extensions on ended/moving-out leases, sets monthToMonth false; new lease version",
+    "depends_on": [
+      "T048"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T050",
+    "title": "New lease wizard frame and step 1 (/units/:id/leases/new): Step X of 4, Back/Next, discard prompt when leaving with data; Add existing tenant combobox (no archived tenants), Add new tenant inline form, Primary contact radio, Remove; validation messages",
+    "depends_on": [
+      "T047",
+      "T040",
+      "T024"
+    ],
+    "criteria": [
+      "AC-LEASE-02",
+      "AC-LEASE-17"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T051",
+    "title": "Wizard step 2: term and rent fields, Rent increases radio group, Annual increase (%), custom schedule rows (Add row/Remove), live Rent schedule preview table, Move-out date and Reason for past leases, date validation messages",
+    "depends_on": [
+      "T050"
+    ],
+    "criteria": [
+      "AC-LEASE-03",
+      "AC-LEASE-08"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T052",
+    "title": "Wizard steps 3 and 4: special terms (Children reside in unit for Residential only; Base tax year and Tenant's share for Commercial with the computed Tax reimbursement line), Review summary, Lease template select placeholder, Save lease opening the Lease detail page",
+    "depends_on": [
+      "T051"
+    ],
+    "criteria": [
+      "AC-LEASE-04"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T053",
+    "title": "Lease detail /leases/:id: h1, status badge text, Tenants (current term, Primary contact), Term and rent (incl. Effective end date, Current monthly rent), Rent schedule table across terms, Special terms, Other income with the tax explanation",
+    "depends_on": [
+      "T052"
+    ],
+    "criteria": [
+      "AC-LEASE-01",
+      "AC-LEASE-06",
+      "AC-LEASE-07",
+      "AC-LEASE-14",
+      "AC-LEASE-15",
+      "AC-LEASE-24"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T054",
+    "title": "Lease information on units: unit detail Status (Occupied / Vacant / Vacant · leased from {date}), Current rent, Potential rent, Current lease card, Lease history table; property Units tab columns Status, Tenants, Current rent, Lease end",
+    "depends_on": [
+      "T053",
+      "T036"
+    ],
+    "criteria": [
+      "AC-LEASE-05"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T055",
+    "title": "Edit lease (all wizard fields on one page, Save lease, version conflict alert) and the Versions table with read-only version view /leases/:id/versions/:n",
+    "depends_on": [
+      "T053",
+      "T048"
+    ],
+    "criteria": [
+      "AC-LEASE-16",
+      "AC-LEASE-21"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T056",
+    "title": "Lease actions: Mark month-to-month dialog (prefilled last rent), End lease dialog (Move-out date, Reason; any valid date), Delete lease dialog; visibility rules from §11.13",
+    "depends_on": [
+      "T054",
+      "T055"
+    ],
+    "criteria": [
+      "AC-LEASE-12",
+      "AC-LEASE-23"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T057",
+    "title": "Wizard clash handling: overlap error with the Replace current lease option only when the clash is with the current lease and the new start is later, confirmation \"End the current lease on {date} and start this one?\" with Reason (default Replaced by new lease); older leases entered without move-out",
+    "depends_on": [
+      "T056"
+    ],
+    "criteria": [
+      "AC-LEASE-09",
+      "AC-LEASE-19"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T058",
+    "title": "Leases list /leases: Status checkbox group (default all but Ended), Show archived, Property filter; columns Property, Unit, Tenants, Start, Effective end, Current rent, Status (\" · Archived\" suffix)",
+    "depends_on": [
+      "T056"
+    ],
+    "criteria": [
+      "AC-LEASE-18"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T059",
+    "title": "Tenant detail Leases table (Property, Unit, Start, End, Status, Primary contact); Archive/Restore/Delete tenant with delete aria-disabled when on any lease",
+    "depends_on": [
+      "T058"
+    ],
+    "criteria": [
+      "AC-TEN-04",
+      "AC-TEN-05"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T060",
+    "title": "Add/Edit extension form (/leases/:id/extensions/new, /extensions/:id/edit): dates (start prefilled), Monthly rent, Rent increases, Notes, Save extension, Cancel; Extensions table on the lease with Edit/Delete on the latest only; Add extension hidden on ended or moving-out leases",
+    "depends_on": [
+      "T049",
+      "T056"
+    ],
+    "criteria": [
+      "AC-EXT-01",
+      "AC-EXT-02",
+      "AC-EXT-03",
+      "AC-EXT-04",
+      "AC-EXT-05",
+      "AC-EXT-06",
+      "AC-LEASE-22"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T061",
+    "title": "Extension form Tenants section (pre-filled, add/remove, primary, master-tenant rule message) and the collapsed \"Change other terms (optional)\" section with Rent terms, Other income and Special terms pre-filled from the previous term",
+    "depends_on": [
+      "T060"
+    ],
+    "criteria": [
+      "AC-EXT-07",
+      "AC-EXT-08"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T062",
+    "title": "GET /api/dashboard: portfolio summary, by-property rows, leases needing a decision, leases ending in the next 90 days (move-out or effective end; excludes month-to-month and upcoming), using the shared calculations",
+    "depends_on": [
+      "T054"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T063",
+    "title": "Dashboard screen: Portfolio summary definition list, By property table (property links), the note \"Based on {n} of {m} properties with a value.\"",
+    "depends_on": [
+      "T062"
+    ],
+    "criteria": [
+      "AC-DASH-01",
+      "AC-DASH-02",
+      "AC-DASH-03",
+      "AC-DASH-05",
+      "AC-DASH-06",
+      "AC-DASH-07"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T064",
+    "title": "Dashboard tables Leases needing a decision (empty state \"None.\") and Leases ending in the next 90 days with Days left",
+    "depends_on": [
+      "T063",
+      "T056"
+    ],
+    "criteria": [
+      "AC-DASH-04",
+      "AC-LEASE-10",
+      "AC-LEASE-11"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T065",
+    "title": "Compliance data model: ComplianceItemType, PropertyComplianceItem, ComplianceCompletion; startup seeding of the §9.1 catalog (insert missing only); item generation for every property × type and applicability recompute on unit add/archive/restore and NYC change unless set by an editor; nextDueDate initialisation",
+    "depends_on": [
+      "T032",
+      "T044"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T066",
+    "title": "src/shared compliance calculations with unit tests: item status (§9.2), Mark done next-due suggestion (§9.3), reminder thresholds and catch-up (§10.5)",
+    "depends_on": [
+      "T065"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T067",
+    "title": "Compliance API: GET/POST /api/compliance/types, PATCH/DELETE, archive/restore; GET /api/properties/{id}/compliance; GET /api/compliance/items (filters propertyId, status, responsibleUserId); PATCH /api/compliance/items/{id}; completions create/list/delete",
+    "depends_on": [
+      "T066"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T068",
+    "title": "Property Compliance tab: Item, Applies to this property switch, Status, Due date, Last completed; Mark done dialog (Completed on, Notes, Next due date prefilled, Save), Set due date dialog, History dialog with Delete",
+    "depends_on": [
+      "T067",
+      "T035"
+    ],
+    "criteria": [
+      "AC-CMP-02",
+      "AC-CMP-03",
+      "AC-CMP-05",
+      "AC-CMP-06",
+      "AC-CMP-11",
+      "AC-CMP-12"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T069",
+    "title": "/compliance Due list tab: filters Property, Status (default Overdue, Due soon, Upcoming), Responsible landlord; columns and Mark done / Set due date actions",
+    "depends_on": [
+      "T068"
+    ],
+    "criteria": [
+      "AC-CMP-10"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T070",
+    "title": "/compliance Item types tab: notice text, Add item type form (Name, Description, Applies to, New York City properties only, Schedule with Month+Day or Repeat every (months), Save item type), Edit, Archive/Restore, Delete",
+    "depends_on": [
+      "T069"
+    ],
+    "criteria": [
+      "AC-CMP-01",
+      "AC-CMP-08",
+      "AC-CMP-09",
+      "AC-CMP-13",
+      "AC-CMP-14",
+      "AC-CMP-15"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T071",
+    "title": "Dashboard tables Overdue compliance and Compliance due in the next 30 days (Property, Item, Due date, Responsible landlords); not-applicable and archived items excluded",
+    "depends_on": [
+      "T070",
+      "T064"
+    ],
+    "criteria": [
+      "AC-CMP-07"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T072",
+    "title": "Investments API: GET/POST /api/investments (filters propertyId, category, from, to; totalCents for the whole filter), PATCH/DELETE /api/investments/{id}; unit must belong to the property",
+    "depends_on": [
+      "T031",
+      "T032"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T073",
+    "title": "Investments screen /investments (filters, table, Total footer row, Add entry dialog with Unit options \"Whole property\" + the property's units, Edit, Delete), property Investments tab and Total invested",
+    "depends_on": [
+      "T072",
+      "T035"
+    ],
+    "criteria": [
+      "AC-INV-01",
+      "AC-INV-02",
+      "AC-INV-03",
+      "AC-INV-04",
+      "AC-INV-05"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T074",
+    "title": "Property and unit archive/restore with archiveBatchId (property archives units and leases; unit archives its leases; restore only that batch), delete rules and dialogs (Delete property aria-disabled with its description), compliance items removed with the property",
+    "depends_on": [
+      "T071",
+      "T073"
+    ],
+    "criteria": [
+      "AC-PROP-09",
+      "AC-PROP-11",
+      "AC-UNIT-03"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T075",
+    "title": "Owner archive/delete rules in the UI: Delete owner aria-disabled with its description, Archive owner message listing the properties that still use it, Restore owner",
+    "depends_on": [
+      "T074"
+    ],
+    "criteria": [
+      "AC-OWN-03"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T076",
+    "title": "Daily digest job: ReminderLog table, pending rows + one singleton email job per recipient in one transaction, catch-up on latest reached threshold, rows marked sent after SMTP success and deleted after permanent failure; pg-boss schedule 08:00 America/New_York; POST /api/test/jobs/daily-digest",
+    "depends_on": [
+      "T071",
+      "T013"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T077",
+    "title": "Daily summary email content (§10.5): subject with count and date, grouping by property, the four sections in order, exact line formats, absolute links to /leases/{id} and /properties/{id}?tab=compliance, Open dashboard link",
+    "depends_on": [
+      "T076"
+    ],
+    "criteria": [
+      "AC-EML-01",
+      "AC-EML-02",
+      "AC-EML-03",
+      "AC-EML-04",
+      "AC-EML-05",
+      "AC-EML-06",
+      "AC-EML-07",
+      "AC-EML-08",
+      "AC-EML-11",
+      "AC-EML-12"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T078",
+    "title": "Digest exclusions and recovery: archived properties/units/leases, archived item types and not-applicable items never included; superseded leases excluded; deactivated landlords' items reach the Admin; resend after a permanently failed email",
+    "depends_on": [
+      "T077",
+      "T075",
+      "T041"
+    ],
+    "criteria": [
+      "AC-EML-09",
+      "AC-EML-10",
+      "AC-EML-13",
+      "AC-CMP-04",
+      "AC-PROP-08",
+      "AC-LEASE-20",
+      "AC-LEASE-25"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T079",
+    "title": "Cleanup job daily at 03:00 New York (previews > 24 h, expired invitations/verification rows > 30 days, expired sessions, backups > 30 days, import files and runs, email/reminder logs > 2 years, audit IPs > 2 years) and POST /api/test/jobs/cleanup",
+    "depends_on": [
+      "T078"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T080",
+    "title": "Activity log: GET /api/audit-log (Admin only; filters userId, entityType, from, to) and /activity screen (User, Record type, From, To filters; When (ET), User, Action, Record, Changes with Show changes); no edit/delete routes",
+    "depends_on": [
+      "T078"
+    ],
+    "criteria": [
+      "AC-AUD-01",
+      "AC-AUD-03",
+      "AC-AUD-04",
+      "AC-AUD-05",
+      "AC-PLAT-09"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T081",
+    "title": "Templates API and placeholder registry: Template table, GET/POST /api/templates, GET/PATCH/DELETE, archive/restore, unique name, kind fixed after first save, server-side validation of TipTap JSON (§8.4 content only, known placeholders) with 422; GET /api/placeholders?kind=",
+    "depends_on": [
+      "T028"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T082",
+    "title": "Template list /templates and editor /templates/new, /templates/:id: Template name, Template type, TipTap editor labelled \"Template content\", toolbar controls with exact accessible names, Save template, Archive/Restore/Delete template",
+    "depends_on": [
+      "T081",
+      "T024"
+    ],
+    "criteria": [
+      "AC-TPL-06",
+      "AC-TPL-08"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T083",
+    "title": "Placeholder chips: [Chip label] nodes, Insert placeholder searchable list for the template type, {{key}} paste conversion, \"Unrecognised placeholders: …\" warning (with the extension-only note) and the save block",
+    "depends_on": [
+      "T082"
+    ],
+    "criteria": [
+      "AC-TPL-01",
+      "AC-TPL-02",
+      "AC-TPL-03",
+      "AC-TPL-04"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T084",
+    "title": "Word paste clean-up: strip images, shapes, headers/footers, comments, styles and hyperlinks (keep text), split merged cells, join {{keys}} split across runs, show \"Some content was removed: …\"",
+    "depends_on": [
+      "T083"
+    ],
+    "criteria": [
+      "AC-TPL-09"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T085",
+    "title": "src/shared template rendering to HTML: every §8.1 placeholder value (dates \"January 5, 2027\", money, rent in words, rent schedule tables, signature blocks, extension keys), blanks as __________, sanitised output; unit tests",
+    "depends_on": [
+      "T083",
+      "T044"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T086",
+    "title": "PDF rendering in the worker: Playwright Chromium started once and reused (concurrency 2, restart after 100 jobs or a crash), JavaScript disabled and all network blocked, bundled Tinos font inlined, US Letter print CSS with footer and Page X of Y, metadata title; Dockerfile gains Chromium; S3 storage client for MinIO/Tigris",
+    "depends_on": [
+      "T085",
+      "T012"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T087",
+    "title": "Documents API: POST /api/leases/{id}/documents (snapshot HTML + data + lease version at request time, §8.2 file name rules), pdf.render job with 3 retries and Failed status, GET /api/documents/{id}, POST /retry (same snapshot), GET /download ({url, expiresAt}, 5-minute signed URL with Content-Disposition filename and filename*), DELETE (+ stored object); POST /api/test/fail-next-pdf",
+    "depends_on": [
+      "T086",
+      "T048"
+    ],
+    "criteria": [
+      "AC-DOC-03",
+      "AC-DOC-08"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T088",
+    "title": "Lease Documents section: table (Name, Template, Generated by, Generated on, Status with polling every 2 s), Download, Delete PDF dialog; lease deletion removes PDFs",
+    "depends_on": [
+      "T087",
+      "T056"
+    ],
+    "criteria": [
+      "AC-DOC-02",
+      "AC-DOC-04",
+      "AC-DOC-07",
+      "AC-DOC-10",
+      "AC-UNIT-04",
+      "AC-LEASE-13"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T089",
+    "title": "Generate PDF dialog: Document radio (Master lease / Extension starting {date}), Template select incl. archived templates already used for this lease marked \"(archived)\", empty-placeholder warning, Generate; Try again on Failed rows; Delete template aria-disabled once used",
+    "depends_on": [
+      "T088",
+      "T061"
+    ],
+    "criteria": [
+      "AC-DOC-05",
+      "AC-DOC-09",
+      "AC-TPL-10"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T090",
+    "title": "\"Save and generate PDF\" in the wizard (Lease template select) and the extension form (Extension template select, \"Used in this template\" markers); extension documents and file names",
+    "depends_on": [
+      "T089"
+    ],
+    "criteria": [
+      "AC-DOC-01",
+      "AC-DOC-06",
+      "AC-DOC-11",
+      "AC-EXT-09",
+      "AC-TPL-07"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T091",
+    "title": "Template preview: POST /api/templates/{id}/preview with Appendix B sample data, preview.render queue, GET /api/previews/{id} (404 for anyone but the requester), Preview PDF opening a tab at once with \"Preparing your PDF…\" then the PDF; previews stored under previews/",
+    "depends_on": [
+      "T090"
+    ],
+    "criteria": [
+      "AC-TPL-05",
+      "AC-TPL-11"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T092",
+    "title": "In-app help page /help/templates with Appendix A, linked from the template editor as \"How to convert a Word lease\"",
+    "depends_on": [
+      "T082"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T093",
+    "title": "Import template: GET /api/import/template builds rentnerd-import-template.xlsx with exceljs (sheets Instructions, Owners, Properties, Units, Tenants, Leases; one column per §6 field labelled as in §6 plus the key columns); /import page with instructions and Download template",
+    "depends_on": [
+      "T046",
+      "T065"
+    ],
+    "criteria": [
+      "AC-IMP-01"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T094",
+    "title": "Import validation part 1: POST /api/import/validate (multipart, 10/user/hour), size limits before parsing (5 MB, 50 MB uncompressed, 5,000 rows), ImportRun storage, per-cell parsing of dates, money, percentages, Yes/No and enum labels; /import Check file flow and \"Ready to import\" summary",
+    "depends_on": [
+      "T093"
+    ],
+    "criteria": [
+      "AC-IMP-02",
+      "AC-IMP-06"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T095",
+    "title": "Import validation part 2: every §6 rule per row, keys and cross-sheet references, uniqueness against existing data, lease overlap and residential/commercial rules; problems table (Sheet, Row, Column, Problem) with the normal field messages",
+    "depends_on": [
+      "T094"
+    ],
+    "criteria": [
+      "AC-IMP-04",
+      "AC-IMP-05",
+      "AC-IMP-07",
+      "AC-IMP-08"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T096",
+    "title": "Import commit: POST /api/import/{id}/commit re-validates against current data inside the insert transaction (all or nothing), creates compliance items, audit row; UI Import / Cancel and \"Import complete.\" with links",
+    "depends_on": [
+      "T095",
+      "T080",
+      "T090"
+    ],
+    "criteria": [
+      "AC-IMP-03",
+      "AC-IMP-09",
+      "AC-AUD-02"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T097",
+    "title": "Nightly backup: pg_dump (major version checked against the server) to the bucket under backups/ at 02:00 New York, 30-day retention, failure email to the Admin (§10.6), POST /api/test/jobs/backup; `node dist/cli.js restore-backup --latest --target-url <url>`; docs/RESTORE.md",
+    "depends_on": [
+      "T079"
+    ],
+    "criteria": [
+      "AC-PLAT-10"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T098",
+    "title": "Accessibility pass 1: skip link to <main> on every page, unique titles and one h1, 2 px high-contrast focus indicators, 24×24 px targets, reflow at 320 px with tables scrolling in their own region, text status badges",
+    "depends_on": [
+      "T091",
+      "T096",
+      "T097",
+      "T092"
+    ],
+    "criteria": [
+      "AC-A11Y-03",
+      "AC-A11Y-07",
+      "AC-A11Y-08",
+      "AC-A11Y-09",
+      "AC-A11Y-10"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T099",
+    "title": "Accessibility pass 2 (axe): zero WCAG 2.2 A/AA violations on every §11 route, every form after an empty submit and every dialog; every in-app link goes to a §11 route",
+    "depends_on": [
+      "T098"
+    ],
+    "criteria": [
+      "AC-A11Y-01"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T100",
+    "title": "Accessibility pass 3 (keyboard): keyboard-only main tasks on every screen, dialog focus management, error-summary focus with aria-describedby, polite live regions for status messages and PDF status changes; prepare the manual screen-reader checklist for the owner (AC-A11Y-11)",
+    "depends_on": [
+      "T099"
+    ],
+    "criteria": [
+      "AC-A11Y-02",
+      "AC-A11Y-04",
+      "AC-A11Y-05",
+      "AC-A11Y-06",
+      "AC-A11Y-11"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T101",
+    "title": "Basic load check: the scale fixture (25 users, 100 properties, 400 units, 5,000 leases) meets dashboard < 1 s and list p95 < 500 ms; add indexes and fix slow queries",
+    "depends_on": [
+      "T100"
+    ],
+    "criteria": [
+      "AC-PLAT-11"
+    ],
+    "status": "todo"
+  },
+  {
+    "id": "T102",
+    "title": "Full-codebase security review with the reviewer subagent over all of src/ (authorization on every route, smoke and landlord limits, injection, template/PDF sanitising, signed URLs, rate limits, headers, secrets in logs); fix every blocking finding with tests",
+    "depends_on": [
+      "T101"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T103",
+    "title": "Dependency audit: npm audit (root and tests/acceptance read-only), outdated and unused packages, licence check; upgrade or replace vulnerable packages; record results in PROGRESS.md",
+    "depends_on": [
+      "T102"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T104",
+    "title": "Backup/restore drill against Fly Managed Postgres: trigger a production backup, restore it into a scratch database and compare row counts, following docs/RESTORE.md; if the available Fly token can't do this, mark blocked with exact owner steps",
+    "depends_on": [
+      "T103"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T105",
+    "title": "README.md and docs/RUNBOOK.md for the non-technical owner: what RentNerd is, how deploys happen, setting ADMIN_EMAIL and other secrets, first admin sign-in and resending the admin invite, reading logs, rolling back, restoring a backup, the manual pre-release checks (AC-PLAT-12, AC-A11Y-11)",
+    "depends_on": [
+      "T104"
+    ],
+    "criteria": [],
+    "status": "todo"
+  }
+]
