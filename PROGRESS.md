@@ -138,3 +138,5 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
   first failed deploy and Fly does not restart stopped machines on later deploys. It does no work
   yet, so nothing is lost; the task that builds the real worker must make sure it is running
   (for example `fly machine start`, in the deploy workflow).
+- Evidence: the deploy workflow run 38309209226 (commit 72a9b95) succeeded, and the check of
+  /healthz and /api/health was made against that release on 2026-10-12.
