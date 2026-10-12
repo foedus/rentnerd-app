@@ -22,6 +22,36 @@ describe("health endpoints", () => {
   });
 });
 
+describe("test routes (D-25)", () => {
+  it("returns 404 JSON for /api/test/* when test routes are disabled", async () => {
+    const res = await createApp(pool).request("/api/test/clock", {
+      method: "POST",
+      body: JSON.stringify({ now: "2026-10-12T16:00:00.000Z" }),
+    });
+    expect(res.status).toBe(404);
+    expect((await res.json()).error.code).toBe("NOT_FOUND");
+  });
+});
+
+describe("startup refusal (AC-PLAT-07)", () => {
+  it.each([
+    ["server.js", { NODE_ENV: "production" }],
+    ["worker.js", { FLY_APP_NAME: "rentnerd-app" }],
+    ["cli.js", { DATABASE_URL: "postgres://rentnerd:rentnerd@localhost:5432/rentnerd" }],
+  ])("%s exits non-zero with an explanation in an unsafe environment", (script, unsafe) => {
+    execFileSync("npm", ["run", "build"], { stdio: "pipe" });
+    const env = { ...process.env, NODE_ENV: "test", DATABASE_URL: url, ENABLE_TEST_ROUTES: "true", ...unsafe };
+    try {
+      execFileSync("node", [`dist/${script}`], { env, stdio: "pipe", timeout: 20000 });
+      throw new Error("expected a non-zero exit");
+    } catch (error) {
+      const e = error as { status?: number; stderr?: Buffer };
+      expect(e.status).toBe(1);
+      expect(String(e.stderr)).toMatch(/ENABLE_TEST_ROUTES/);
+    }
+  });
+});
+
 describe("dist/migrate.js", () => {
   it("applies migrations against the compose database", () => {
     execFileSync("npm", ["run", "build"], { stdio: "pipe" });

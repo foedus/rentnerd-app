@@ -140,3 +140,12 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
   (for example `fly machine start`, in the deploy workflow).
 - Evidence: the deploy workflow run 38309209226 (commit 72a9b95) succeeded, and the check of
   /healthz and /api/health was made against that release on 2026-10-12.
+
+### 2026-10-12 — T010: test-mode safety
+- The web server, worker and command-line tool now check their settings on start. If the "test
+  routes" switch (ENABLE_TEST_ROUTES=true) is on but the environment isn't clearly a test one
+  (NODE_ENV not "test", running on Fly, or a database name not ending in "_test"), the program
+  stops with a clear message instead of starting. This protects real data from the test-only reset.
+- With the switch off, anything under /api/test/ answers "not found". The test routes themselves
+  arrive in later tasks; they must be registered before the SPA fallback.
+- verify.sh passes (AC-PLAT-05 and AC-PLAT-07 included); the reviewer approved. Nothing for the owner to do.
