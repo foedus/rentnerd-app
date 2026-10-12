@@ -15,6 +15,16 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
 
 ## Log
 
+### 2026-10-12 — T001: project scaffold
+- Created the single npm package: folders for the website (React + Vite), the API (Hono), the
+  background worker, shared code, the command-line tool and the database. `npm run build` now
+  produces the four programs (`dist/server.js`, `dist/worker.js`, `dist/migrate.js`,
+  `dist/cli.js`) plus the website; for now they are placeholders that just print a line.
+- Set up lint, type checking, and unit and integration test runners (one small unit test).
+  `dist/` and `coverage/` are no longer tracked by git.
+- verify.sh passes; the reviewer approved after one fix (I had added a health check that belongs
+  to a later task, so I removed it). Nothing for the owner to do.
+
 ### 2026-10-12 — Owner decisions on the test review
 - The owner accepted every recommendation from the test review (recorded in SPEC.md Appendix C,
   #77). No test needed changing.
