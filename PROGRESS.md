@@ -15,6 +15,14 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
 
 ## Log
 
+### 2026-10-12 — T005: Docker image
+- Added the `Dockerfile`: one image that holds the website, the API, the worker, the migration
+  command and the command-line tool, plus the database tools needed for backups (version 17, the
+  same as the database). It runs as a normal user, not root. A small test checks the key parts.
+- verify.sh now builds the image and runs the first acceptance test (the health check) against
+  it; it passes and the reviewer approved. There is no GitHub Actions workflow yet, so nothing
+  ran in CI. Chromium for PDFs will be added to the image by the PDF task. Nothing for the owner to do.
+
 ### 2026-10-12 — T004: web server serves the website
 - The web server now serves the built website (`dist/client`). Any page address that isn't a real
   file (for example `/properties/123`) returns the main page so the site's own navigation works;
