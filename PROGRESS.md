@@ -15,6 +15,14 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
 
 ## Log
 
+### 2026-10-12 — T003: database connection, migrations and health check
+- The app can now connect to Postgres using `DATABASE_URL`. `dist/migrate.js` applies database
+  migrations (there are none yet; tables arrive with later tasks, and `npm run db:generate` creates them).
+- `GET /api/health` (and `GET /healthz`) answer `{"status":"ok"}` when the database responds and
+  a 503 when it doesn't. Integration tests cover both cases and the migration command.
+- verify.sh passes; the reviewer approved. Note for the Docker image task: it must include `src/db/migrations`
+  next to `dist/`. Nothing for the owner to do.
+
 ### 2026-10-12 — T002: local services (Docker Compose)
 - Added `docker-compose.yml`: Postgres (databases `rentnerd` and `rentnerd_test`), Mailpit (mail
   catcher) and MinIO (file storage, with buckets `rentnerd-test` and `rentnerd-dev` created
