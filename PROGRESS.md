@@ -15,6 +15,16 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
 
 ## Log
 
+### 2026-10-12 — T002: local services (Docker Compose)
+- Added `docker-compose.yml`: Postgres (databases `rentnerd` and `rentnerd_test`), Mailpit (mail
+  catcher) and MinIO (file storage, with buckets `rentnerd-test` and `rentnerd-dev` created
+  automatically), all with health checks so `docker compose up -d --wait` works. Added
+  `.env.example` with the matching settings for local development.
+- The bucket-creating container stays idle after its work, because Docker treats any container
+  that exits as a failure when waiting. A new integration test checks all services, both
+  databases and both buckets.
+- verify.sh passes; the reviewer approved after one fix (test coverage). Nothing for the owner to do.
+
 ### 2026-10-12 — T001: project scaffold
 - Created the single npm package: folders for the website (React + Vite), the API (Hono), the
   background worker, shared code, the command-line tool and the database. `npm run build` now
