@@ -15,6 +15,13 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
 
 ## Log
 
+### 2026-10-12 — Owner decisions on the test review
+- The owner accepted every recommendation from the test review (recorded in SPEC.md Appendix C,
+  #77). No test needed changing.
+- The production backup/restore drill is now the owner's job, not the builder's: task T104 writes
+  step-by-step instructions for it in docs/RESTORE.md, and T105 lists it among the checks before
+  the first release. Build sessions never touch production beyond reading logs and status.
+
 ### 2026-10-12 — Acceptance tests reviewed and marked ready to lock
 - A fresh review session checked every acceptance test against the spec and fixed the ones that
   would have failed against a correct app. The main one: moving the test clock more than a week

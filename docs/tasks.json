@@ -1220,7 +1220,7 @@
   },
   {
     "id": "T104",
-    "title": "Backup/restore drill against Fly Managed Postgres: trigger a production backup, restore it into a scratch database and compare row counts, following docs/RESTORE.md; if the available Fly token can't do this, mark blocked with exact owner steps",
+    "title": "Owner checklist for the production backup/restore drill (no production access by the build session): add an \"Owner drill\" section to docs/RESTORE.md with exact, copy-paste steps for the owner to trigger a production backup, restore it into a scratch database and compare row counts, then clean up; the session itself never runs fly commands other than logs/status and never writes to production",
     "depends_on": [
       "T103"
     ],
@@ -1229,7 +1229,7 @@
   },
   {
     "id": "T105",
-    "title": "README.md and docs/RUNBOOK.md for the non-technical owner: what RentNerd is, how deploys happen, setting ADMIN_EMAIL and other secrets, first admin sign-in and resending the admin invite, reading logs, rolling back, restoring a backup, the manual pre-release checks (AC-PLAT-12, AC-A11Y-11)",
+    "title": "README.md and docs/RUNBOOK.md for the non-technical owner: what RentNerd is, how deploys happen, setting ADMIN_EMAIL and other secrets, first admin sign-in and resending the admin invite, reading logs, rolling back, restoring a backup, the manual pre-release checks (AC-PLAT-12, AC-A11Y-11, and the production backup/restore drill from docs/RESTORE.md)",
     "depends_on": [
       "T104"
     ],

@@ -317,3 +317,8 @@ Every non-manual criterion has at least one test. Changes:
   by default and three browsers under `VERIFY_ALL=1`; fails if a selected criterion has no test;
   stale `results.json` removed before each run; flaky results count as failures.
 
+### 2026-10-12 — Owner decisions on the review
+The owner accepted every reading above (interpretations 7–11 and 15–18, the `@slow` rule for the
+current task, keeping the accessibility scans in CI, the 24 px rule for every table link, and the
+hand-written Word fixture); see SPEC.md Appendix C #77. No test changed as a result. The production
+backup/restore drill became an owner checklist item (task T104).
