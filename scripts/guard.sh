@@ -8,7 +8,7 @@ fi
 if grep -Eq 'tests/acceptance' <<<"$cmd" && grep -Eq '(>|sed -i|rm |mv |cp |tee )' <<<"$cmd"; then
   echo "tests/acceptance is locked." >&2; exit 2
 fi
-if grep -Eq 'fly (apps|postgres|mpg|volumes|storage) (destroy|delete)|git push .*(-f|--force)|DROP (DATABASE|SCHEMA)|rm -rf /' <<<"$cmd"; then
+if grep -Eq 'fly (apps|postgres|mpg|volumes|storage) (destroy|delete)|git push .*(-f|--force)|DROP (DATABASE|SCHEMA)|rm -rf /|acceptance-locked' <<<"$cmd"; then
   echo "Destructive command blocked." >&2; exit 2
 fi
 exit 0
