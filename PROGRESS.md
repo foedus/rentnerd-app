@@ -124,3 +124,6 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
   `SMOKE_USER_PASSWORD`. Until they exist, the deploy job will fail (verify still runs). The Fly
   release-listing field names (`Status`, `ImageRef`) are unconfirmed until the first real run.
 - verify.sh passes; the reviewer approved.
+- First run of the workflow: checks passed and deploy started, but the placeholder worker program
+  exited immediately, so Fly reported the worker machine as failed. The placeholder now stays running
+  until the real worker arrives in a later task.
