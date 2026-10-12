@@ -1,0 +1,40 @@
+app = "rentnerd-app"
+primary_region = "sjc"
+
+[env]
+  APP_URL = "https://rentnerd-app.fly.dev"
+  NODE_ENV = "production"
+  TZ = "UTC"
+
+[deploy]
+  release_command = "node dist/migrate.js"
+
+[processes]
+  web = "node dist/server.js"
+  worker = "node dist/worker.js"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = false
+  min_machines_running = 1
+  processes = ["web"]
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/api/health"
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "20s"
+
+# One machine per process (D-34): web 512 MB, worker 1 GB for Chromium.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+  processes = ["web"]
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
+  processes = ["worker"]

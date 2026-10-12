@@ -15,6 +15,14 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
 
 ## Log
 
+### 2026-10-12 — T007: Fly.io settings (fly.toml)
+- Added `fly.toml`: app `rentnerd-app` in San Jose (`sjc`), a `web` program and a `worker` program,
+  the database update step that runs before each release, the website on port 8080 with a health
+  check every 15 seconds, and the machine sizes from the spec (web 512 MB, worker 1 GB).
+  No secrets are in the file. A unit test guards these settings; `fly config validate` accepts it.
+- verify.sh passes; the reviewer approved. There is no GitHub Actions workflow yet, so nothing
+  deploys from this commit. Nothing for the owner to do.
+
 ### 2026-10-12 — T006: sign-in foundation and the smoke-test user
 - Added the user, session, account and verification tables (first database migration) and set up
   Better Auth for email and password sign-in: public sign-up is off, passwords must be 12–128
