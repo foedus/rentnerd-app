@@ -15,6 +15,16 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
 
 ## Log
 
+### 2026-10-12 — T004: web server serves the website
+- The web server now serves the built website (`dist/client`). Any page address that isn't a real
+  file (for example `/properties/123`) returns the main page so the site's own navigation works;
+  unknown `/api/...` addresses return a "not found" error instead.
+- Every response carries the security headers from the spec (content policy, no-sniff, same-origin
+  referrer, no framing). Integration tests cover pages, files, the fallback and the headers.
+- verify.sh passes; the reviewer approved. Note for later tasks: new API routes must be registered
+  before the SPA is mounted at the end of `createApp`, and the strict content policy blocks inline
+  styles, so check it when Tailwind/React Aria arrive. Nothing for the owner to do.
+
 ### 2026-10-12 — T003: database connection, migrations and health check
 - The app can now connect to Postgres using `DATABASE_URL`. `dist/migrate.js` applies database
   migrations (there are none yet; tables arrive with later tasks, and `npm run db:generate` creates them).
