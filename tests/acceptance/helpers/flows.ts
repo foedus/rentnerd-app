@@ -52,10 +52,20 @@ export async function setPrimary(page: Page, name: string) {
   await page.getByRole('row').filter({ hasText: name }).getByRole('radio').check();
 }
 
+/**
+ * Step 1. The spec doesn't say whether a single tenant becomes the primary contact
+ * automatically, so unless `primary` is given the first tenant is chosen explicitly
+ * when no Primary contact radio is checked yet.
+ */
 export async function wizardTenants(page: Page, w: WizardInput) {
   await stepIs(page, 1);
   for (const t of w.tenants ?? []) await addExistingTenant(page, t.search, t.name);
+  const first = w.primary ?? w.tenants?.[0]?.name;
   if (w.primary) await setPrimary(page, w.primary);
+  else if (first) {
+    const radios = page.getByRole('row').filter({ hasText: first }).getByRole('radio');
+    if ((await radios.count()) > 0 && !(await page.getByRole('row').getByRole('radio', { checked: true }).count())) await radios.first().check();
+  }
   await button(page, 'Next').click();
 }
 

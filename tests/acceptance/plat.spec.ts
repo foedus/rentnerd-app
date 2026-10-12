@@ -226,21 +226,22 @@ test('AC-PLAT-11 @slow with the scale fixture loaded, dashboard < 1 s and list e
     const prop = await createProperty(admin, { name: `Scale ${p + 1} Main St`, ownerId: owner.id, responsibleUserIds: [landlordIds[p % 24]] });
     for (let u = 0; u < 4; u++) units.push((await createUnit(admin, prop.id, { label: `${u + 1}F`, use: u === 3 ? 'Commercial' : 'Residential' })).id);
   }
-  // 5,000 leases: yearly, non-overlapping, 12 or 13 per unit.
+  // 5,000 leases: yearly, non-overlapping, 12 or 13 per unit. Jobs are ordered year by year,
+  // so each batch of 10 parallel requests touches 10 different units (concurrent leases on
+  // one unit could legitimately be serialised or refused by the overlap check).
+  const tenants: string[] = [];
+  for (let i = 0; i < units.length; i++) tenants.push((await createTenant(admin, { lastName: `Scale${i}` })).id);
   const jobs: (() => Promise<unknown>)[] = [];
-  let made = 0;
-  for (let i = 0; i < units.length; i++) {
-    const tenant = await createTenant(admin, { lastName: `Scale${i}` });
-    const count = i < 200 ? 13 : 12;
-    for (let y = 0; y < count; y++) {
+  for (let y = 0; y < 13; y++) {
+    for (let i = 0; i < units.length; i++) {
+      if (y === 12 && i >= 200) continue;
       const year = 2026 - y;
       jobs.push(() =>
-        createLease(admin, units[i], { startDate: `${year}-01-01`, endDate: `${year}-12-31`, baseRentCents: dollars(1500 + y), tenantIds: [tenant.id] }),
+        createLease(admin, units[i], { startDate: `${year}-01-01`, endDate: `${year}-12-31`, baseRentCents: dollars(1500 + y), tenantIds: [tenants[i]] }),
       );
-      made++;
     }
   }
-  expect(made).toBe(5000);
+  expect(jobs.length).toBe(5000);
   for (let i = 0; i < jobs.length; i += 10) await Promise.all(jobs.slice(i, i + 10).map((j) => j()));
 
   const time = async (path: string) => {

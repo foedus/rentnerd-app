@@ -8,7 +8,7 @@
   },
   {
     "id": "T002",
-    "title": "docker-compose.yml with services postgres (user/password rentnerd, databases rentnerd and rentnerd_test, port 5432), mailpit (1025/8025) and minio (9000, minio/minio12345) plus a one-shot bucket init creating rentnerd-test and rentnerd-dev; healthchecks so `docker compose up -d --wait` works; .env.example for local dev",
+    "title": "docker-compose.yml with services postgres (user/password rentnerd, databases rentnerd and rentnerd_test, port 5432), mailpit (1025/8025) and minio (9000, minio/minio12345) using the pinned image pgsty/minio:RELEASE.2026-08-04T00-00-00Z@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372 (see CLAUDE.md) plus a one-shot bucket init (same image, its mc client) creating rentnerd-test and rentnerd-dev; healthchecks so `docker compose up -d --wait` works; .env.example for local dev",
     "depends_on": [
       "T001"
     ],
@@ -64,7 +64,7 @@
   },
   {
     "id": "T008",
-    "title": "GitHub Actions workflow on push to main: start compose services, npm ci, ./scripts/verify.sh with ACCEPTANCE_BROWSERS=chromium,firefox,webkit, then flyctl deploy using the FLY_API_TOKEN repo secret, fly scale count web=1 worker=1, then ./scripts/smoke-prod.sh with the SMOKE_USER_* secrets; on smoke failure redeploy the previous release image and fail the run; workflow_dispatch input that forces the smoke step to fail (for the manual AC-PLAT-12 check)",
+    "title": "GitHub Actions workflow on push to main: start compose services, npm ci, install Playwright Chromium with its system dependencies, ./scripts/verify.sh in its default mode (Chromium only, @slow tests skipped; never VERIFY_ALL, VERIFY_SLOW or ACCEPTANCE_BROWSERS in CI, to save the private repo's Actions minutes, SPEC.md §15.4), then flyctl deploy using the FLY_API_TOKEN repo secret, fly scale count web=1 worker=1, then ./scripts/smoke-prod.sh with the SMOKE_USER_* secrets; on smoke failure redeploy the previous release image and fail the run; workflow_dispatch input that forces the smoke step to fail (for the manual AC-PLAT-12 check)",
     "depends_on": [
       "T007"
     ],
@@ -1191,7 +1191,7 @@
   },
   {
     "id": "T101",
-    "title": "Basic load check: the scale fixture (25 users, 100 properties, 400 units, 5,000 leases) meets dashboard < 1 s and list p95 < 500 ms; add indexes and fix slow queries",
+    "title": "Basic load check: the scale fixture (25 users, 100 properties, 400 units, 5,000 leases) meets dashboard < 1 s and list p95 < 500 ms; add indexes and fix slow queries; AC-PLAT-11 is @slow, so it runs only for this task (verify.sh includes the current task's @slow tests) and in VERIFY_ALL runs, not in CI",
     "depends_on": [
       "T100"
     ],
@@ -1232,6 +1232,15 @@
     "title": "README.md and docs/RUNBOOK.md for the non-technical owner: what RentNerd is, how deploys happen, setting ADMIN_EMAIL and other secrets, first admin sign-in and resending the admin invite, reading logs, rolling back, restoring a backup, the manual pre-release checks (AC-PLAT-12, AC-A11Y-11)",
     "depends_on": [
       "T104"
+    ],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
+    "id": "T106",
+    "title": "Full local verification before the first release: VERIFY_ALL=1 ./scripts/verify.sh passes (every acceptance test including @slow, in Chromium, Firefox and WebKit; install the Firefox/WebKit system dependencies if missing); fix anything browser-specific in the app (never the tests) and record the run in PROGRESS.md",
+    "depends_on": [
+      "T105"
     ],
     "criteria": [],
     "status": "todo"

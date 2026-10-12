@@ -1,6 +1,6 @@
 # RentNerd — Product Specification
 
-Version 1.3 · 2026-10-12 (owner review decisions applied; see Appendix C)
+Version 1.4 · 2026-10-12 (owner review decisions applied; see Appendix C)
 
 ---
 
@@ -748,7 +748,7 @@ Each criterion is observable through the browser, the Mailpit API, the storage (
 - **AC-PLAT-08** First start with `ADMIN_EMAIL=admin@example.test` and no admin: the Users list shows that email with Role "Admin" and Status "Invited", and Mailpit receives one "You're invited to RentNerd" with the administrator wording. Restarting sends no second email. Restarting with a different `ADMIN_EMAIL` creates no second admin. After the invitation expires, `node dist/cli.js resend-admin-invite` sends a new working link.
 - **AC-PLAT-09** Smoke user sign-in and sign-out create no Activity log rows.
 - **AC-PLAT-10** Triggering the backup job (`POST /api/test/jobs/backup`) creates an object under `backups/` in storage. Running `node dist/cli.js restore-backup --latest --target-url <empty database URL>` (the command `docs/RESTORE.md` documents) restores it, and the row counts of every application table match the source.
-- **AC-PLAT-11** With the scale fixture loaded (§16), `GET /api/dashboard` responds in under 1 s, and each list endpoint's 95th-percentile response time over 20 requests is under 500 ms, measured in CI.
+- **AC-PLAT-11** With the scale fixture loaded (§16), `GET /api/dashboard` responds in under 1 s, and each list endpoint's 95th-percentile response time over 20 requests is under 500 ms, measured in the full local test run (`VERIFY_ALL=1`, §15.4).
 - **AC-PLAT-12** **(manual)** If the post-deploy production smoke test fails, the workflow redeploys the previous release and the run is marked failed. Checked once before the first release by a manually triggered workflow run with a deliberately failing smoke step.
 
 ### Authentication (AUTH)
@@ -1031,7 +1031,7 @@ The production secrets listed in §4. Plus one new production secret, set once b
 Before the first deploy, the owner sets the `ADMIN_EMAIL` secret (§15.2). On the first deploy, the web process creates the Admin from it and emails the invitation (§10.1, D-05). The admin opens the link, chooses a name and password, and is signed in. If the link expires (7 days) before it is used: `fly ssh console -a rentnerd-app -C "node dist/cli.js resend-admin-invite"`. The CLI does nothing once the admin is active.
 
 ### 15.4 CI/CD
-GitHub Actions on every push to main runs: typecheck, lint, Vitest unit tests (rent, tax, status, date arithmetic and reminder-threshold calculations), then the Playwright acceptance suite (§13) against Docker Compose services with `ENABLE_TEST_ROUTES=true`, in Chromium, Firefox and WebKit, including the axe scans, the slow signed-URL test, the backup restore drill and the performance check. There is no pull-request workflow: Claude pushes directly to main. When all jobs pass, it runs `flyctl deploy`. After deploy, the read-only production smoke test (D-24) runs against https://rentnerd-app.fly.dev using the `SMOKE_USER_EMAIL` and `SMOKE_USER_PASSWORD` GitHub secrets; if it fails, the previous release is redeployed and the run fails.
+GitHub Actions on every push to main runs: typecheck, lint, Vitest unit tests (rent, tax, status, date arithmetic and reminder-threshold calculations), then the Playwright acceptance suite (§13) against Docker Compose services with `ENABLE_TEST_ROUTES=true`, **in Chromium only and without the tests tagged `@slow`** (tests expected to take over a minute: the 5-minute signed-URL wait, the scale/performance check and the permanent email-failure retry), including the axe scans and the backup restore drill. This keeps the private repository within its free Actions minutes. The **full run** — every test, including `@slow`, in Chromium, Firefox and WebKit — happens only locally with `VERIFY_ALL=1 ./scripts/verify.sh`, at least once before the first release (task plan) and whenever a build session works on a task whose own tests are `@slow`. There is no pull-request workflow: Claude pushes directly to main. When all jobs pass, it runs `flyctl deploy`. After deploy, the read-only production smoke test (D-24) runs against https://rentnerd-app.fly.dev using the `SMOKE_USER_EMAIL` and `SMOKE_USER_PASSWORD` GitHub secrets; if it fails, the previous release is redeployed and the run fails.
 
 ### 15.5 Independent acceptance tests (build order)
 The build runs autonomously in these steps. Each **session** is a separate Claude Code session started fresh by the run loop, with no conversation history from any other session.
@@ -1066,7 +1066,7 @@ The build runs autonomously in these steps. Each **session** is a separate Claud
 - **Scale**: ≤ 25 users, ≤ 100 properties, ≤ 400 units, ≤ 5,000 leases, ≤ 10,000 generated PDFs. A single shared-CPU web machine and a single worker machine are sufficient.
 - **Performance**: API p95 < 500 ms at this scale. Dashboard < 1 s. PDF ready < 30 s typical (60 s max under test).
 - **Accessibility**: WCAG 2.2 Level AA across all screens (see the A11Y criteria). Generated PDFs are print documents and are exempt from PDF/UA tagging, but each has a document title set.
-- **Browsers**: latest two versions of Chrome, Edge, Firefox and Safari; responsive down to 320 px wide. CI runs the suite in Chromium, Firefox and WebKit; Edge and Safari themselves are checked manually before the first release (AC-A11Y-11).
+- **Browsers**: latest two versions of Chrome, Edge, Firefox and Safari; responsive down to 320 px wide. CI runs the suite in Chromium; the full local run (`VERIFY_ALL=1`, §15.4) adds Firefox and WebKit; Edge and Safari themselves are checked manually before the first release (AC-A11Y-11).
 - **Scale fixture**: 25 users, 100 properties, 400 units and 5,000 leases, created by the acceptance tests through the normal API, used by AC-PLAT-11. (Generated documents are left out because rendering 10,000 PDFs would make the suite too slow; document lists are paginated and per-lease, so they don't affect the measured endpoints.)
 - **Security**: HTTPS only (Fly). Security headers: CSP `default-src 'self'`, `X-Content-Type-Options`, `Referrer-Policy: same-origin`, `frame-ancestors 'none'`. Passwords are hashed by Better Auth (scrypt). Roles are enforced server-side. Template HTML is generated from TipTap JSON (no raw HTML input), limited to §8.4 content, and sanitised before rendering; PDF rendering has no network access (§8.2). Bucket objects are private.
 - **Rate limits** (429 `RATE_LIMITED`; the UI shows "Too many attempts. Try again in a few minutes."): sign-in as D-08; forgot-password: at most 3 emails per address per hour and 20 requests per IP per hour (the on-screen message never changes); reset-password and invitation lookup/accept: 20 requests per IP per 15 minutes; import validation: 10 per user per hour.
@@ -1125,7 +1125,7 @@ Owner "Sample Holdings LLC", 100 Example Ave, Brooklyn, NY 11201, signatory "Ale
 
 ## Appendix C — Owner decisions from the 2026-10-12 review
 
-Answers given by the owner to the review of v1.0, plus follow-up answers for v1.2 and v1.3 (marked "Owner (v1.2)" or "(v1.3)"), with where each is applied. Numbers match the review list. Where the owner said "use your best judgement", the chosen resolution is noted.
+Answers given by the owner to the review of v1.0, plus follow-up answers for v1.2, v1.3 and v1.4 (marked "Owner (v1.2)", "(v1.3)" or "(v1.4)"), with where each is applied. Numbers match the review list. Where the owner said "use your best judgement", the chosen resolution is noted.
 
 | # | Topic | Owner decision / note | Applied in |
 |---|---|---|---|
@@ -1170,6 +1170,7 @@ Answers given by the owner to the review of v1.0, plus follow-up answers for v1.
 | 54 | Test routes vs production data | *Judgement:* four independent checks; refuse to start otherwise. | D-25, AC-PLAT-07 |
 | 55 | Backups in the app bucket | OK for now. | D-26 |
 | 56–75 | Remaining security and difficulty items | Resolved by judgement: rate limits; trusted client IP; reset revokes sessions; no account-existence leaks; offline PDF rendering; secrets kept out of audit; preview access; import size limits; one-machine Fly scale with idempotent seeding; single shared calculation code; pending/sent reminder log; lease-level version covering child rows; backup version check and failure email; serial acceptance suite. | D-08, D-10, D-26, D-27, D-32, D-34, §8.2, §10.5, §14.1, §16 |
+| 76 | CI minutes (v1.4) | Owner (v1.4): the private repository has limited free Actions minutes, so GitHub Actions runs the acceptance suite in Chromium only and skips tests tagged `@slow` (over a minute each, including the 5-minute signed-URL test). The three-browser run with `@slow` tests happens only locally with `VERIFY_ALL=1`. | §13 AC-PLAT-11, §15.4, §16 |
 
 ## Appendix D — Decisions made during the build
 

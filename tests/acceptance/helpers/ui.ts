@@ -3,6 +3,7 @@
  * (SPEC.md §15.5). Labels may carry the "(required)" suffix (§11 conventions).
  */
 import { expect, type Locator, type Page } from '@playwright/test';
+import { rememberBrowserLogin } from './api';
 import { APP_URL } from './env';
 
 export const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -27,6 +28,7 @@ export async function signIn(page: Page, email: string, password: string) {
     headers: { Origin: APP_URL },
   });
   expect(r.status(), `sign in ${email}`).toBe(200);
+  rememberBrowserLogin(page.context(), email, password);
 }
 
 /** Signs in through the /login form. */

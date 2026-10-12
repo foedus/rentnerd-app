@@ -8,7 +8,7 @@
  *    restart web and worker so the normal startup seeding (§15.1) runs.
  */
 import type { Page } from '@playwright/test';
-import { Api, asAdmin } from './api';
+import { Api, asAdmin, forgetBrowserLogins, noteClock, renewBrowserSessions } from './api';
 import { ADMIN, PASSWORD } from './env';
 import { clearMail, linkContaining, tokenFrom, waitForMail } from './mailpit';
 import { isHealthy, restartApp, startApp, type EnvOverrides } from './processes';
@@ -29,13 +29,18 @@ export async function setToday(date: string, ...pages: Page[]) {
   await setNow(nyNoon(date), ...pages);
 }
 
+/** Moves the app clock; browser sessions that may have expired by app time are renewed (see api.ts). */
 export async function setNow(iso: string, ...pages: Page[]) {
   await testRoute('/api/test/clock', { now: iso });
+  noteClock(iso);
   for (const p of pages) await p.clock.setFixedTime(new Date(iso));
+  await renewBrowserSessions();
 }
 
 export async function clearClock() {
   await testRoute('/api/test/clock', { now: null });
+  noteClock(null);
+  await renewBrowserSessions();
 }
 
 export const runDailyDigest = () => testRoute('/api/test/jobs/daily-digest');
@@ -52,12 +57,15 @@ export function addDays(date: string, days: number): string {
 }
 
 /**
- * Fresh install: clears Mailpit, resets the database, restarts web and worker
+ * Fresh install: clears the test clock (so no earlier test's date leaks into
+ * this one), clears Mailpit, resets the database, restarts web and worker
  * (startup seeding runs: admin invitation, smoke user, compliance catalog).
  * Unless `bootstrap` is false, the Admin then accepts the invitation.
  */
 export async function freshApp(opts: { bootstrap?: boolean; env?: EnvOverrides } = {}) {
   if (!(await isHealthy())) await startApp();
+  forgetBrowserLogins();
+  await clearClock();
   await clearMail();
   await testRoute('/api/test/reset');
   await restartApp(opts.env ?? {});

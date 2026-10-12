@@ -242,7 +242,8 @@ test('AC-EML-12 digest links open the lease page and the property Compliance tab
   await ctx.close();
 });
 
-test('AC-EML-13 a permanently failed digest is resent the next day', async ({ page }) => {
+// @slow: the failed email must exhaust its 5 retries with exponential backoff first.
+test('AC-EML-13 @slow a permanently failed digest is resent the next day', async ({ page }) => {
   test.setTimeout(900_000);
   const p = await quietProperty();
   await setDueDate(page, p.id, SMOKE_CO, '2026-11-11');

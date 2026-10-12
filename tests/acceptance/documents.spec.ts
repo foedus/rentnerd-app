@@ -9,8 +9,9 @@ import {
   templateIdByName, tenantName, waitForDocument, downloadDocument,
 } from './helpers/builders';
 import { ACCEPTANCE_DIR, ADMIN } from './helpers/env';
-import { completeWizard, createTemplateUi, editor, pasteText } from './helpers/flows';
+import { completeWizard, createTemplateUi, editor, fillTerm, pasteText, stepIs, wizardSpecial, wizardTenants } from './helpers/flows';
 import { downloadBuffer, fetchBuffer, pdfText, sha256, squash } from './helpers/pdf';
+import { startProcess, stopProcess } from './helpers/processes';
 import { button, choose, confirmIfDialog, dialog, field, optionsOf, paste, signIn, text } from './helpers/ui';
 
 test.beforeAll(async () => {
@@ -70,6 +71,20 @@ async function openGenerateDialog(page: Page, leaseId: string) {
 }
 
 const documentsTable = (page: Page) => page.getByRole('table', { name: 'Documents' });
+
+/**
+ * Runs `whileStopped` with the worker stopped, so a new or retried document is
+ * guaranteed to be seen as "Generating…" (a fast worker could otherwise finish
+ * before the page shows the row), then starts the worker again.
+ */
+async function withWorkerStopped(whileStopped: () => Promise<void>) {
+  await stopProcess('worker');
+  try {
+    await whileStopped();
+  } finally {
+    await startProcess('worker');
+  }
+}
 
 async function downloadFromRow(page: Page, rowText: string | RegExp) {
   const row = documentsTable(page).getByRole('row').filter({ hasText: rowText }).first();
@@ -174,15 +189,12 @@ test('AC-TPL-07 an archived template is not offered for new documents', async ({
   const p2 = await createUnit(api, property.id, { label: 'New1' });
   const tn = await createTenant(api);
   await page.goto(`/units/${p2.id}/leases/new`);
-  await page.getByRole('combobox', { name: /^Add existing tenant/ }).fill(tn.lastName);
-  await page.getByRole('option', { name: new RegExp(tn.lastName) }).first().click();
+  await wizardTenants(page, { tenants: [{ search: tn.lastName, name: tenantName(tn) }] });
+  await stepIs(page, 2);
+  await fillTerm(page, { start: '2026-11-01', end: '2027-10-31', rent: '2000' });
   await button(page, 'Next').click();
-  await field(page, 'Lease start date').fill('2026-11-01');
-  await field(page, 'Lease end date').fill('2027-10-31');
-  await field(page, 'Monthly rent').first().fill('2000');
-  await button(page, 'Next').click();
-  await choose(page, 'Children reside in unit', 'No');
-  await button(page, 'Next').click();
+  await wizardSpecial(page, { children: 'No' });
+  await stepIs(page, 4);
   expect((await optionsOf(page, 'Lease template')).join('|')).not.toContain(name);
 });
 
@@ -194,11 +206,24 @@ test('AC-TPL-08 every toolbar control is reachable by Tab and operable from the 
   for (const name of names) {
     const control = button(page, name);
     await expect(control).toHaveCount(1);
+    // Select the editor text first, so formatting commands visibly change it even when the
+    // button exposes no pressed state (the spec doesn't require aria-pressed).
+    await editor(page).focus();
+    await page.keyboard.press('ControlOrMeta+A');
     await field(page, 'Template name').focus();
     let reached = false;
     for (let i = 0; i < 60 && !reached; i++) {
       await page.keyboard.press('Tab');
       reached = await control.evaluate((el) => el === document.activeElement);
+      // A WAI-ARIA toolbar has one Tab stop; its other controls are reached with the arrow keys.
+      const inToolbar = await control.evaluate((el) => {
+        const bar = el.closest('[role="toolbar"]');
+        return !!bar && bar.contains(document.activeElement);
+      });
+      for (let j = 0; j < 15 && inToolbar && !reached; j++) {
+        await page.keyboard.press('ArrowRight');
+        reached = await control.evaluate((el) => el === document.activeElement);
+      }
     }
     expect(reached, `${name} reachable by Tab`).toBe(true);
     const before = await editor(page).innerHTML();
@@ -285,9 +310,11 @@ test('AC-DOC-01 Save and generate PDF shows Generating… then Ready without rel
   const p = await createProperty(api);
   const u = await createUnit(api, p.id, { label: '2R' });
   const tn = await createTenant(api);
-  await completeWizard(page, u.id, { tenants: [{ search: tn.lastName, name: tenantName(tn) }], start: '2026-11-01', end: '2027-10-31', rent: '2150', children: 'No', template: tpl.name }, { generate: true });
   const row = documentsTable(page).getByRole('row').filter({ hasText: tpl.name });
-  await expect(row).toContainText('Generating…', { timeout: 5_000 });
+  await withWorkerStopped(async () => {
+    await completeWizard(page, u.id, { tenants: [{ search: tn.lastName, name: tenantName(tn) }], start: '2026-11-01', end: '2027-10-31', rent: '2150', children: 'No', template: tpl.name }, { generate: true });
+    await expect(row).toContainText('Generating…', { timeout: 15_000 });
+  });
   await expect(row).toContainText('Ready', { timeout: 60_000 });
 });
 
@@ -309,8 +336,8 @@ test('AC-DOC-02 the downloaded PDF has the standard name and the lease data', as
   expect(pdf).toContain('Page 1 of');
 });
 
-test('AC-DOC-03 @slow download URLs expire after 5 minutes', async ({ page }) => {
-  test.setTimeout(600_000);
+/** A ready document's signed download URL, requested with the app clock on real time. */
+async function freshDownloadUrl(page: Page) {
   await clearClock();
   const api = await asAdmin();
   const tpl = await masterTemplate(page, api, 'Tenants: {{tenant_names}}');
@@ -319,8 +346,19 @@ test('AC-DOC-03 @slow download URLs expire after 5 minutes', async ({ page }) =>
   await waitForDocument(api, doc.id);
   const requestedAt = Date.now();
   const { url, expiresAt } = await api.ok('GET', `/api/documents/${doc.id}/download`);
+  return { url: url as string, expiresAt: expiresAt as string, requestedAt };
+}
+
+test('AC-DOC-03 download returns expiresAt 5 minutes ahead and a URL that expires after 300 seconds', async ({ page }) => {
+  const { url, expiresAt, requestedAt } = await freshDownloadUrl(page);
   expect(Math.abs(Date.parse(expiresAt) - (requestedAt + 300_000))).toBeLessThan(10_000);
   expect(new URL(url).searchParams.get('X-Amz-Expires')).toBe('300');
+  expect((await fetchBuffer(url)).status).toBe(200);
+});
+
+test('AC-DOC-03 @slow a download URL is refused by storage after 5 minutes 10 seconds of real time', async ({ page }) => {
+  test.setTimeout(600_000);
+  const { url } = await freshDownloadUrl(page);
   expect((await fetchBuffer(url)).status).toBe(200);
   await sleep(310_000);
   expect((await fetchBuffer(url)).status).toBe(403);
@@ -415,8 +453,10 @@ test('AC-DOC-09 a failed render can be retried and uses the original snapshot', 
   const row = documentsTable(page).getByRole('row').filter({ hasText: tpl.name });
   await expect(row).toContainText('Failed', { timeout: 300_000 });
   await patchLease(api, lease.id, { baseRentCents: dollars(2999) });
-  await row.getByRole('button', { name: 'Try again' }).click();
-  await expect(row).toContainText('Generating…', { timeout: 5_000 });
+  await withWorkerStopped(async () => {
+    await row.getByRole('button', { name: 'Try again' }).click();
+    await expect(row).toContainText('Generating…', { timeout: 15_000 });
+  });
   await expect(row).toContainText('Ready', { timeout: 60_000 });
   const dl = await downloadFromRow(page, tpl.name);
   const pdf = squash(await pdfText(await downloadBuffer(dl)));

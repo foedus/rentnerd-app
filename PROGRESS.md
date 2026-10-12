@@ -15,6 +15,23 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
 
 ## Log
 
+### 2026-10-12 — Acceptance tests reviewed and marked ready to lock
+- A fresh review session checked every acceptance test against the spec and fixed the ones that
+  would have failed against a correct app. The main one: moving the test clock more than a week
+  ahead signs users out (as the spec requires), and many tests didn't sign in again. Others: a
+  test pressed "End lease" on a lease that hadn't started (the spec hides that button), two
+  tests raced the PDF worker, and the accessibility checks couldn't read modern colour formats.
+  The full list is at the end of tests/acceptance/COVERAGE.md.
+- To save GitHub Actions minutes, CI now runs the tests in Chrome's engine only and skips the
+  three tests marked "slow" (each over a minute). The full run in three browsers, slow tests
+  included, happens on this machine with `VERIFY_ALL=1`; a new last task (T106) makes sure it
+  passes before the first release. The spec (§15.4) and the task plan say so.
+- Fixed two bugs in scripts/verify.sh that the builder couldn't have fixed later: its check for
+  skipped tests would have failed on every GitHub Actions run, and it had no way to skip slow
+  tests. The local MinIO image is now pinned to an exact version and fingerprint.
+- tests/acceptance/REVIEW_STATUS says READY: the run loop can now tag the tests
+  `acceptance-locked`.
+
 ### 2026-10-12 — Harness set up
 - Added CLAUDE.md, the 105-task plan in docs/tasks.json, the locked Playwright acceptance tests
   (tests/acceptance/, 196 tests covering every automated criterion), scripts/verify.sh,

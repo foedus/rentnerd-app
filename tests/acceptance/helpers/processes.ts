@@ -133,7 +133,10 @@ export async function runToExit(
   overrides: EnvOverrides = {},
   timeoutMs = 120_000,
 ): Promise<{ code: number | null; output: string; timedOut: boolean }> {
-  const { cmd, args: a, env } = command(script, args, overrides);
+  // In docker mode the container gets a name so a timed-out run can be removed
+  // (killing the docker client alone would leave the container running).
+  const name = RUNNER === 'docker' ? `run-${process.pid}-${Date.now()}` : undefined;
+  const { cmd, args: a, env } = command(script, args, overrides, name);
   return await new Promise((resolve) => {
     const child = spawn(cmd, a, { cwd: REPO_ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] });
     let output = '';
@@ -142,6 +145,7 @@ export async function runToExit(
     let timedOut = false;
     const timer = setTimeout(() => {
       timedOut = true;
+      if (name) spawnSync('docker', ['rm', '-f', `rentnerd-acc-${name}`], { stdio: 'ignore' });
       child.kill('SIGKILL');
     }, timeoutMs);
     child.on('close', (code) => {

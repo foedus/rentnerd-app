@@ -14,7 +14,8 @@ non-technical: write plain-language notes in PROGRESS.md, and never ask them to 
 - Tests: Vitest (unit, integration) and Playwright (acceptance). Docker Compose locally.
 - Fly.io app `rentnerd-app`, region `sjc`, https://rentnerd-app.fly.dev. One Docker image, process
   groups `web` (`node dist/server.js`) and `worker` (`node dist/worker.js`), release command
-  `node dist/migrate.js`, one machine each. GitHub Actions deploys when main is green.
+  `node dist/migrate.js`, one machine each. GitHub Actions deploys when main is green (CI runs the
+  acceptance tests in Chromium only and skips `@slow` tests; the three-browser run is local, §15.4).
 
 ## Repo layout
 ```
@@ -46,7 +47,7 @@ Unit tests sit next to the code as `*.test.ts`; integration tests as `*.int.test
 | New migration | `npm run db:generate` (drizzle-kit), commit the SQL in `src/db/migrations/` |
 | Apply migrations | `npm run build && node dist/migrate.js` (production: Fly `release_command`) |
 | Acceptance (one AC) | `npm run build && cd tests/acceptance && npx playwright test --grep "AC-OWN-01 "` |
-| Verify (gate) | `CURRENT_TASK=T0xx ./scripts/verify.sh`; everything: `VERIFY_ALL=1 ./scripts/verify.sh` |
+| Verify (gate) | `CURRENT_TASK=T0xx ./scripts/verify.sh` (Chromium; skips `@slow` tests except the current task's); add `VERIFY_SLOW=1` for every `@slow` test; everything in Chromium, Firefox and WebKit incl. `@slow`: `VERIFY_ALL=1 ./scripts/verify.sh` |
 | Deploy | `git push origin main` — the GitHub Actions workflow verifies, deploys and smoke-tests |
 | Production smoke | `./scripts/smoke-prod.sh` (read-only, as the smoke user) |
 | Production debugging | `fly logs -a rentnerd-app`, `fly status -a rentnerd-app` (nothing else) |
@@ -94,12 +95,21 @@ for rentnerd-app only. Don't try other fly commands, other apps, or reading secr
 - docker-compose.yml: services `postgres` (user/password `rentnerd`, databases `rentnerd` and
   `rentnerd_test`), `mailpit`, `minio` (`minio`/`minio12345`, bucket `rentnerd-test` created by
   an init container). The official `minio/minio` image is no longer published: use the
-  community build `pgsty/minio` (pin a version).
+  community build pinned to an exact version and digest,
+  `pgsty/minio:RELEASE.2026-08-04T00-00-00Z@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372`,
+  for both `minio` and the bucket-init container (the image includes `mc` and `curl`).
+  pg-boss keeps its tables in its own schema (the default `pgboss`), not in `public`.
 - Test routes (only when D-25 allows) need no session: `POST /api/test/clock {"now": iso|null}`,
   `/api/test/reset`, `/api/test/jobs/{daily-digest,backup,cleanup}`, `/api/test/fail-next-pdf`,
   `/api/test/fail-next-email`. Reset empties all app data; tests then restart the processes.
+  `fail-next-pdf` makes every attempt of the next PDF render fail (so it ends "Failed"; Try again
+  then succeeds); `fail-next-email` does the same for the next email.
 - The test clock moves every Date in web, worker **and cli**. Exceptions: S3 request signing uses
-  real time. Session cookies use `Max-Age` (not only `Expires`).
+  real time. Session cookies use `Max-Age` (not only `Expires`). Sessions expire by the app clock,
+  so the tests sign in again after moving the clock forward.
+- Accessibility checks: focus indicators are measured as an `outline` or a zero-offset `box-shadow`
+  ring on the focused element (for a visually hidden input: on its label); a toolbar may use one
+  Tab stop with arrow keys (WAI-ARIA toolbar).
 - API bodies use §6 field names; money fields end in `Cents`; enums are the §6 backtick codes or
   else the label text; lease tenants `[{tenantId, isPrimary}]`; rent steps
   `[{effectiveDate, amountCents}]`; actions accept `version`; omitted extension terms copy the

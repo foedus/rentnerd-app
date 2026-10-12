@@ -13,11 +13,10 @@ test.beforeAll(() => {
   if (!email || !password) throw new Error('SMOKE_USER_EMAIL and SMOKE_USER_PASSWORD must be set');
 });
 
-test('AC-PLAT-01 @smoke health endpoints answer 200', async ({ request }) => {
+test('AC-PLAT-01 @smoke GET /api/health answers 200 {"status":"ok"}', async ({ request }) => {
   const health = await request.get('/api/health');
   expect(health.status()).toBe(200);
   expect(await health.json()).toEqual({ status: 'ok' });
-  expect((await request.get('/healthz')).status()).toBe(200);
 });
 
 test('AC-PLAT-02 @smoke the smoke user signs in, sees the Dashboard and Properties, and signs out', async ({ page, baseURL }) => {
@@ -29,7 +28,7 @@ test('AC-PLAT-02 @smoke the smoke user signs in, sees the Dashboard and Properti
   await page.goto('/properties');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Properties');
   const me = await (await page.request.get(`${baseURL}/api/me`)).json();
-  await page.getByRole('button', { name: me.name, exact: true }).click();
+  await page.getByRole('button', { name: me.name }).click();
   await page.getByRole('menuitem', { name: 'Sign out' }).or(page.getByRole('button', { name: 'Sign out' })).first().click();
   await expect(page).toHaveURL(/\/login/);
 });
@@ -44,17 +43,22 @@ test('AC-PLAT-03 @smoke the smoke user cannot write', async ({ request, baseURL 
   await request.post('/api/auth/sign-out', { data: {}, headers: { Origin: origin } });
 });
 
-test('AC-AUTH-10 @smoke the production session cookie is Secure, HttpOnly and SameSite=Lax', async ({ page, context }) => {
+test('AC-AUTH-10 @smoke the production session cookie is Secure, HttpOnly and SameSite=Lax', async ({ page, context, baseURL }) => {
   await page.goto('/login');
+  const before = new Set((await context.cookies()).map((c) => c.name));
   await page.getByLabel(/^Email/).fill(email);
   await page.getByLabel(/^Password/).fill(password);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Dashboard');
-  const session = (await context.cookies()).filter((c) => /session/i.test(c.name));
+  // The spec doesn't name the cookie: check the cookies set by signing in, preferring those named like a session.
+  const added = (await context.cookies()).filter((c) => !before.has(c.name));
+  const named = added.filter((c) => /session/i.test(c.name));
+  const session = named.length > 0 ? named : added;
   expect(session.length).toBeGreaterThan(0);
   for (const c of session) {
     expect(c.secure, c.name).toBe(true);
     expect(c.httpOnly, c.name).toBe(true);
     expect(c.sameSite, c.name).toBe('Lax');
   }
+  await page.request.post(`${baseURL}/api/auth/sign-out`, { data: {}, headers: { Origin: new URL(baseURL!).origin } });
 });

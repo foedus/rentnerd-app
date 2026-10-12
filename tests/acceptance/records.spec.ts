@@ -375,7 +375,11 @@ test('AC-UNIT-05 Use is read-only on edit and the API refuses to change it', asy
   const unit = await createUnit(api, p.id, { label: '3F', use: 'Residential' });
   await page.goto(`/units/${unit.id}/edit`);
   await expect(page.getByText("Use can't be changed. To change it, archive this unit and add a new one.")).toBeVisible();
-  await expect(page.getByRole('combobox', { name: /^Use/ }).or(page.getByRole('radio', { name: 'Commercial' }))).toHaveCount(0);
+  // Read-only: no editable Use control (a disabled or read-only control also counts as read-only).
+  for (const control of await page.getByRole('combobox', { name: /^Use/ }).or(page.getByRole('radio', { name: 'Commercial' })).all()) {
+    const readOnly = await control.evaluate((el) => (el as HTMLInputElement).disabled || el.getAttribute('aria-disabled') === 'true' || el.getAttribute('aria-readonly') === 'true' || el.hasAttribute('readonly'));
+    expect(readOnly, 'Use control must be read-only').toBe(true);
+  }
   const r = await api.patch(`/api/units/${unit.id}`, { use: 'Commercial', version: unit.version });
   expect(r.status).toBe(422);
 });
@@ -440,10 +444,13 @@ test('AC-TEN-05 a tenant on a lease can be archived but not deleted, and is then
   await confirmIfDialog(page, /Archive/);
   await expect(button(page, 'Restore tenant')).toBeVisible();
 
+  // A non-archived tenant with the same last name is offered, so the search has finished
+  // when it shows; the archived one (first name Ann) is not.
+  await createTenant(api, { firstName: 'Zed', lastName: t.lastName });
   const p = await createProperty(api);
   const u = await createUnit(api, p.id, { label: '9Z' });
   await page.goto(`/units/${u.id}/leases/new`);
   await page.getByRole('combobox', { name: /^Add existing tenant/ }).fill(t.lastName);
-  await page.waitForTimeout(1500);
-  await expect(page.getByRole('option', { name: new RegExp(t.lastName) })).toHaveCount(0);
+  await expect(page.getByRole('option', { name: new RegExp(`Zed ${t.lastName}`) }).first()).toBeVisible();
+  await expect(page.getByRole('option', { name: new RegExp(`${t.firstName} ${t.lastName}`) })).toHaveCount(0);
 });

@@ -10,16 +10,25 @@ export async function expectNoAxeViolations(page: Page, label: string) {
 
 export type FocusReport = { ok: boolean; desc: string };
 
-/** Checks the focused element's indicator: ≥ 2 px outline (or box-shadow ring) with ≥ 3:1 contrast against the background. */
+/**
+ * Checks the focused element's indicator: ≥ 2 px outline (or box-shadow ring) with ≥ 3:1 contrast
+ * against the background. Colours are resolved through a canvas, so any CSS colour syntax works
+ * (rgb, hex, oklch, …). A visually hidden native input (custom checkbox, radio or switch, as React
+ * Aria renders them) shows its focus on its label, so the label and its children are checked instead.
+ */
 export async function focusIndicator(page: Page): Promise<FocusReport | null> {
   return await page.evaluate(() => {
     const el = document.activeElement as HTMLElement | null;
     if (!el || el === document.body || el === document.documentElement) return null;
-    const parse = (c: string): [number, number, number, number] => {
-      const m = c.match(/rgba?\(([^)]+)\)/);
-      if (!m) return [0, 0, 0, 0];
-      const p = m[1].split(/[ ,/]+/).filter(Boolean).map(Number);
-      return [p[0], p[1], p[2], p.length > 3 ? p[3] : 1];
+    const ctx = document.createElement('canvas').getContext('2d', { willReadFrequently: true })!;
+    const rgba = (c: string): [number, number, number, number] => {
+      if (!c || c === 'transparent') return [0, 0, 0, 0];
+      ctx.clearRect(0, 0, 1, 1);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0)';
+      ctx.fillStyle = c;
+      ctx.fillRect(0, 0, 1, 1);
+      const d = ctx.getImageData(0, 0, 1, 1).data;
+      return [d[0], d[1], d[2], d[3] / 255];
     };
     const lum = ([r, g, b]: number[]) => {
       const f = (v: number) => {
@@ -28,9 +37,9 @@ export async function focusIndicator(page: Page): Promise<FocusReport | null> {
       };
       return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
     };
-    const background = (node: HTMLElement | null): number[] => {
+    const background = (node: Element | null): number[] => {
       for (let n = node; n; n = n.parentElement) {
-        const c = parse(getComputedStyle(n).backgroundColor);
+        const c = rgba(getComputedStyle(n).backgroundColor);
         if (c[3] > 0.5) return c;
       }
       return [255, 255, 255, 1];
@@ -40,18 +49,30 @@ export async function focusIndicator(page: Page): Promise<FocusReport | null> {
       const [l1, l2] = [lum(a), lum(b)].sort((x, y) => y - x);
       return (l1 + 0.05) / (l2 + 0.05);
     };
-    const cs = getComputedStyle(el);
-    const bg = background(el.parentElement);
-    const candidates: { width: number; color: number[] }[] = [];
-    if (cs.outlineStyle !== 'none') candidates.push({ width: parseFloat(cs.outlineWidth) || 0, color: parse(cs.outlineColor) });
-    for (const shadow of cs.boxShadow === 'none' ? [] : cs.boxShadow.split(/,(?![^(]*\))/)) {
-      const color = shadow.match(/rgba?\([^)]+\)/)?.[0] ?? 'rgb(0,0,0)';
-      const lengths = shadow.replace(/rgba?\([^)]+\)/, '').trim().split(/\s+/).map((x) => parseFloat(x));
-      const [x = 0, y = 0, blur = 0, spread = 0] = lengths;
-      if (!shadow.includes('inset') && x === 0 && y === 0 && blur === 0) candidates.push({ width: spread, color: parse(color) });
+    const COLOR = /(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^)]*\)|#[0-9a-f]{3,8}\b/i;
+    const indicators = (node: Element) => {
+      const cs = getComputedStyle(node);
+      const bg = background(node.parentElement);
+      const found: { width: number; contrast: number }[] = [];
+      const add = (width: number, color: string) => found.push({ width, contrast: ratio(blend(rgba(color), bg), bg) });
+      if (cs.outlineStyle !== 'none') add(parseFloat(cs.outlineWidth) || 0, cs.outlineColor);
+      for (const shadow of cs.boxShadow === 'none' ? [] : cs.boxShadow.split(/,(?![^(]*\))/)) {
+        const color = shadow.match(COLOR)?.[0] ?? 'rgb(0, 0, 0)';
+        const lengths = shadow.replace(COLOR, '').replace('inset', '').trim().split(/\s+/).map((x) => parseFloat(x));
+        const [x = 0, y = 0, blur = 0, spread = 0] = lengths;
+        if (!shadow.includes('inset') && x === 0 && y === 0 && blur === 0) add(spread, color);
+      }
+      return found;
+    };
+    // Visually hidden: the input or a wrapper within two levels is clipped to ≤ 2 px (React Aria's VisuallyHidden).
+    const tiny = (n: Element | null) => !!n && (n.getBoundingClientRect().width <= 2 || n.getBoundingClientRect().height <= 2);
+    let nodes: Element[] = [el];
+    if (tiny(el) || tiny(el.parentElement) || tiny(el.parentElement?.parentElement ?? null)) {
+      const label = (el as HTMLInputElement).labels?.[0] ?? el.closest('label');
+      if (label) nodes = [label, ...Array.from(label.querySelectorAll('*')).slice(0, 30)];
     }
-    const best = candidates
-      .map((c) => ({ width: c.width, contrast: ratio(blend(c.color, bg), bg) }))
+    const best = nodes
+      .flatMap(indicators)
       .sort((a, b) => b.width * Math.min(b.contrast, 3) - a.width * Math.min(a.contrast, 3))[0];
     const name = `${el.tagName.toLowerCase()} "${(el.getAttribute('aria-label') ?? el.textContent ?? '').trim().slice(0, 40)}"`;
     if (!best) return { ok: false, desc: `${name}: no focus indicator` };
@@ -137,8 +158,10 @@ export async function smallTargets(page: Page): Promise<string[]> {
     for (const el of els) {
       if (!visible(el)) continue;
       let r = el.getBoundingClientRect();
-      // Visually hidden native inputs (custom checkboxes/radios) are measured by their label.
-      if (r.width <= 2 || r.height <= 2) {
+      // Visually hidden native inputs (custom checkboxes/radios, possibly inside a clipped
+      // wrapper as React Aria renders them) are measured by their label.
+      const tiny = (n: Element | null) => !!n && (n.getBoundingClientRect().width <= 2 || n.getBoundingClientRect().height <= 2);
+      if (tiny(el) || tiny(el.parentElement) || tiny(el.parentElement?.parentElement ?? null)) {
         const label = (el as HTMLInputElement).labels?.[0] ?? el.closest('label');
         if (!label) continue;
         r = label.getBoundingClientRect();

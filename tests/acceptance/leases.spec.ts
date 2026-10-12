@@ -435,6 +435,8 @@ test('AC-LEASE-22 an ended extension without a decision Needs decision at the ex
 test('AC-LEASE-23 End lease accepts a move-out date before the lease start', async ({ page }) => {
   const api = await asAdmin();
   const { lease } = await leasedUnit(api, { startDate: '2026-11-01', endDate: '2027-10-31', rent: 2150 });
+  // End lease isn't offered on Upcoming leases (§11.13), so the lease must have started.
+  await setToday('2026-11-15', page);
   await goLease(page, lease.id);
   await button(page, 'End lease').click();
   const d = dialog(page);
@@ -612,7 +614,8 @@ test('AC-EXT-08 other income follows the current term', async ({ page }) => {
   await field(page, 'Extension end date').fill('2027-12-31');
   await field(page, 'Monthly rent').first().fill('2100');
   await openOtherTerms(page);
-  await field(page, 'Parking charge (monthly)').fill('150');
+  // §11.14 lists this field as "Parking charge"; its §6.9 label is "Parking charge (monthly)". Accept both.
+  await page.getByLabel(/^\s*Parking charge( \(monthly\))?(\s*\(required\))?\s*$/).fill('150');
   await button(page, 'Save extension').click();
   await expect(page).toHaveURL(new RegExp(`/leases/${lease.id}$`));
   await setToday('2026-10-12', page);

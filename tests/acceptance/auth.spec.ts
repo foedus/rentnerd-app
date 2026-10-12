@@ -82,10 +82,15 @@ test('AC-AUTH-04 the 6th attempt within 15 minutes is rate-limited, for existing
 
 test('AC-AUTH-05 reset requests always show the same message; email only for active verified users, max 3 per hour', async ({ page }) => {
   const l = await createLandlord('Reset Requester');
+  const gone = await createLandlord('Reset Deactivated');
+  const admin = await asAdmin();
+  await admin.ok('POST', `/api/users/${gone.id}/deactivate`, {});
   await requestReset(page, 'no-account@example.com');
+  await requestReset(page, gone.email);
   await requestReset(page, l.email);
   await waitForMail({ to: l.email, subject: RESET_SUBJECT });
   expect(await countMailAfter({ to: 'no-account@example.com' }, 3000)).toBe(0);
+  expect(await countMailAfter({ to: gone.email, subject: RESET_SUBJECT }, 0)).toBe(0);
   for (let i = 0; i < 4; i++) await requestReset(page, l.email);
   const sent = await countMailAfter({ to: l.email, subject: RESET_SUBJECT });
   expect(sent).toBeGreaterThanOrEqual(1);
@@ -186,9 +191,9 @@ test('AC-AUTH-10 the session cookie is HttpOnly, SameSite=Lax and expires 7 days
   const before = Date.now() / 1000;
   await signInUi(page, ADMIN.email, ADMIN.password);
   await expect(heading1(page)).toHaveText('Dashboard');
-  const cookies = (await context.cookies()).filter((c) => /session/i.test(c.name) && c.httpOnly);
-  expect(cookies.length).toBeGreaterThan(0);
-  const session = cookies.find((c) => c.sameSite === 'Lax' && Math.abs(c.expires - (before + 7 * 24 * 3600)) <= 3600);
+  // The spec doesn't name the cookie: one of the cookies set by signing in must be the 7-day session cookie.
+  const cookies = await context.cookies();
+  const session = cookies.find((c) => c.httpOnly && c.sameSite === 'Lax' && Math.abs(c.expires - (before + 7 * 24 * 3600)) <= 3600);
   expect(session, JSON.stringify(cookies)).toBeTruthy();
 });
 
