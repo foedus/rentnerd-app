@@ -15,6 +15,19 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
 
 ## Log
 
+### 2026-10-12 — T006: sign-in foundation and the smoke-test user
+- Added the user, session, account and verification tables (first database migration) and set up
+  Better Auth for email and password sign-in: public sign-up is off, passwords must be 12–128
+  characters, sessions last 7 days. Users now carry a role (admin, landlord, smoke) and a status
+  (invited, active, deactivated); the database allows only one admin and one smoke user.
+- On every start the web server creates the read-only smoke user from `SMOKE_USER_EMAIL` /
+  `SMOKE_USER_PASSWORD` if it is missing (already verified), and re-syncs its password if that
+  changed. Running it twice, or at the same time, never makes a duplicate. If the smoke email is
+  changed while an old smoke user exists, start-up stops with an error (only one is allowed).
+- Integration tests cover creating, repeating, concurrent starts, password changes, repair,
+  sign-in, disabled sign-up and unverified sign-in. verify.sh passes; the reviewer approved.
+  Nothing for the owner to do.
+
 ### 2026-10-12 — T005: Docker image
 - Added the `Dockerfile`: one image that holds the website, the API, the worker, the migration
   command and the command-line tool, plus the database tools needed for backups (version 17, the
