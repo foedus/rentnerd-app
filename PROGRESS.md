@@ -127,3 +127,14 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
 - First run of the workflow: checks passed and deploy started, but the placeholder worker program
   exited immediately, so Fly reported the worker machine as failed. The placeholder now stays running
   until the real worker arrives in a later task.
+
+### 2026-10-12 — T009: first production deploy
+- The GitHub Actions run for the last T008 commit finished green (checks and deploy both passed).
+  https://rentnerd-app.fly.dev/healthz and https://rentnerd-app.fly.dev/api/health both answer
+  200 `{"status":"ok"}`; the app only says "ok" when it can reach the database, so the database
+  connection works. Fly shows the web machine started with its health check passing.
+- Nothing in the app changed in this task.
+- Owner/next builder: the placeholder worker machine shows "stopped". It exited once during the
+  first failed deploy and Fly does not restart stopped machines on later deploys. It does no work
+  yet, so nothing is lost; the task that builds the real worker must make sure it is running
+  (for example `fly machine start`, in the deploy workflow).
