@@ -112,3 +112,15 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
   scripts/smoke-prod.sh, and the reviewer and qa subagents.
 - No app code exists yet. verify.sh fails until task T001 creates the npm package; acceptance
   tests start running from task T005 (Docker image).
+
+### 2026-10-12 — T008: GitHub Actions workflow (verify, deploy, smoke test, rollback)
+- Added `.github/workflows/deploy.yml`. On every push to main it starts the local services, runs
+  `verify.sh` (Chrome engine only, slow tests skipped, to save Actions minutes), then deploys to
+  Fly, keeps one web and one worker machine, and runs the production smoke test. If the smoke test
+  fails, it redeploys the previous release and the run is marked failed.
+- The workflow can also be started by hand with a "force smoke failure" switch; that is the manual
+  check for AC-PLAT-12 before the first release.
+- Owner: the GitHub repository needs the secrets `FLY_API_TOKEN`, `SMOKE_USER_EMAIL` and
+  `SMOKE_USER_PASSWORD`. Until they exist, the deploy job will fail (verify still runs). The Fly
+  release-listing field names (`Status`, `ImageRef`) are unconfirmed until the first real run.
+- verify.sh passes; the reviewer approved.
