@@ -1,5 +1,5 @@
 import type { Role } from "../shared/routes";
-import type { UserRow } from "../shared/users";
+import type { RowAction, UserRow } from "../shared/users";
 
 export interface Me {
   id: string;
@@ -137,6 +137,19 @@ export async function inviteLandlord(name: string, email: string): Promise<void>
     const body = (await res.json().catch(() => null)) as { error?: { fields?: Record<string, string> } } | null;
     const fields = body?.error?.fields;
     if (fields && Object.keys(fields).length > 0) throw new FieldErrorsError(fields);
+  }
+  throw new Error("Something went wrong. Please try again.");
+}
+
+/** Row actions of the Users table: resend/revoke take the invitation id, deactivate/reactivate the user id. */
+export async function userAction(action: RowAction, id: string): Promise<void> {
+  const path = action === "resend" || action === "revoke" ? `/api/invitations/${id}/${action}` : `/api/users/${id}/${action}`;
+  const res = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+  if (res.ok) return;
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  if (res.status === 409 || res.status === 404) {
+    const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+    if (body?.error?.message) throw new Error(body.error.message);
   }
   throw new Error("Something went wrong. Please try again.");
 }

@@ -24,3 +24,14 @@ export function userStatusLabel(u: Pick<UserRow, "status" | "invitation">): stri
   if (u.invitation?.state === "revoked") return "Invitation revoked";
   return "Invited";
 }
+
+export type RowAction = "resend" | "revoke" | "deactivate" | "reactivate";
+
+/** The row actions of the Users table (SPEC §11.23). The Admin and Smoke rows have none. */
+export function rowActions(u: Pick<UserRow, "role" | "status" | "invitation">): RowAction[] {
+  if (u.role !== "landlord") return [];
+  if (u.status === "active") return ["deactivate"];
+  if (u.status === "deactivated") return ["reactivate"];
+  if (!u.invitation) return [];
+  return u.invitation.state === "valid" ? ["resend", "revoke"] : ["resend"];
+}

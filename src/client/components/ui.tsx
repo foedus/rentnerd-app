@@ -17,7 +17,7 @@ export function ConfirmDialog({ isOpen, onOpenChange, title, children, confirmLa
   return (
     <ModalOverlay isOpen={isOpen} onOpenChange={onOpenChange} isDismissable className="fixed inset-0 z-50 grid place-items-center bg-black/40">
       <Modal className="max-w-md rounded bg-white p-6 shadow-lg">
-        <Dialog role="alertdialog" className="space-y-4 outline-none">
+        <Dialog className="space-y-4 outline-none">
           {({ close }) => (
             <>
               <Heading slot="title" className="text-lg font-semibold">

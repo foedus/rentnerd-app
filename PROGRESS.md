@@ -373,3 +373,14 @@ None.
   errors are red, and the "password changed" email now reads "...reset your password now:" followed by the link, as §10.4 says.
 - Also fixed: a password made only of spaces is now refused (reset page, invitation page and the server), with "Password can't be
   only spaces." The reviewer approved. Nothing for the owner to do.
+
+### 2026-10-13 — T026: Users row actions
+- The Users table now has an "Actions" column: **Resend invitation** (any invited person), **Revoke invitation** (only while the
+  invitation is still valid), **Deactivate** (active landlords, with the confirmation text from the spec) and **Reactivate**.
+  The Admin and Smoke rows have no actions. After each action a short message is announced ("Invitation revoked.", "User
+  deactivated." …) and keyboard focus moves to it; if the server refuses (e.g. someone else already changed the user), its own
+  message is shown. Landlords already saw the no-access page on /users and /activity, and the server already returned 403.
+- Changed the shared confirmation dialog to announce as a plain "dialog" (the locked tests look for that).
+- QA noted: the Activity API route doesn't exist yet (404 for landlords) — to recheck when the Activity log task lands; the
+  deactivate dialog title is the whole sentence (kept so wording matches the spec).
+- verify.sh passes; the reviewer approved; QA findings (lost focus, generic error) fixed. Nothing for the owner to do.

@@ -38,7 +38,7 @@ describe("ConfirmDialog", () => {
     opener.focus();
     await click(opener);
     await settle();
-    const dialog = document.querySelector("[role=alertdialog]");
+    const dialog = document.querySelector("[role=dialog]");
     expect(dialog?.textContent).toContain("Delete Ann?");
     expect(document.activeElement?.textContent).toBe("Cancel");
     await act(async () => {
@@ -46,7 +46,7 @@ describe("ConfirmDialog", () => {
       document.activeElement?.dispatchEvent(new KeyboardEvent("keyup", { key: "Escape", bubbles: true }));
     });
     await settle();
-    expect(document.querySelector("[role=alertdialog]")).toBeNull();
+    expect(document.querySelector("[role=dialog]")).toBeNull();
     expect(document.activeElement).toBe(opener);
   });
 
@@ -58,13 +58,13 @@ describe("ConfirmDialog", () => {
     await click(byText("button", "Cancel"));
     await settle();
     expect(onConfirm).not.toHaveBeenCalled();
-    expect(document.querySelector("[role=alertdialog]")).toBeNull();
+    expect(document.querySelector("[role=dialog]")).toBeNull();
     await click(byText("button", "Delete owner"));
     await settle();
     await click(byText("button", "Delete"));
     await settle();
     expect(onConfirm).toHaveBeenCalledTimes(1);
-    expect(document.querySelector("[role=alertdialog]")).toBeNull();
+    expect(document.querySelector("[role=dialog]")).toBeNull();
   });
 });
 

@@ -41,7 +41,7 @@ it("lists users with role and status labels and an Invite landlord button", asyn
   expect(document.querySelector("h1")?.textContent).toBe("Users");
   const table = document.querySelector('table[aria-label="Users"]') as HTMLElement;
   const text = Array.from(table.querySelectorAll("tbody tr")).map((r) => r.textContent);
-  expect(Array.from(table.querySelectorAll("th")).map((h) => h.textContent)).toEqual(["Name", "Email", "Role", "Status", "Last sign-in"]);
+  expect(Array.from(table.querySelectorAll("th")).map((h) => h.textContent)).toEqual(["Name", "Email", "Role", "Status", "Last sign-in", "Actions"]);
   expect(text[0]).toContain("Admin");
   expect(text[0]).toContain("Active");
   expect(text[1]).toContain("Landlord");
@@ -123,5 +123,83 @@ it("asks for a name with neutral wording", async () => {
   });
   expect(dialog.textContent).toContain("Enter a name.");
   expect(dialog.textContent).not.toContain("Enter your name.");
+  await act(async () => root.unmount());
+});
+
+const buttonsOf = (row: Element) => Array.from(row.querySelectorAll("button")).map((b) => b.textContent);
+
+it("offers row actions per user and none on the Admin and Smoke rows", async () => {
+  const more = [
+    ...rows,
+    { id: "4", name: "Lou", email: "lou@example.com", role: "landlord", status: "active", lastSignInAt: null, invitation: null },
+    { id: "5", name: "Rae", email: "rae@example.com", role: "landlord", status: "deactivated", lastSignInAt: null, invitation: null },
+    { id: "6", name: "Val", email: "val@example.com", role: "landlord", status: "invited", lastSignInAt: null, invitation: { id: "iv", state: "valid" } },
+  ];
+  const root = await mount(async () => Response.json({ data: more, page: 1, pageSize: 50, total: 6 }));
+  const trs = Array.from(document.querySelectorAll('table[aria-label="Users"] tbody tr'));
+  expect(trs.map(buttonsOf)).toEqual([[], ["Resend invitation"], [], ["Deactivate"], ["Reactivate"], ["Resend invitation", "Revoke invitation"]]);
+  await act(async () => root.unmount());
+});
+
+it("confirms Deactivate with the spec wording, then posts to the user's deactivate route", async () => {
+  const calls: string[] = [];
+  const more = [{ id: "4", name: "Lou", email: "lou@example.com", role: "landlord", status: "active", lastSignInAt: null, invitation: null }];
+  const root = await mount(async (url, init) => {
+    if (init?.method === "POST") {
+      calls.push(url);
+      return Response.json({});
+    }
+    return Response.json({ data: more, page: 1, pageSize: 50, total: 1 });
+  });
+  const row = document.querySelector('table[aria-label="Users"] tbody tr') as HTMLElement;
+  await act(async () => (Array.from(row.querySelectorAll("button")).find((b) => b.textContent === "Deactivate") as HTMLElement).click());
+  const dialog = document.querySelector('[role="dialog"]') as HTMLElement;
+  expect(dialog.textContent).toContain(
+    "Deactivate Lou? They will be signed out and can't sign in. They'll be removed as a responsible landlord; properties left with no responsible landlord will be assigned to you.",
+  );
+  expect(calls).toEqual([]);
+  await act(async () => (Array.from(dialog.querySelectorAll("button")).find((b) => b.textContent === "Deactivate") as HTMLElement).click());
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 30));
+  });
+  expect(calls).toEqual(["/api/users/4/deactivate"]);
+  expect(document.querySelector('[role="status"]')?.textContent).toContain("User deactivated.");
+  await act(async () => root.unmount());
+});
+
+it("revokes an invitation by its invitation id without a dialog", async () => {
+  const calls: string[] = [];
+  const more = [{ id: "6", name: "Val", email: "val@example.com", role: "landlord", status: "invited", lastSignInAt: null, invitation: { id: "iv", state: "valid" } }];
+  const root = await mount(async (url, init) => {
+    if (init?.method === "POST") {
+      calls.push(url);
+      return Response.json({});
+    }
+    return Response.json({ data: more, page: 1, pageSize: 50, total: 1 });
+  });
+  const revoke = Array.from(document.querySelectorAll("button")).find((b) => b.textContent === "Revoke invitation") as HTMLElement;
+  await act(async () => revoke.click());
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 30));
+  });
+  expect(calls).toEqual(["/api/invitations/iv/revoke"]);
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+  await act(async () => root.unmount());
+});
+
+it("shows the server's message when a row action conflicts and keeps focus on the outcome", async () => {
+  const more = [{ id: "4", name: "Lou", email: "lou@example.com", role: "landlord", status: "deactivated", lastSignInAt: null, invitation: null }];
+  const root = await mount(async (url, init) =>
+    init?.method === "POST"
+      ? Response.json({ error: { code: "CONFLICT", message: "Only deactivated users can be reactivated." } }, { status: 409 })
+      : Response.json({ data: more, page: 1, pageSize: 50, total: 1 }),
+  );
+  const btn = Array.from(document.querySelectorAll("button")).find((b) => b.textContent === "Reactivate") as HTMLElement;
+  await act(async () => btn.click());
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 30));
+  });
+  expect(document.querySelector('[role="alert"]')?.textContent).toBe("Only deactivated users can be reactivated.");
+  expect(document.activeElement?.contains(document.querySelector('[role="alert"]'))).toBe(true);
   await act(async () => root.unmount());
 });
