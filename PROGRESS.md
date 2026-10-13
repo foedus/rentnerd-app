@@ -314,3 +314,13 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 - Password rules match the reset page (12+ characters, both fields must match); mistakes are listed in a summary that takes focus.
   A network or server failure shows "Something went wrong. Please try again." and focus moves to that message (QA findings fixed).
 - verify.sh passes; the reviewer approved; QA findings fixed. Nothing for the owner to do.
+
+### 2026-10-13 — T023: shared form kit
+- Added the building blocks every later form screen will use: labels that end in "(required)", an error under each field
+  that screen readers link to the field, a "There is a problem" summary at the top that takes focus after a failed save and
+  links to each field, a "{Thing} saved." message announced politely, the "Someone else changed this record…" alert with a
+  "Reload" button, and "Something went wrong. Please try again." for unexpected failures. Forms check input with the same
+  Zod rules as the server.
+- Nothing on screen changes yet, because no page uses the kit until the form screens (from T031). The earlier sign-in, reset
+  and invitation pages keep their own code for now.
+- verify.sh passes; the reviewer approved. No QA pass (no screens changed). Nothing for the owner to do.

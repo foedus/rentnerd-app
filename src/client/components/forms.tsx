@@ -1,0 +1,221 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { createContext, useContext, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { Button } from "react-aria-components";
+import {
+  FormProvider,
+  useForm,
+  useFormContext,
+  type DefaultValues,
+  type FieldErrors,
+  type FieldValues,
+  type UseFormReturn,
+} from "react-hook-form";
+import type { z } from "zod";
+import {
+  CONFLICT_MESSAGE,
+  fieldErrorId,
+  fieldId,
+  fieldLabel,
+  PROBLEM_TITLE,
+  savedMessage,
+  UNEXPECTED_MESSAGE,
+} from "../../shared/form-messages";
+import { TooManyRequestsError } from "../api";
+
+/** Throw from a save function when the API answers 409 (version mismatch, D-10). */
+export class VersionConflictError extends Error {}
+
+type Status = { kind: "idle" } | { kind: "saved"; thing: string } | { kind: "conflict" } | { kind: "error"; message: string };
+
+interface FormKit {
+  status: Status;
+}
+const KitContext = createContext<FormKit>({ status: { kind: "idle" } });
+
+/** Form state validated by the same Zod schema the API uses. Errors show after the first submit. */
+export function useAppForm<S extends z.ZodType<FieldValues, FieldValues>>(schema: S, defaultValues?: DefaultValues<z.input<S>>) {
+  return useForm<z.input<S>, unknown, z.output<S>>({
+    resolver: zodResolver(schema as never) as never,
+    defaultValues,
+    shouldFocusError: false,
+  });
+}
+
+interface FlatError {
+  path: string;
+  message: string;
+}
+
+export function flattenErrors(errors: FieldErrors, prefix = ""): FlatError[] {
+  const out: FlatError[] = [];
+  for (const [key, value] of Object.entries(errors)) {
+    if (!value || typeof value !== "object") continue;
+    const path = prefix ? `${prefix}.${key}` : key;
+    const message = (value as { message?: unknown }).message;
+    if (typeof message === "string" && message) out.push({ path, message });
+    else out.push(...flattenErrors(value as FieldErrors, path));
+  }
+  return out;
+}
+
+/** "There is a problem" summary; takes focus after each failed submit and links to every field with an error. */
+function ErrorSummary() {
+  const {
+    formState: { errors, submitCount },
+  } = useFormContext();
+  const ref = useRef<HTMLDivElement>(null);
+  const list = flattenErrors(errors);
+  const shown = submitCount > 0 && list.length > 0;
+  useEffect(() => {
+    if (shown) ref.current?.focus();
+  }, [submitCount, shown]);
+  if (!shown) return null;
+  return (
+    <div ref={ref} tabIndex={-1} role="alert" className="rounded border border-red-700 p-3 text-red-700">
+      <h2 className="font-semibold">{PROBLEM_TITLE}</h2>
+      <ul>
+        {list.map((e) => (
+          <li key={e.path}>
+            <a
+              href={`#${fieldId(e.path)}`}
+              className="underline"
+              onClick={(ev) => {
+                ev.preventDefault();
+                document.getElementById(fieldId(e.path))?.focus();
+              }}
+            >
+              {e.message}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function Messages({ onReload }: { onReload?: () => void }) {
+  const { status } = useContext(KitContext);
+  const errorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (status.kind === "error" || status.kind === "conflict") errorRef.current?.focus();
+  }, [status]);
+  return (
+    <>
+      {/* Always rendered so assistive technology sees the text being inserted into an existing live region. */}
+      <div role="status" aria-live="polite" className={status.kind === "saved" ? "text-green-800" : "sr-only"}>
+        {status.kind === "saved" ? savedMessage(status.thing) : ""}
+      </div>
+      <div role="alert" tabIndex={-1} ref={errorRef} className="text-red-700">
+        {status.kind === "error" && status.message}
+        {status.kind === "conflict" && (
+          <>
+            <p>{CONFLICT_MESSAGE}</p>
+            <Button
+              onPress={() => (onReload ? onReload() : window.location.reload())}
+              className="mt-2 min-h-6 rounded border border-red-700 px-3 py-1"
+            >
+              Reload
+            </Button>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
+interface AppFormProps<V extends FieldValues, O> {
+  form: UseFormReturn<V, unknown, O>;
+  /** What was saved, e.g. "Owner" gives "Owner saved." Return normally to show it. */
+  thing: string;
+  /** Throw VersionConflictError on 409; any other error shows the unexpected-error message. */
+  save: (values: O) => Promise<void>;
+  onReload?: () => void;
+  children: ReactNode;
+  submitLabel: string;
+}
+
+/** `<form>` wrapper: validation, error summary, saved/conflict/unexpected messages and a submit button. */
+export function AppForm<V extends FieldValues, O>({ form, thing, save, onReload, children, submitLabel }: AppFormProps<V, O>) {
+  const [status, setStatus] = useState<Status>({ kind: "idle" });
+  const [busy, setBusy] = useState(false);
+  const submit = form.handleSubmit(async (values) => {
+    setBusy(true);
+    setStatus({ kind: "idle" });
+    try {
+      await save(values);
+      setStatus({ kind: "saved", thing });
+    } catch (err) {
+      if (err instanceof VersionConflictError) setStatus({ kind: "conflict" });
+      else setStatus({ kind: "error", message: err instanceof TooManyRequestsError ? err.message : UNEXPECTED_MESSAGE });
+    } finally {
+      setBusy(false);
+    }
+  });
+  return (
+    <FormProvider {...(form as unknown as UseFormReturn<FieldValues>)}>
+      <KitContext.Provider value={{ status }}>
+        <form
+          noValidate
+          onSubmit={(e: FormEvent<HTMLFormElement>) => {
+            void submit(e);
+          }}
+          className="space-y-4"
+        >
+          <ErrorSummary />
+          {children}
+          <Messages onReload={onReload} />
+          <Button type="submit" isDisabled={busy} className="min-h-6 rounded bg-slate-900 px-4 py-1 text-white">
+            {submitLabel}
+          </Button>
+        </form>
+      </KitContext.Provider>
+    </FormProvider>
+  );
+}
+
+interface TextFieldProps {
+  name: string;
+  label: string;
+  required?: boolean;
+  type?: "text" | "email" | "password" | "date" | "number" | "tel";
+  autoComplete?: string;
+  hint?: string;
+}
+
+/** Labelled input; "(required)" is added to the label and the error is linked with aria-describedby. */
+export function TextFieldInput({ name, label, required = false, type = "text", autoComplete, hint }: TextFieldProps) {
+  const {
+    register,
+    getFieldState,
+    formState,
+  } = useFormContext();
+  const error = getFieldState(name, formState).error?.message;
+  const hintId = `${fieldId(name)}-hint`;
+  const describedBy = [error ? fieldErrorId(name) : "", hint ? hintId : ""].filter(Boolean).join(" ") || undefined;
+  return (
+    <div>
+      <label htmlFor={fieldId(name)} className="block">
+        {fieldLabel(label, required)}
+      </label>
+      {hint && (
+        <p id={hintId} className="text-sm text-slate-700">
+          {hint}
+        </p>
+      )}
+      {error && (
+        <p id={fieldErrorId(name)} className="text-red-700">
+          {error}
+        </p>
+      )}
+      <input
+        id={fieldId(name)}
+        type={type}
+        autoComplete={autoComplete}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy}
+        className="mt-1 block min-h-6 w-full rounded border px-3 py-1"
+        {...register(name)}
+      />
+    </div>
+  );
+}
