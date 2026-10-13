@@ -29,6 +29,33 @@ export async function signOut(): Promise<void> {
   if (!res.ok) throw new Error("Something went wrong. Please try again.");
 }
 
+export async function updateMyName(name: string): Promise<Me> {
+  const res = await fetch("/api/me", {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  if (!res.ok) throw new Error("Something went wrong. Please try again.");
+  return (await res.json()) as Me;
+}
+
+export const WRONG_CURRENT_PASSWORD = "Current password is incorrect.";
+export class WrongCurrentPasswordError extends Error {}
+
+/** Changes the password and signs every other session out (§11.25). */
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  const res = await fetch("/api/auth/change-password", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ currentPassword, newPassword, revokeOtherSessions: true }),
+  });
+  if (res.ok) return;
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  if (res.status === 400) throw new WrongCurrentPasswordError(WRONG_CURRENT_PASSWORD);
+  throw new Error("Something went wrong. Please try again.");
+}
+
 export class SignInError extends Error {}
 
 /** Signs in with email and password. 429 and every refusal get their §11.1 wording; nothing else is revealed. */

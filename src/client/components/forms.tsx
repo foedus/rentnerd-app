@@ -25,7 +25,10 @@ import { TooManyRequestsError } from "../api";
 /** Throw from a save function when the API answers 409 (version mismatch, D-10). */
 export class VersionConflictError extends Error {}
 
-type Status = { kind: "idle" } | { kind: "saved"; thing: string } | { kind: "conflict" } | { kind: "error"; message: string };
+/** Throw from a save function to show this exact text instead of the generic unexpected-error message. */
+export class FormMessageError extends Error {}
+
+type Status = { kind: "idle" } | { kind: "saved"; thing: string; message?: string } | { kind: "conflict" } | { kind: "error"; message: string };
 
 interface FormKit {
   status: Status;
@@ -103,7 +106,7 @@ function Messages({ onReload }: { onReload?: () => void }) {
     <>
       {/* Always rendered so assistive technology sees the text being inserted into an existing live region. */}
       <div role="status" aria-live="polite" className={status.kind === "saved" ? "text-green-800" : "sr-only"}>
-        {status.kind === "saved" ? savedMessage(status.thing) : ""}
+        {status.kind === "saved" ? status.message ?? savedMessage(status.thing) : ""}
       </div>
       <div role="alert" tabIndex={-1} ref={errorRef} className="text-red-700">
         {status.kind === "error" && status.message}
@@ -127,6 +130,8 @@ interface AppFormProps<V extends FieldValues, O> {
   form: UseFormReturn<V, unknown, O>;
   /** What was saved, e.g. "Owner" gives "Owner saved." Return normally to show it. */
   thing: string;
+  /** Replaces "{thing} saved." for actions that aren't saves, e.g. "Password changed." */
+  successMessage?: string;
   /** Throw VersionConflictError on 409; any other error shows the unexpected-error message. */
   save: (values: O) => Promise<void>;
   onReload?: () => void;
@@ -135,17 +140,30 @@ interface AppFormProps<V extends FieldValues, O> {
 }
 
 /** `<form>` wrapper: validation, error summary, saved/conflict/unexpected messages and a submit button. */
-export function AppForm<V extends FieldValues, O>({ form, thing, save, onReload, children, submitLabel }: AppFormProps<V, O>) {
+export function AppForm<V extends FieldValues, O>({ form, thing, successMessage, save, onReload, children, submitLabel }: AppFormProps<V, O>) {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [busy, setBusy] = useState(false);
+  const submitButton = useRef<HTMLButtonElement>(null);
+  // A "saved" message is out of date as soon as the person edits again.
+  useEffect(() => {
+    const sub = form.watch(() => setStatus((s) => (s.kind === "saved" ? { kind: "idle" } : s)));
+    return () => sub.unsubscribe();
+  }, [form]);
+  // The button is disabled while sending, which drops focus; put it back unless an error message took it.
+  useEffect(() => {
+    if (!busy && status.kind === "saved" && (document.activeElement === document.body || !document.activeElement)) {
+      submitButton.current?.focus();
+    }
+  }, [busy, status]);
   const submit = form.handleSubmit(async (values) => {
     setBusy(true);
     setStatus({ kind: "idle" });
     try {
       await save(values);
-      setStatus({ kind: "saved", thing });
+      setStatus({ kind: "saved", thing, message: successMessage });
     } catch (err) {
       if (err instanceof VersionConflictError) setStatus({ kind: "conflict" });
+      else if (err instanceof FormMessageError) setStatus({ kind: "error", message: err.message });
       else setStatus({ kind: "error", message: err instanceof TooManyRequestsError ? err.message : UNEXPECTED_MESSAGE });
     } finally {
       setBusy(false);
@@ -164,7 +182,7 @@ export function AppForm<V extends FieldValues, O>({ form, thing, save, onReload,
           <ErrorSummary />
           {children}
           <Messages onReload={onReload} />
-          <Button type="submit" isDisabled={busy} className="min-h-6 rounded bg-slate-900 px-4 py-1 text-white">
+          <Button ref={submitButton} type="submit" isDisabled={busy} className="min-h-6 rounded bg-slate-900 px-4 py-1 text-white">
             {submitLabel}
           </Button>
         </form>

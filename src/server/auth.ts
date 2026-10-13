@@ -46,6 +46,13 @@ export function createAuth(db: Db, env: NodeJS.ProcessEnv = process.env, mail?: 
           throw new APIError("BAD_REQUEST", { code: "PASSWORD_BLANK", message: BLANK_PASSWORD });
         }
       }),
+      // Same notice as after a reset (§10.4), sent only when Better Auth accepted the change.
+      after: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== "/change-password" || !mail) return;
+        if (ctx.context.returned instanceof Error) return;
+        const u = ctx.context.session?.user;
+        if (u) await sendPasswordChangedEmail(mail, u);
+      }),
     },
     databaseHooks: {
       session: {

@@ -384,3 +384,14 @@ None.
 - QA noted: the Activity API route doesn't exist yet (404 for landlords) — to recheck when the Activity log task lands; the
   deactivate dialog title is the whole sentence (kept so wording matches the spec).
 - verify.sh passes; the reviewer approved; QA findings (lost focus, generic error) fixed. Nothing for the owner to do.
+
+### 2026-10-13 — T027: Account settings
+- New page `/account`. **Profile**: change your name with "Save name" ("Name saved."; the name in the top-right menu updates at
+  once); your email is shown but can't be edited. **Change password**: Current password, New password, Confirm new password
+  ("Password changed."). A wrong current password says "Current password is incorrect."; short passwords and mismatches show the
+  same messages as the reset page. Changing the password signs out every other device and sends the "password was changed" email.
+- The Smoke user sees only their name and email (no forms), and the server refuses their changes anyway.
+- QA fixes: keyboard focus stays on the button after saving, "saved" messages disappear when you edit again, and the name box
+  shows the trimmed name after saving.
+- Note for later: changing a name doesn't write an Activity-log row yet (no audit logging exists so far); to add when the audit task lands.
+- verify.sh passes; the reviewer approved. Nothing for the owner to do.

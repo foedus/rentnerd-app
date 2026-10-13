@@ -44,6 +44,15 @@ export const newPasswordSchema = z
   })
   .refine((v) => v.newPassword === v.confirmPassword, { path: ["confirmPassword"], message: "Passwords don't match." });
 
+/** Change-password form in Account settings (§11.25): the reset rules plus the current password. */
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Enter your current password."),
+    newPassword: newPasswordSchema.shape.newPassword,
+    confirmPassword: z.string(),
+  })
+  .refine((v) => v.newPassword === v.confirmPassword, { path: ["confirmPassword"], message: "Passwords don't match." });
+
 /** Accept-invitation form (§11.4): a name plus the same password rules as the reset form. */
 export const acceptInviteFormSchema = z
   .object({

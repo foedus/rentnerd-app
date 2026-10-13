@@ -2,10 +2,11 @@ import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-quer
 import type { ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { canAccess, pages } from "../shared/routes";
-import { fetchMe, TooManyRequestsError, UnauthenticatedError } from "./api";
+import { fetchMe, type Me, TooManyRequestsError, UnauthenticatedError } from "./api";
 import { Layout } from "./components/Layout";
 import { NoAccess, NotFound } from "./components/Notices";
 import { Page } from "./components/Page";
+import { Account } from "./pages/Account";
 import { AcceptInvite } from "./pages/AcceptInvite";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { Login } from "./pages/Login";
@@ -15,6 +16,12 @@ import { Users } from "./pages/Users";
 export const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
 });
+
+function pageElement(path: string, title: string, me: Me) {
+  if (path === "/users") return <Users />;
+  if (path === "/account") return <Account me={me} />;
+  return <Page title={title} />;
+}
 
 function Shell() {
   const location = useLocation();
@@ -64,7 +71,7 @@ function Shell() {
           <Route
             key={p.path}
             path={p.path}
-            element={canAccess(p.access, me.role) ? p.path === "/users" ? <Users /> : <Page title={p.title} /> : <NoAccess />}
+            element={canAccess(p.access, me.role) ? pageElement(p.path, p.title, me) : <NoAccess />}
           />
         ))}
         <Route path="*" element={<NotFound />} />
