@@ -9,10 +9,12 @@ export interface Me {
 }
 
 export class UnauthenticatedError extends Error {}
+export class TooManyRequestsError extends Error {}
 
 export async function fetchMe(): Promise<Me> {
   const res = await fetch("/api/me", { headers: { accept: "application/json" } });
   if (res.status === 401) throw new UnauthenticatedError("Not signed in");
+  if (res.status === 429) throw new TooManyRequestsError("Too many attempts. Try again in a few minutes.");
   if (!res.ok) throw new Error("Something went wrong. Please try again.");
   return (await res.json()) as Me;
 }

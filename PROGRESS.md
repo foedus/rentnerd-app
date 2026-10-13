@@ -255,4 +255,4 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
   inline styles later.
   A missing `/assets/...` file now answers 404 instead of the page shell. After clicking a navigation link focus moves
   to the page's main area.
-- verify.sh passes; the reviewer approved; QA's findings were fixed (only the nicety of distinguishing 403/429 on the loading error screen was left). Nothing for the owner to do.
+- verify.sh passes; the reviewer approved; QA findings were fixed (the error screen now has "Try again" and shows the too-many-attempts message on 429). Nothing for the owner to do.

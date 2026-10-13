@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { canAccess, pages } from "../shared/routes";
-import { fetchMe, UnauthenticatedError } from "./api";
+import { fetchMe, TooManyRequestsError, UnauthenticatedError } from "./api";
 import { Layout } from "./components/Layout";
 import { NoAccess, NotFound } from "./components/Notices";
 import { Page } from "./components/Page";
@@ -17,7 +17,7 @@ function LoginPlaceholder() {
 
 function Shell() {
   const location = useLocation();
-  const { data: me, error, isPending } = useQuery({ queryKey: ["me"], queryFn: fetchMe });
+  const { data: me, error, isPending, refetch } = useQuery({ queryKey: ["me"], queryFn: fetchMe });
 
   if (isPending) {
     return (
@@ -36,7 +36,12 @@ function Shell() {
     return (
       <main>
         <Page title="Something went wrong">
-          <p role="alert">Something went wrong. Please try again.</p>
+          <p role="alert">
+            {error instanceof TooManyRequestsError ? error.message : "Something went wrong. Please try again."}
+          </p>
+          <button type="button" className="mt-2 min-h-6 rounded border px-3 py-1" onClick={() => void refetch()}>
+            Try again
+          </button>
         </Page>
       </main>
     );

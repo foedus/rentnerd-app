@@ -32,5 +32,19 @@ it("shows a titled page with one h1 while loading and when /api/me fails", async
   expect(document.querySelectorAll("h1")).toHaveLength(1);
   expect(document.title).toBe("Something went wrong – RentNerd");
   expect(document.body.textContent).toContain("Something went wrong. Please try again.");
+  expect(document.querySelector("button")?.textContent).toBe("Try again");
+
   await act(async () => root2.unmount());
+  queryClient.clear();
+  vi.stubGlobal("fetch", async () => new Response("{}", { status: 429 }));
+  document.body.innerHTML = '<div id="root"></div>';
+  const root3 = createRoot(document.getElementById("root") as HTMLElement);
+  await act(async () => {
+    root3.render(<MemoryRouter initialEntries={["/tenants"]}><App /></MemoryRouter>);
+  });
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 50));
+  });
+  expect(document.body.textContent).toContain("Too many attempts. Try again in a few minutes.");
+  await act(async () => root3.unmount());
 });
