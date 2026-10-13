@@ -1,0 +1,41 @@
+export type Role = "admin" | "landlord" | "smoke";
+
+/** Who may open a page: everyone signed in, the Admin only, or anyone who can write (not the Smoke user). */
+export type Access = "any" | "admin" | "write";
+
+export interface PageDef {
+  path: string;
+  title: string;
+  access: Access;
+  /** Shown in the left navigation. */
+  nav?: boolean;
+}
+
+export const pages: readonly PageDef[] = [
+  { path: "/", title: "Dashboard", access: "any", nav: true },
+  { path: "/properties", title: "Properties", access: "any", nav: true },
+  { path: "/properties/new", title: "Add property", access: "write" },
+  { path: "/tenants", title: "Tenants", access: "any", nav: true },
+  { path: "/owners", title: "Owners", access: "any", nav: true },
+  { path: "/leases", title: "Leases", access: "any", nav: true },
+  { path: "/compliance", title: "Compliance", access: "any", nav: true },
+  { path: "/investments", title: "Investments", access: "any", nav: true },
+  { path: "/templates", title: "Templates", access: "any", nav: true },
+  { path: "/import", title: "Import", access: "any", nav: true },
+  { path: "/users", title: "Users", access: "admin", nav: true },
+  { path: "/activity", title: "Activity log", access: "admin", nav: true },
+  { path: "/account", title: "Account settings", access: "any" },
+];
+
+export function canAccess(access: Access, role: Role): boolean {
+  if (access === "any") return true;
+  if (access === "admin") return role === "admin";
+  return role !== "smoke";
+}
+
+/** Navigation entries a role sees; the Smoke user can read every page, so only admin-only links are hidden. */
+export function navPagesFor(role: Role): PageDef[] {
+  return pages.filter((p) => p.nav && (p.access !== "admin" || role === "admin"));
+}
+
+export const documentTitle = (page: string) => `${page} – RentNerd`;

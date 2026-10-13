@@ -240,3 +240,17 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
   (arrives with properties), and refusing a deactivated person's sign-in with "Incorrect email or password." (T019).
   Until T019 their sign-in itself still succeeds, but every request they then make is answered 401.
 - verify.sh passes; the reviewer approved. No screens changed, so no QA pass. Nothing for the owner to do.
+
+### 2026-10-13 — T018: the app's frame (header, menu, navigation, error pages)
+- Signed-in people now see the shared frame: a "Skip to main content" link, the "RentNerd" home link, a menu with their
+  name ("Account settings", "Sign out") and the left navigation (Dashboard … Import, plus Users and Activity log for the
+  administrator only). On narrow screens the navigation sits behind a "Menu" button (Escape closes it).
+- Every page has its own "{Page} – RentNerd" title and one heading. Unknown addresses show "Page not found" with "Go to
+  dashboard"; pages a person may not open show "You don't have access to this page." (Users/Activity log for landlords;
+  editing pages such as `/properties/new` for the read-only smoke user). Visitors who aren't signed in are sent to `/login`.
+- All pages are still empty placeholders, and `/login` is only a placeholder until T019. Added the libraries React Router,
+  TanStack Query, React Aria and Tailwind.
+- For later tasks: T019 must only accept a same-site `next` address after sign-in. QA noticed the browser console logs a
+  harmless Content-Security-Policy warning about inline styles (from the menu pop-up); I left the security policy
+  unchanged — owner/later task may decide whether to allow inline styles.
+- verify.sh passes; the reviewer approved; QA found only minor issues, the useful ones fixed. Nothing for the owner to do.
