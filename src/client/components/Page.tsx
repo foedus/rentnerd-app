@@ -8,7 +8,7 @@ export function Page({ title, children }: { title: string; children?: ReactNode 
   }, [title]);
   return (
     <>
-      <h1 className="mb-4 text-2xl font-semibold">{title}</h1>
+      <h1 className="mb-4 break-words text-2xl font-semibold">{title}</h1>
       {children}
     </>
   );

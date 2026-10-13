@@ -493,3 +493,15 @@ None.
   while any property or unit refers to it. AC-OWN-03's UI part still waits for the property detail pages.
 - The Add owner pop-up no longer closes (and loses typed data) when you click outside it; Cancel and Escape still close it.
 - verify.sh passes; the reviewer's findings (missing Edit tests, version fallback, archived current owner) are fixed; QA pass done.
+
+### 2026-10-13 — T035: Property detail page
+- New page **Property** (`/properties/:id`): the heading is the property name; the summary lists address, Type, Owner, Located in New York City,
+  BBL, year built, purchase price and date, and each responsible landlord with name and email. Below are the tabs Units, Values, Property taxes,
+  Compliance and Investments (open one directly with `?tab=Compliance`). The Units tab has the table (Unit, Use, Status, Tenants, Current rent,
+  Lease end), Show archived and Add unit (hidden for the Smoke user). Edit property is on the page too.
+- Not yet (later tasks): Values, Property taxes, Compliance and Investments tab contents, current value / rent roll / yield / total invested in the
+  summary, Archive/Restore/Delete property, and the unit screens (Add unit leads to a "Page not found" until the Units screens are built). Status,
+  Tenants, Current rent and Lease end show "—" until leases exist.
+- AC-PROP-01, AC-PROP-02, AC-PROP-04 and AC-USR-14 pass. QA found that an unknown property showed "Something went wrong" instead of "Page not found"
+  and had no Try again; both fixed. Very long names now wrap instead of widening the page.
+- verify.sh passes; the reviewer approved; QA pass done. Nothing for the owner to do.

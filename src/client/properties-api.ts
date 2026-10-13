@@ -55,8 +55,12 @@ export async function fetchPeople(): Promise<Person[]> {
   return (await res.json()) as Person[];
 }
 
+/** The property doesn't exist (or no longer does). */
+export class PropertyNotFoundError extends Error {}
+
 export async function fetchProperty(id: string): Promise<PropertyRecord> {
   const res = await fetch(`/api/properties/${encodeURIComponent(id)}`, { headers: { accept: "application/json" } });
+  if (res.status === 404) throw new PropertyNotFoundError("not found");
   if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
   if (!res.ok) throw new Error(GENERIC);
   return (await res.json()) as PropertyRecord;
@@ -92,4 +96,20 @@ export async function fetchOwnerChoices(): Promise<{ id: string; name: string }[
     out.push(...body.data.map((o) => ({ id: o.id, name: o.name })));
     if (out.length >= body.total || body.data.length === 0) return out;
   }
+}
+
+export interface UnitRecord {
+  id: string;
+  label: string;
+  use: string;
+  archivedAt: string | null;
+}
+
+/** A property's units (first page of up to 200), optionally with archived ones. */
+export async function fetchPropertyUnits(propertyId: string, archived: boolean): Promise<UnitRecord[]> {
+  const qs = new URLSearchParams({ archived: String(archived), pageSize: "200" });
+  const res = await fetch(`/api/properties/${encodeURIComponent(propertyId)}/units?${qs}`, { headers: { accept: "application/json" } });
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  if (!res.ok) throw new Error(GENERIC);
+  return ((await res.json()) as { data: UnitRecord[] }).data;
 }

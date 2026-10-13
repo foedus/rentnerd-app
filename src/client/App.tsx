@@ -14,6 +14,7 @@ import { OwnerForm } from "./pages/OwnerForm";
 import { Owners } from "./pages/Owners";
 import { Properties } from "./pages/Properties";
 import { PropertyForm } from "./pages/PropertyForm";
+import { PropertyDetail } from "./pages/PropertyDetail";
 import { Login } from "./pages/Login";
 import { ResetPassword } from "./pages/ResetPassword";
 import { Users } from "./pages/Users";
@@ -29,6 +30,7 @@ function pageElement(path: string, title: string, me: Me) {
   if (path === "/owners/:id") return <OwnerDetail />;
   if (path === "/owners/:id/edit") return <OwnerForm />;
   if (path === "/properties") return <Properties />;
+  if (path === "/properties/:id") return <PropertyDetail />;
   if (path === "/properties/new" || path === "/properties/:id/edit") return <PropertyForm />;
   if (path === "/account") return <Account me={me} />;
   return <Page title={title} />;
