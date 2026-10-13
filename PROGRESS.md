@@ -269,4 +269,4 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
 - Fixed along the way: addresses containing an encoded line break (e.g. `/x%0a`) showed a blank page; they now behave like the
   address without it.
 - verify.sh passes; the reviewer approved; QA findings fixed (blank page, `#section` kept, `/login/` loop, empty-field hint via
-  the browser's own required-field message). Not changed: a signed-in person opening `/login` still sees the form. Nothing for the owner to do.
+  the browser's own required-field message). Nothing for the owner to do.

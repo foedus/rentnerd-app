@@ -1,8 +1,8 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { Button, FieldError, Input, Label, TextField } from "react-aria-components";
-import { Link, useNavigate, useSearchParams } from "react-router";
-import { signIn, SignInError } from "../api";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
+import { fetchMe, signIn, SignInError } from "../api";
 import { Page } from "../components/Page";
 
 /** Only same-site paths are accepted after sign-in, so a crafted link can't send people to another site. */
@@ -18,6 +18,9 @@ export function Login() {
   const queryClient = useQueryClient();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const { data: me, error: meError } = useQuery({ queryKey: ["me"], queryFn: fetchMe });
+  // Someone who is already signed in has no use for the form.
+  if (me && !meError && !busy) return <Navigate to={safeNext(params.get("next"))} replace />;
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -50,7 +53,7 @@ export function Login() {
             <Input className={input} />
             <FieldError />
           </TextField>
-          {error && <p role="alert" className="text-red-700">{error}</p>}
+          <div role="alert" className="text-red-700">{error}</div>
           <Button type="submit" isDisabled={busy} className="min-h-6 rounded bg-slate-900 px-4 py-1 text-white">
             Sign in
           </Button>
