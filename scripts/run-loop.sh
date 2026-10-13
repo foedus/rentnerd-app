@@ -5,10 +5,10 @@ cd "$(dirname "$0")/.."
 set -a; source .env; set +a
 mkdir -p logs
 LOCKED="tests/acceptance scripts/guard.sh scripts/run-loop.sh scripts/verify.sh scripts/smoke-prod.sh prompts .claude"
-stalls=0; finals=0
+stalls=0; finals=0; waits=0
 log() { echo "$(date '+%F %T') $*" | tee -a logs/loop.log; }
 
-for i in $(seq 1 5000); do
+for i in $(seq 1 100000); do
   # 1. Restore any locked file that changed
   if ! git diff --quiet acceptance-locked -- $LOCKED; then
     git checkout acceptance-locked -- $LOCKED
@@ -35,18 +35,23 @@ for i in $(seq 1 5000); do
   if [ "$ready" -eq 0 ]; then log "NEEDS HUMAN: no task can start; see blocked entries in PROGRESS.md"; exit 2; fi
 
   # 4. One fresh Claude session for one task
-  before=$(git rev-parse HEAD)
+  before=$(git rev-parse HEAD); start=$(date +%s)
   log "iteration $i starting"
   claude -p "$(cat prompts/iteration.md)" --model sonnet --dangerously-skip-permissions \
     --output-format stream-json --verbose > "logs/iter-$i.jsonl" 2>&1
+  dur=$(( $(date +%s) - start ))
+  msg=$(tail -n 1 "logs/iter-$i.jsonl" | jq -r '.result // empty' 2>/dev/null | tr '\n' ' ' | head -c 200)
+  [ -z "$msg" ] && msg=$(tail -n 1 "logs/iter-$i.jsonl" | tr '\n' ' ' | head -c 200)
 
-  # 5. Progress, usage limit, or stall?
+  # 5. Progress, can't run (usage limit), or stall?
   if [ "$(git rev-parse HEAD)" != "$before" ]; then
-    stalls=0; log "iteration $i committed: $(git log -1 --format=%s)"
-  elif tail -n 3 "logs/iter-$i.jsonl" | grep -qiE 'usage limit|limit reached|out of (extra )?usage|resets? (at|in)'; then
-    log "iteration $i hit the usage limit; waiting 1 hour"; sleep 3600
+    stalls=0; waits=0; log "iteration $i committed: $(git log -1 --format=%s)"
+  elif [ "$dur" -lt 180 ] || grep -qiE 'usage limit|limit reached|out of (extra )?usage|resets? (at|in)' <<<"$msg"; then
+    waits=$((waits+1))
+    if [ $waits -ge 168 ]; then log "STALLED: sessions have failed to start for 7 days. Last message: $msg"; exit 1; fi
+    log "iteration $i ended after ${dur}s without working (usually a usage limit): $msg; waiting 1 hour"; sleep 3600
   else
-    stalls=$((stalls+1)); log "iteration $i made no progress ($stalls/4); waiting 15 minutes"
+    stalls=$((stalls+1)); log "iteration $i ran ${dur}s with no commit ($stalls/4): $msg; waiting 15 minutes"
     if [ $stalls -ge 4 ]; then log "STALLED: see the last logs/iter-*.jsonl"; exit 1; fi
     sleep 900
   fi
