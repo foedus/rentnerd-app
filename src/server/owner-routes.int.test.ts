@@ -159,6 +159,15 @@ describe("owners API", () => {
     expect((await call(usageApp, admin.cookie, "POST", `/api/owners/${o.id}/archive`, {})).status).toBe(200);
   });
 
+  it("tells the detail screen whether anything refers to the owner", async () => {
+    const admin = await makeUser("admin@example.com", "admin");
+    const o = await create(admin.cookie);
+    const read = async () => (await (await call(usageApp, admin.cookie, "GET", `/api/owners/${o.id}`)).json()) as { referenced: boolean };
+    expect((await read()).referenced).toBe(false);
+    referenced = true;
+    expect((await read()).referenced).toBe(true);
+  });
+
   it("deletes only unreferenced owners and audits it", async () => {
     const admin = await makeUser("admin@example.com", "admin");
     const o = await create(admin.cookie);

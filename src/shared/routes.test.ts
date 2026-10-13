@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canAccess, documentTitle, navPagesFor, pages } from "./routes";
+import { canAccess, documentTitle, matchPage, navPagesFor, pages } from "./routes";
 
 describe("navigation", () => {
   it("lists the nine shared entries in order for landlords", () => {
@@ -28,3 +28,14 @@ describe("canAccess", () => {
 });
 
 it("formats titles", () => expect(documentTitle("Users")).toBe("Users – RentNerd"));
+
+describe("matchPage", () => {
+  it("finds literal and parameterised pages, preferring literal ones", () => {
+    expect(matchPage("/owners")?.title).toBe("Owners");
+    expect(matchPage("/owners/new")?.title).toBe("Add owner");
+    expect(matchPage("/owners/abc/")?.title).toBe("Owner details");
+    expect(matchPage("/owners/abc/edit")?.title).toBe("Edit owner");
+    expect(matchPage("/owners/abc/edit/more")).toBeUndefined();
+    expect(matchPage("/verify-email")).toBeUndefined();
+  });
+});

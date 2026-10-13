@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router";
-import { canAccess, pages } from "../shared/routes";
+import { canAccess, matchPage, pages } from "../shared/routes";
 import { fetchMe, type Me, TooManyRequestsError, UnauthenticatedError } from "./api";
 import { Layout } from "./components/Layout";
 import { NoAccess, NotFound } from "./components/Notices";
@@ -9,6 +9,9 @@ import { Page } from "./components/Page";
 import { Account } from "./pages/Account";
 import { AcceptInvite } from "./pages/AcceptInvite";
 import { ForgotPassword } from "./pages/ForgotPassword";
+import { OwnerDetail } from "./pages/OwnerDetail";
+import { OwnerForm } from "./pages/OwnerForm";
+import { Owners } from "./pages/Owners";
 import { Login } from "./pages/Login";
 import { ResetPassword } from "./pages/ResetPassword";
 import { Users } from "./pages/Users";
@@ -19,6 +22,10 @@ export const queryClient = new QueryClient({
 
 function pageElement(path: string, title: string, me: Me) {
   if (path === "/users") return <Users />;
+  if (path === "/owners") return <Owners />;
+  if (path === "/owners/new") return <OwnerForm />;
+  if (path === "/owners/:id") return <OwnerDetail />;
+  if (path === "/owners/:id/edit") return <OwnerForm />;
   if (path === "/account") return <Account me={me} />;
   return <Page title={title} />;
 }
@@ -30,7 +37,7 @@ function Shell() {
   if (isPending) {
     return (
       <main>
-        <Page title={pages.find((p) => p.path === (location.pathname.replace(/\/+$/, "") || "/"))?.title ?? "Loading"}>
+        <Page title={matchPage(location.pathname)?.title ?? "Loading"}>
           <p role="status">Loading…</p>
         </Page>
       </main>
@@ -39,7 +46,7 @@ function Shell() {
   if (error instanceof UnauthenticatedError) {
     // Addresses that aren't pages at all (e.g. /verify-email) are "not found" for everyone, signed in or not.
     const path = location.pathname.replace(/\/+$/, "") || "/";
-    if (!pages.some((p) => p.path === path)) {
+    if (!matchPage(path)) {
       return (
         <main className="mx-auto max-w-sm p-4">
           <NotFound />

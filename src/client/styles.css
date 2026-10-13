@@ -5,16 +5,26 @@
   outline-offset: 0;
 }
 
+/* Visually hidden until focused; kept inside the viewport so it never sits off-screen. */
 .skip-link {
   position: absolute;
   left: 0.5rem;
-  top: -4rem;
+  top: 0.5rem;
   z-index: 50;
   background: #fff;
-  padding: 0.5rem 1rem;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
 }
 .skip-link:focus {
-  top: 0.5rem;
+  width: auto;
+  height: auto;
+  padding: 0.5rem 1rem;
+  overflow: visible;
+  opacity: 1;
 }
 
 @layer {

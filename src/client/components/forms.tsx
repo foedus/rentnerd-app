@@ -139,10 +139,12 @@ interface AppFormProps<V extends FieldValues, O> {
   onReload?: () => void;
   children: ReactNode;
   submitLabel: string;
+  /** Rendered next to the submit button, e.g. a Cancel button. */
+  secondary?: ReactNode;
 }
 
 /** `<form>` wrapper: validation, error summary, saved/conflict/unexpected messages and a submit button. */
-export function AppForm<V extends FieldValues, O>({ form, thing, successMessage, save, onReload, children, submitLabel }: AppFormProps<V, O>) {
+export function AppForm<V extends FieldValues, O>({ form, thing, successMessage, save, onReload, children, submitLabel, secondary }: AppFormProps<V, O>) {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [busy, setBusy] = useState(false);
   const submitButton = useRef<HTMLButtonElement>(null);
@@ -194,9 +196,12 @@ export function AppForm<V extends FieldValues, O>({ form, thing, successMessage,
           <ErrorSummary />
           {children}
           <Messages onReload={onReload} />
-          <Button ref={submitButton} type="submit" isDisabled={busy} className="min-h-6 rounded bg-slate-900 px-4 py-1 text-white">
-            {submitLabel}
-          </Button>
+          <div className="flex gap-2">
+            <Button ref={submitButton} type="submit" isDisabled={busy} className="min-h-6 rounded bg-slate-900 px-4 py-1 text-white">
+              {submitLabel}
+            </Button>
+            {secondary}
+          </div>
         </form>
       </KitContext.Provider>
     </FormProvider>
@@ -247,6 +252,46 @@ export function TextFieldInput({ name, label, required = false, type = "text", a
         className="mt-1 block min-h-6 w-full rounded border px-3 py-1"
         {...register(name)}
       />
+    </div>
+  );
+}
+
+interface SelectFieldProps {
+  name: string;
+  label: string;
+  options: readonly string[];
+  required?: boolean;
+}
+
+/** Labelled native select with an empty first choice; errors are linked like TextFieldInput. */
+export function SelectInput({ name, label, options, required = false }: SelectFieldProps) {
+  const { register, getFieldState, formState } = useFormContext();
+  const error = getFieldState(name, formState).error?.message;
+  return (
+    <div>
+      <label htmlFor={fieldId(name)} className="block">
+        {fieldLabel(label, required)}
+      </label>
+      {error && (
+        <p id={fieldErrorId(name)} className="text-red-700">
+          {error}
+        </p>
+      )}
+      <select
+        id={fieldId(name)}
+        aria-required={required || undefined}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? fieldErrorId(name) : undefined}
+        className="mt-1 block min-h-6 w-full rounded border px-3 py-1"
+        {...register(name)}
+      >
+        <option value="">Select…</option>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

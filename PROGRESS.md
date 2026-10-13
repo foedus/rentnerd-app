@@ -422,3 +422,20 @@ None.
   stand-in; the Properties/Units tasks must plug in the real lookups (archive refused with the property list, delete refused when
   any property or unit refers to the owner). No screens changed.
 - verify.sh passes; the reviewer approved. No QA pass (no screens changed). Nothing for the owner to do.
+
+### 2026-10-13 — T030: Owners screens
+- New pages: **Owners** (`/owners`: Search owners, Show archived, Add owner, table with Owner name / Owner type / City / Properties),
+  **Add owner** and **Edit owner** (all the §6.3 fields, Save owner and Cancel, the "There is a problem" summary linking to each
+  field) and the owner **detail** page (fields, Properties table, Edit owner, Archive owner / Restore owner, Delete owner). After
+  saving you land on the owner's page with "Owner saved."; deleting returns to the list with "Owner deleted."; archived owners are
+  marked "(archived)" in the list. Delete owner is greyed out with the reason "Owners used by properties or units can only be
+  archived" when something uses the owner. The Smoke user sees the pages without any change buttons.
+- If someone else changed the owner meanwhile, **Reload** now really reloads the form with the latest values (QA found it didn't).
+- The "Skip to main content" link used to sit above the top of the page, which the locked form tests can't click; it is now tiny and
+  invisible until focused, then appears as before. Keyboard behaviour is unchanged.
+- The owner detail API now also says whether anything refers to the owner (used to grey out Delete).
+- AC-OWN-01 and AC-OWN-02 pass. AC-OWN-03 (in-use owner) needs properties, so it waits for the Properties tasks (T075); the
+  Properties column and the in-use checks fill in then.
+- QA noted, left as is: a ZIP written "12180-1234" is refused (the spec says 5 or 9 digits and an earlier unit test pins this), and
+  State accepts any two letters.
+- verify.sh passes; the reviewer approved; QA pass done and findings fixed. Nothing for the owner to do.

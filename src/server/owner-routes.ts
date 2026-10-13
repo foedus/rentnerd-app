@@ -91,7 +91,7 @@ export function mountOwnerRoutes(app: Hono, db: Db, usage: OwnerUsage = noOwnerU
     if (!isUuid(id)) return notFound(c);
     const [row] = await db.select().from(owner).where(eq(owner.id, id));
     if (!row) return notFound(c);
-    return c.json({ ...present(row), properties: await usage.activeProperties(db, id) });
+    return c.json({ ...present(row), properties: await usage.activeProperties(db, id), referenced: await usage.isReferenced(db, id) });
   });
 
   app.patch("/api/owners/:id", async (c) => {

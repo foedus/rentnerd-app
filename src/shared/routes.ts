@@ -17,6 +17,9 @@ export const pages: readonly PageDef[] = [
   { path: "/properties/new", title: "Add property", access: "write" },
   { path: "/tenants", title: "Tenants", access: "any", nav: true },
   { path: "/owners", title: "Owners", access: "any", nav: true },
+  { path: "/owners/new", title: "Add owner", access: "write" },
+  { path: "/owners/:id", title: "Owner details", access: "any" },
+  { path: "/owners/:id/edit", title: "Edit owner", access: "write" },
   { path: "/leases", title: "Leases", access: "any", nav: true },
   { path: "/compliance", title: "Compliance", access: "any", nav: true },
   { path: "/investments", title: "Investments", access: "any", nav: true },
@@ -36,6 +39,17 @@ export function canAccess(access: Access, role: Role): boolean {
 /** Navigation entries a role sees; the Smoke user can read every page, so only admin-only links are hidden. */
 export function navPagesFor(role: Role): PageDef[] {
   return pages.filter((p) => p.nav && (p.access !== "admin" || role === "admin"));
+}
+
+/** The page a URL path belongs to; `:name` segments match any one segment and literal paths win over them. */
+export function matchPage(pathname: string): PageDef | undefined {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  const parts = path.split("/");
+  const fits = (p: PageDef) => {
+    const want = p.path.split("/");
+    return want.length === parts.length && want.every((w, i) => w.startsWith(":") || w === parts[i]);
+  };
+  return pages.find((p) => p.path === path) ?? pages.find(fits);
 }
 
 export const documentTitle = (page: string) => `${page} – RentNerd`;
