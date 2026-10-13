@@ -411,3 +411,14 @@ None.
 - Not yet: the Activity page and `GET /api/audit-log` (later task), clearing addresses after 2 years (cleanup task), and entries
   for properties/leases etc. (they will use the same writer when those exist). No screens changed.
 - verify.sh passes; the reviewer approved. No QA pass (no screens changed). Nothing for the owner to do.
+
+### 2026-10-13 — T029: Owners API
+- Added the owners back end: list (search, sort, paging, "show archived"), create, read, edit, archive, restore and delete, all with the
+  §6.3 rules (required fields, 2-letter state, 5 or 9 digit ZIP, valid email) and plain error messages per field. Editing a stale copy
+  is refused with a "changed by someone else" conflict; unknown ids give "not found"; every change writes an Activity-log row (edits
+  show before → after). The read-only Smoke user can read but not change owners.
+- Properties and units don't exist yet, so "owner is used by a property" is not checked yet: archiving and deleting always succeed for
+  now. The check is already in place behind a single switch point (`OwnerUsage` in `src/server/owner-routes.ts`) and is tested with a
+  stand-in; the Properties/Units tasks must plug in the real lookups (archive refused with the property list, delete refused when
+  any property or unit refers to the owner). No screens changed.
+- verify.sh passes; the reviewer approved. No QA pass (no screens changed). Nothing for the owner to do.

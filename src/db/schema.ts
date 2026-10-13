@@ -151,3 +151,32 @@ export const auditLog = pgTable(
   },
   (t) => [index("audit_log_at_idx").on(t.at), index("audit_log_actor_idx").on(t.actorUserId)],
 );
+
+export const ownerType = pgEnum("owner_type", ["LLC", "Corporation", "Partnership", "Trust", "Individual", "Other"]);
+
+// SPEC §6.3: archivable; `version` is the optimistic-lock counter (D-10).
+export const owner = pgTable(
+  "owner",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    ownerType: ownerType("owner_type").notNull(),
+    addressLine1: text("address_line1").notNull(),
+    addressLine2: text("address_line2"),
+    city: text("city").notNull(),
+    state: text("state").notNull(),
+    zip: text("zip").notNull(),
+    email: text("email"),
+    phone: text("phone"),
+    signatoryName: text("signatory_name"),
+    signatoryTitle: text("signatory_title"),
+    notes: text("notes"),
+    version: integer("version").notNull().default(1),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdById: uuid("created_by_id").references(() => user.id, { onDelete: "set null" }),
+    updatedById: uuid("updated_by_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("owner_name_idx").on(t.name)],
+);
