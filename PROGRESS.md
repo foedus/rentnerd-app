@@ -488,6 +488,8 @@ None.
   Add owner pop-up have their own ids so screen readers and the "There is a problem" links point at the pop-up's fields (QA found this).
 - Saving goes to `/properties/:id`, which has no page yet (the property detail comes with a later task), so it shows "Page not found" for now.
 - AC-PROP-03, AC-OWN-04 and AC-PLAT-03 pass.
-- QA also noticed that archiving an owner used by properties is still allowed. That is the known switch point (`OwnerUsage`) that the later Properties
-  tasks (T075, AC-OWN-03) must plug in; not part of this task.
+- QA noticed that archiving an owner used by properties was still allowed, so the real lookups are now plugged in (`dbOwnerUsage`): archiving is
+  refused with the list of non-archived properties that use the owner (directly or through a unit's "owner if different"), and deleting is refused
+  while any property or unit refers to it. AC-OWN-03's UI part still waits for the property detail pages.
+- The Add owner pop-up no longer closes (and loses typed data) when you click outside it; Cancel and Escape still close it.
 - verify.sh passes; the reviewer's findings (missing Edit tests, version fallback, archived current owner) are fixed; QA pass done.

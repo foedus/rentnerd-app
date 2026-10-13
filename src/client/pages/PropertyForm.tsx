@@ -146,7 +146,7 @@ function Fields({ property, me }: { property?: PropertyRecord; me: string }) {
           </>
         )}
       </AppForm>
-      <ModalOverlay isOpen={addingOwner} onOpenChange={setAddingOwner} isDismissable className="fixed inset-0 z-50 grid place-items-center bg-black/40">
+      <ModalOverlay isOpen={addingOwner} onOpenChange={setAddingOwner} className="fixed inset-0 z-50 grid place-items-center bg-black/40">
         <Modal className="max-h-[90vh] w-full max-w-xl overflow-auto rounded bg-white p-6 shadow-lg">
           <Dialog aria-label="Add owner" className="space-y-4 outline-none">
             <Heading slot="title" className="text-lg font-semibold">

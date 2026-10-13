@@ -194,3 +194,32 @@ describe("owners API", () => {
     }
   });
 });
+
+describe("owner usage by real properties and units", () => {
+  const property = { name: "Court Plaza", street: "1 Elm St", city: "Brooklyn", state: "NY", zip: "11201", inNyc: true };
+  it("refuses archive while a non-archived property uses the owner, and delete while anything refers to it", async () => {
+    const { cookie } = await makeUser("admin@x.com", "admin");
+    const o = await create(cookie);
+    const p = await (await call(app, cookie, "POST", "/api/properties", { ...property, ownerId: o.id })).json() as { id: string };
+    const archive = await call(app, cookie, "POST", `/api/owners/${o.id}/archive`, { version: o.version });
+    expect(archive.status).toBe(409);
+    const body = (await archive.json()) as { error: { properties: { id: string; name: string }[] } };
+    expect(body.error.properties).toEqual([{ id: p.id, name: "Court Plaza" }]);
+    expect((await call(app, cookie, "DELETE", `/api/owners/${o.id}`)).status).toBe(409);
+  });
+
+  it("counts a unit's owner override, and the owner is archivable once only archived things refer to it", async () => {
+    const { cookie } = await makeUser("admin2@x.com", "admin");
+    const base = await create(cookie);
+    const other = await create(cookie, { name: "Other LLC" });
+    const p = await (await call(app, cookie, "POST", "/api/properties", { ...property, ownerId: base.id })).json() as { id: string };
+    const u = await call(app, cookie, "POST", `/api/properties/${p.id}/units`, { label: "2R", use: "Residential", ownerOverrideId: other.id });
+    expect(u.status).toBe(201);
+    const refused = await call(app, cookie, "POST", `/api/owners/${other.id}/archive`, { version: other.version });
+    expect(refused.status).toBe(409);
+    expect(((await refused.json()) as { error: { properties: { id: string }[] } }).error.properties.map((x) => x.id)).toEqual([p.id]);
+    await pool.query("update property set archived_at = now()");
+    expect((await call(app, cookie, "POST", `/api/owners/${other.id}/archive`, { version: other.version })).status).toBe(200);
+    expect((await call(app, cookie, "DELETE", `/api/owners/${other.id}`)).status).toBe(409);
+  });
+});

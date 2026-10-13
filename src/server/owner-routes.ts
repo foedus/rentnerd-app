@@ -1,7 +1,7 @@
-import { and, asc, count, desc, eq, ilike, isNull, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import type { Context, Hono } from "hono";
 import type { Db } from "../db/client";
-import { owner } from "../db/schema";
+import { owner, property, unit } from "../db/schema";
 import { createOwnerSchema, ownerListQuerySchema, updateOwnerSchema, versionSchema } from "../shared/schemas";
 import { diffChanges, writeAudit } from "./audit";
 import { apiError } from "./api-guard";
@@ -17,10 +17,22 @@ export interface OwnerUsage {
   isReferenced(tx: Tx, ownerId: string): Promise<boolean>;
 }
 
-/** No property or unit tables exist yet; the Properties task replaces this with real lookups. */
-export const noOwnerUsage: OwnerUsage = {
-  activeProperties: async () => [],
-  isReferenced: async () => false,
+/** Real lookups: a property uses the owner directly, or through one of its non-archived units' "owner if different". */
+export const dbOwnerUsage: OwnerUsage = {
+  activeProperties: async (tx, ownerId) => {
+    const viaUnits = tx.select({ id: unit.propertyId }).from(unit).where(and(eq(unit.ownerOverrideId, ownerId), isNull(unit.archivedAt)));
+    return tx
+      .select({ id: property.id, name: property.name })
+      .from(property)
+      .where(and(isNull(property.archivedAt), or(eq(property.ownerId, ownerId), inArray(property.id, viaUnits))))
+      .orderBy(asc(property.name), asc(property.id));
+  },
+  isReferenced: async (tx, ownerId) => {
+    const [p] = await tx.select({ id: property.id }).from(property).where(eq(property.ownerId, ownerId)).limit(1);
+    if (p) return true;
+    const [u] = await tx.select({ id: unit.id }).from(unit).where(eq(unit.ownerOverrideId, ownerId)).limit(1);
+    return Boolean(u);
+  },
 };
 
 const LABELS = {
@@ -37,7 +49,7 @@ const notFound = (c: Context) => apiError(c, "NOT_FOUND", "Owner not found.");
 const stale = (c: Context) => apiError(c, "CONFLICT", "This owner was changed by someone else. Reload and try again.");
 
 /** Owners CRUD, archive and restore (SPEC §6.3, §14.2). Every editor may use them; the Smoke user is blocked by the session guard. */
-export function mountOwnerRoutes(app: Hono, db: Db, usage: OwnerUsage = noOwnerUsage) {
+export function mountOwnerRoutes(app: Hono, db: Db, usage: OwnerUsage = dbOwnerUsage) {
   /** Actions accept an optional `version` (§14); an empty body is fine. */
   const actionVersion = async (c: Context) => validate(c, versionSchema, await c.req.json().catch(() => ({})));
   const present = ({ archivedAt, ...o }: OwnerRow) => ({ ...o, archivedAt });
