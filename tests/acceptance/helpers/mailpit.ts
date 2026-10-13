@@ -34,7 +34,8 @@ export async function findMail(f: MailFilter = {}): Promise<Mail[]> {
       (!f.to || m.To.some((t) => t.Address.toLowerCase() === f.to!.toLowerCase())) &&
       (!f.subject || matches(m.Subject, f.subject)),
   );
-  const full = await Promise.all(summaries.map((m) => getMail(m.ID)));
+  // The single-message endpoint has no `Created` (Mailpit's receive time); keep it from the list summary.
+  const full = await Promise.all(summaries.map(async (m) => ({ ...(await getMail(m.ID)), Created: m.Created })));
   return full
     .filter((m) => !f.body || matches(m.Text, f.body) || matches(m.HTML, f.body))
     .sort((a, b) => a.Created.localeCompare(b.Created));

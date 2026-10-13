@@ -211,7 +211,7 @@
       "AC-AUTH-07",
       "AC-AUTH-11"
     ],
-    "status": "blocked"
+    "status": "todo"
   },
   {
     "id": "T022",
@@ -257,7 +257,7 @@
       "AC-PLAT-04",
       "AC-PLAT-08"
     ],
-    "status": "blocked"
+    "status": "todo"
   },
   {
     "id": "T026",

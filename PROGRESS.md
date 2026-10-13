@@ -6,30 +6,11 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 
 ## Blocked
 
-- **T021** (forgot/reset password) is blocked by a disputed test, see below. Everything else in T021 is built and passing.
-  The owner needs to have the locked test helper fixed (a new locked test tag), then T021 can be set back to "todo".
+None.
 
 ## Disputed tests
 
-**AC-PLAT-08** (`tests/acceptance/plat.spec.ts:145`, via `tests/acceptance/helpers/mailpit.ts:40`), T025. Same helper bug as AC-AUTH-05 below.
-- Failure: `TypeError: Cannot read properties of undefined (reading 'localeCompare')` at `helpers/mailpit.ts:40`, reached from
-  `waitForMail(..., { count: 2 })` after `node dist/cli.js resend-admin-invite`.
-- Reason: with two matching invitation emails (the first one and the resent one) `findMail` sorts full messages by `Created`, which
-  Mailpit's `GET /api/v1/message/{id}` does not return (it has `Date`). The app does send two emails; the helper crashes.
-  AC-USR-05 (T026) will hit the same crash. Fix: sort by `Date`, or keep `Created` from the list summaries.
-
-**AC-AUTH-05** (`tests/acceptance/auth.spec.ts:83`, via `tests/acceptance/helpers/mailpit.ts:40`), T021.
-- Failure: `TypeError: Cannot read properties of undefined (reading 'localeCompare')` at `helpers/mailpit.ts:40`,
-  reached from `countMailAfter` at `auth.spec.ts:95`.
-- Reason: `findMail` sorts the full messages by `a.Created`, but Mailpit's single-message endpoint
-  (`GET /api/v1/message/{id}`) has no `Created` field (it has `Date`; `Created` exists only in the list summaries).
-  Checked on the pinned v1.27.11 and on the newest v1.31.5: both return `ID, MessageID, From, To, ..., Date, ..., Text, HTML`.
-  The sort only compares when 2 or more messages match, so the helper fails whenever a test expects more than one email.
-  AC-AUTH-05 sends 5 reset requests for one address and the spec (§10, §16, AC-AUTH-05 itself) allows up to 3 emails per hour,
-  so a correct app sends 2-3 matching emails and the test crashes. Passing would need the app to send only one reset email per
-  hour, which contradicts the spec's "at most 3". The app sends exactly 3 (covered by `password-reset.int.test.ts`).
-- Suggested fix for the helper: sort by `Date` (present in the full message) or keep `Created` from the summaries.
-- All other T021 criteria (AC-AUTH-06, -07, -11) pass in verify.sh.
+**2026-10-13** — Owner approved fix to tests/acceptance/helpers/mailpit.ts (sort by Mailpit receive time); T021 and T025 reopened.
 
 ## Log
 
