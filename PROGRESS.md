@@ -161,3 +161,14 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
 - Note for later tasks: database `now()` still uses real time, so time-based queries must be given
   the app's time. Job-trigger routes should wait for the worker to pick up a new clock setting.
 - verify.sh passes; the reviewer approved. Nothing for the owner to do.
+
+### 2026-10-13 — T012: real worker and test reset
+- The worker is now a real program: it connects to the job queue (pg-boss, which keeps its own tables
+  in a separate `pgboss` area of the database), sets up the three queues (`email.send`, `pdf.render`,
+  `preview.render`), and shuts down cleanly when Fly or you stop it (finishes running jobs first).
+  No jobs do anything yet; later tasks add them.
+- Added `POST /api/test/reset` (test setups only; "not found" otherwise). It empties every app table
+  and every waiting job, and puts the test clock back to real time. Queues and database structure stay.
+- Owner/next builder: the worker machine on Fly was "stopped" (see T009). After this deploy, check
+  `fly status -a rentnerd-app`; the worker may still need starting by the deploy workflow.
+- verify.sh passes; the reviewer approved. No screens changed, so no QA pass.

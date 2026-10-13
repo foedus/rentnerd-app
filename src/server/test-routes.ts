@@ -1,6 +1,7 @@
 import type { Hono } from "hono";
 import type pg from "pg";
 import { z } from "zod";
+import { resetAppData } from "../db/reset";
 import { applyClock } from "../db/test-clock";
 
 const clockBody = z.object({ now: z.union([z.iso.datetime({ offset: true }), z.null()]) });
@@ -14,5 +15,9 @@ export function mountTestRoutes(app: Hono, pool: Pick<pg.Pool, "query">) {
     if (!parsed.success) return c.json(error("VALIDATION_ERROR", 'Body must be {"now": ISO timestamp | null}'), 400);
     await applyClock(pool, parsed.data.now);
     return c.json({ now: new Date().toISOString() });
+  });
+  app.post("/api/test/reset", async (c) => {
+    await resetAppData(pool);
+    return c.json({ reset: true });
   });
 }

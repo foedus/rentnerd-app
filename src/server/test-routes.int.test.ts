@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createDb } from "../db/client";
+import { startWorker } from "../worker/boss";
 import { loadClock, readClockOffset } from "../db/test-clock";
 import { getClockOffset, installClock, setClockNow } from "../shared/clock";
 import { createApp } from "./app";
@@ -48,5 +49,28 @@ describe("POST /api/test/clock", () => {
       expect(res.status).toBe(400);
       expect((await res.json()).error.code).toBe("VALIDATION_ERROR");
     }
+  });
+});
+
+describe("POST /api/test/reset", () => {
+  it("empties app tables and queued jobs but keeps the schema, queues and migrations", async () => {
+    await pool.query("insert into \"user\" (name, email) values ('A', 'a@example.test')");
+    await post("2030-03-01T12:00:00.000Z");
+    const worker = await startWorker(url);
+    await worker.boss.send("email.send", { to: "x" });
+    const res = await app.request("/api/test/reset", { method: "POST" });
+    expect(res.status).toBe(200);
+    expect((await pool.query('select count(*)::int as n from "user"')).rows[0].n).toBe(0);
+    expect((await pool.query("select count(*)::int as n from pgboss.job")).rows[0].n).toBe(0);
+    expect(await readClockOffset(pool)).toBe(0);
+    expect(getClockOffset()).toBe(0);
+    expect((await worker.boss.getQueues()).map((q) => q.name)).toContain("email.send");
+    expect((await pool.query("select count(*)::int as n from drizzle.__drizzle_migrations")).rows[0].n).toBeGreaterThan(0);
+    await worker.stop();
+  });
+
+  it("does not exist when test routes are disabled", async () => {
+    const off = createApp(pool, "dist/client", undefined, { testRoutesEnabled: false });
+    expect((await off.request("/api/test/reset", { method: "POST" })).status).toBe(404);
   });
 });
