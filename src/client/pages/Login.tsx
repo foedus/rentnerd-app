@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { Button, FieldError, Input, Label, TextField } from "react-aria-components";
-import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router";
 import { fetchMe, signIn, SignInError } from "../api";
 import { Page } from "../components/Page";
 
@@ -15,6 +15,7 @@ export function safeNext(next: string | null): string {
 export function Login() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const notice = (useLocation().state as { notice?: string } | null)?.notice;
   const queryClient = useQueryClient();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -53,6 +54,7 @@ export function Login() {
             <Input className={input} />
             <FieldError />
           </TextField>
+          <div role="status">{notice}</div>
           <div role="alert" className="text-red-700">{error}</div>
           <Button type="submit" isDisabled={busy} className="min-h-6 rounded bg-slate-900 px-4 py-1 text-white">
             Sign in

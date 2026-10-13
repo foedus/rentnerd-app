@@ -8,7 +8,7 @@ import { mountInvitationRoutes } from "./invitation-routes";
 import { mountMeRoutes } from "./me-routes";
 import { mountUserRoutes } from "./user-routes";
 import type { EnqueueEmail } from "../worker/email";
-import { signInRateLimit } from "./rate-limit";
+import { RateLimiter, rateLimit, signInRateLimit } from "./rate-limit";
 import { mountSpa } from "./spa";
 import { mountTestRoutes } from "./test-routes";
 
@@ -35,6 +35,13 @@ export function createApp(
   app.get("/api/health", health);
   app.get("/healthz", health);
   if (auth) app.use("/api/auth/sign-in/email", signInRateLimit());
+  if (auth) {
+    // §16: forgot-password 20 per IP per hour; reset-password 20 per IP per 15 minutes.
+    const forgot = new RateLimiter(20, 60 * 60_000);
+    const reset = new RateLimiter(20, 15 * 60_000);
+    for (const path of ["/api/auth/request-password-reset", "/api/auth/forget-password"]) app.post(path, rateLimit(forgot));
+    app.post("/api/auth/reset-password", rateLimit(reset));
+  }
   if (auth) app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
   if (auth && db) {
     mountInvitationRoutes(app, db, auth);

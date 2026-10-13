@@ -41,3 +41,32 @@ export async function signIn(email: string, password: string): Promise<void> {
   if (res.status === 429) throw new SignInError("Too many attempts. Try again in a few minutes.");
   throw new SignInError("Incorrect email or password.");
 }
+
+export const RESET_SENT = "If an account exists for that email, we've sent a reset link.";
+export const INVALID_RESET = "This reset link is invalid or has expired.";
+export const TOO_MANY = "Too many attempts. Try again in a few minutes.";
+
+/** Asks for a reset email. The answer never says whether an account exists; only a 429 is reported. */
+export async function requestPasswordReset(email: string): Promise<void> {
+  const res = await fetch("/api/auth/request-password-reset", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  if (!res.ok && res.status >= 500) throw new Error("Something went wrong. Please try again.");
+}
+
+export class InvalidResetLinkError extends Error {}
+
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  const res = await fetch("/api/auth/reset-password", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ token, newPassword }),
+  });
+  if (res.ok) return;
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  if (res.status >= 500) throw new Error("Something went wrong. Please try again.");
+  throw new InvalidResetLinkError(INVALID_RESET);
+}

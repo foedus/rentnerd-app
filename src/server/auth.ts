@@ -6,8 +6,9 @@ import type { Db } from "../db/client";
 import * as schema from "../db/schema";
 
 import { PASSWORD_MAX, PASSWORD_MIN } from "../shared/schemas";
+import { RESET_TOKEN_TTL_SECONDS, sendPasswordChangedEmail, sendResetEmail, type PasswordMail } from "./password-emails";
 
-export function createAuth(db: Db, env: NodeJS.ProcessEnv = process.env) {
+export function createAuth(db: Db, env: NodeJS.ProcessEnv = process.env, mail?: PasswordMail) {
   return betterAuth({
     secret: env.AUTH_SECRET,
     baseURL: env.APP_URL,
@@ -23,6 +24,14 @@ export function createAuth(db: Db, env: NodeJS.ProcessEnv = process.env) {
       requireEmailVerification: true,
       minPasswordLength: PASSWORD_MIN,
       maxPasswordLength: PASSWORD_MAX,
+      resetPasswordTokenExpiresIn: RESET_TOKEN_TTL_SECONDS,
+      revokeSessionsOnPasswordReset: true,
+      sendResetPassword: async ({ user, token }) => {
+        if (mail) await sendResetEmail(mail, user as typeof user & { status?: unknown }, token);
+      },
+      onPasswordReset: async ({ user }) => {
+        if (mail) await sendPasswordChangedEmail(mail, user);
+      },
     },
     databaseHooks: {
       session: {

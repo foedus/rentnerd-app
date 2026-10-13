@@ -6,7 +6,9 @@ import { fetchMe, TooManyRequestsError, UnauthenticatedError } from "./api";
 import { Layout } from "./components/Layout";
 import { NoAccess, NotFound } from "./components/Notices";
 import { Page } from "./components/Page";
+import { ForgotPassword } from "./pages/ForgotPassword";
 import { Login } from "./pages/Login";
+import { ResetPassword } from "./pages/ResetPassword";
 
 export const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
@@ -26,6 +28,15 @@ function Shell() {
     );
   }
   if (error instanceof UnauthenticatedError) {
+    // Addresses that aren't pages at all (e.g. /verify-email) are "not found" for everyone, signed in or not.
+    const path = location.pathname.replace(/\/+$/, "") || "/";
+    if (!pages.some((p) => p.path === path)) {
+      return (
+        <main className="mx-auto max-w-sm p-4">
+          <NotFound />
+        </main>
+      );
+    }
     const next = location.pathname + location.search + location.hash;
     return <Navigate to={next === "/" ? "/login" : `/login?next=${encodeURIComponent(next)}`} replace />;
   }
@@ -74,6 +85,8 @@ export function App() {
       <StripLineBreaks>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/*" element={<Shell />} />
         </Routes>
       </StripLineBreaks>

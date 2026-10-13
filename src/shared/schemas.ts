@@ -27,3 +27,14 @@ export const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(200).default(50),
 });
+
+/** Reset-password form (§11.3, AC-AUTH-08): the same rules as Account settings. */
+export const newPasswordSchema = z
+  .object({
+    newPassword: z
+      .string()
+      .min(PASSWORD_MIN, `Password must be at least ${PASSWORD_MIN} characters.`)
+      .max(PASSWORD_MAX, `Password must be ${PASSWORD_MAX} characters or fewer.`),
+    confirmPassword: z.string(),
+  })
+  .refine((v) => v.newPassword === v.confirmPassword, { path: ["confirmPassword"], message: "Passwords don't match." });

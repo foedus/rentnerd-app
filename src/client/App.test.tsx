@@ -60,7 +60,7 @@ it("strips line breaks from the path so the page doesn't render blank, and keeps
   document.body.innerHTML = '<div id="root"></div>';
   const root = createRoot(document.getElementById("root") as HTMLElement);
   await act(async () => {
-    root.render(<MemoryRouter initialEntries={["/x%0a"]}><App /><Where /></MemoryRouter>);
+    root.render(<MemoryRouter initialEntries={["/tenants%0a"]}><App /><Where /></MemoryRouter>);
   });
   await act(async () => {
     await new Promise((r) => setTimeout(r, 50));
@@ -80,4 +80,28 @@ it("strips line breaks from the path so the page doesn't render blank, and keeps
   });
   expect(document.querySelector('[data-testid="where"]')?.textContent).toBe("/login?next=%2Fproperties%3Fx%3D1%23frag");
   await act(async () => root2.unmount());
+});
+
+it("shows 'Page not found' to signed-out visitors for addresses that aren't pages, but still sends real pages to /login", async () => {
+  queryClient.clear();
+  vi.stubGlobal("fetch", async () => new Response("{}", { status: 401 }));
+  const render = async (start: string) => {
+    document.body.innerHTML = '<div id="root"></div>';
+    const root = createRoot(document.getElementById("root") as HTMLElement);
+    await act(async () => {
+      root.render(<MemoryRouter initialEntries={[start]}><App /><Where /></MemoryRouter>);
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    return root;
+  };
+  const a = await render("/verify-email");
+  expect(document.querySelector("h1")?.textContent).toBe("Page not found");
+  expect(document.querySelector('[data-testid="where"]')?.textContent).toBe("/verify-email");
+  await act(async () => a.unmount());
+  queryClient.clear();
+  const b = await render("/properties/");
+  expect(document.querySelector('[data-testid="where"]')?.textContent).toBe("/login?next=%2Fproperties%2F");
+  await act(async () => b.unmount());
 });

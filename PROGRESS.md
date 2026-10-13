@@ -6,14 +6,37 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 
 ## Blocked
 
-(None yet. Blocked tasks are listed here with the reason and what the owner needs to do.)
+- **T021** (forgot/reset password) is blocked by a disputed test, see below. Everything else in T021 is built and passing.
+  The owner needs to have the locked test helper fixed (a new locked test tag), then T021 can be set back to "todo".
 
 ## Disputed tests
 
-(None yet. A build session that believes a locked acceptance test contradicts SPEC.md records
-the test, the failure output and its reasoning here; see SPEC.md §15.5.)
+**AC-AUTH-05** (`tests/acceptance/auth.spec.ts:83`, via `tests/acceptance/helpers/mailpit.ts:40`), T021.
+- Failure: `TypeError: Cannot read properties of undefined (reading 'localeCompare')` at `helpers/mailpit.ts:40`,
+  reached from `countMailAfter` at `auth.spec.ts:95`.
+- Reason: `findMail` sorts the full messages by `a.Created`, but Mailpit's single-message endpoint
+  (`GET /api/v1/message/{id}`) has no `Created` field (it has `Date`; `Created` exists only in the list summaries).
+  Checked on the pinned v1.27.11 and on the newest v1.31.5: both return `ID, MessageID, From, To, ..., Date, ..., Text, HTML`.
+  The sort only compares when 2 or more messages match, so the helper fails whenever a test expects more than one email.
+  AC-AUTH-05 sends 5 reset requests for one address and the spec (§10, §16, AC-AUTH-05 itself) allows up to 3 emails per hour,
+  so a correct app sends 2-3 matching emails and the test crashes. Passing would need the app to send only one reset email per
+  hour, which contradicts the spec's "at most 3". The app sends exactly 3 (covered by `password-reset.int.test.ts`).
+- Suggested fix for the helper: sort by `Date` (present in the full message) or keep `Created` from the summaries.
+- All other T021 criteria (AC-AUTH-06, -07, -11) pass in verify.sh.
 
 ## Log
+
+### 2026-10-13 — T021: forgot and reset password (BLOCKED on one disputed test)
+- `/forgot-password` ("Send reset link", "Back to sign in") always shows "If an account exists for that email, we've sent a reset link."
+  The "Reset your RentNerd password" email goes only to active, verified people (not invited, deactivated or unknown addresses),
+  at most 3 per address per hour; each visitor address may ask 20 times per hour, then gets the 429 "Too many attempts..." message.
+- `/reset-password?token=...` takes the new password twice (12+ characters, must match); links work once and for 1 hour. A bad or
+  old link shows "This reset link is invalid or has expired." with "Request a new link". Success signs the person out everywhere,
+  sends "Your RentNerd password was changed" and returns to `/login` with "Your password has been reset. Please sign in."
+  Reset attempts are limited to 20 per visitor address per 15 minutes.
+- Signed-out visitors to addresses that aren't pages (e.g. `/verify-email`) now see "Page not found" instead of the sign-in page.
+- verify.sh: everything passes except AC-AUTH-05, which crashes inside the locked Mailpit helper (see Disputed tests).
+  Owner: the locked helper needs the fix described there. The reviewer and QA passes were not run because the task is blocked.
 
 ### 2026-10-12 — T007: Fly.io settings (fly.toml)
 - Added `fly.toml`: app `rentnerd-app` in San Jose (`sjc`), a `web` program and a `worker` program,
