@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, pgEnum, uniqueIndex, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, index, integer, pgEnum, uniqueIndex, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const userRole = pgEnum("user_role", ["admin", "landlord", "smoke"]);
 export const userStatus = pgEnum("user_status", ["invited", "active", "deactivated"]);
@@ -77,3 +77,9 @@ export const verification = pgTable(
   },
   (t) => [index("verification_identifier_idx").on(t.identifier)],
 );
+
+// Test environments only (D-25, SPEC §6.16): a single row holding the app clock offset.
+export const testClock = pgTable("test_clock", {
+  id: integer("id").primaryKey().default(1),
+  offsetMs: bigint("offset_ms", { mode: "number" }).notNull().default(0),
+});

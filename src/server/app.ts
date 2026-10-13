@@ -4,6 +4,7 @@ import type { Auth } from "./auth";
 import type { AppConfig } from "../shared/config";
 import { securityHeaders } from "./security-headers";
 import { mountSpa } from "./spa";
+import { mountTestRoutes } from "./test-routes";
 
 type Pinger = Parameters<typeof isDatabaseReachable>[0];
 
@@ -22,8 +23,9 @@ export function createApp(
   app.get("/api/health", health);
   app.get("/healthz", health);
   if (auth) app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
-  // Test-only routes (D-25) are added by later tasks; until enabled, /api/test/* does not exist.
-  if (!config.testRoutesEnabled) app.all("/api/test/*", (c) => c.json({ error: { code: "NOT_FOUND", message: "Not found" } }, 404));
+  // Test-only routes (D-25); when disabled /api/test/* does not exist. Registered before the SPA fallback.
+  if (config.testRoutesEnabled) mountTestRoutes(app, pool);
+  else app.all("/api/test/*", (c) => c.json({ error: { code: "NOT_FOUND", message: "Not found" } }, 404));
   mountSpa(app, clientDir);
   return app;
 }

@@ -149,3 +149,15 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
 - With the switch off, anything under /api/test/ answers "not found". The test routes themselves
   arrive in later tasks; they must be registered before the SPA fallback.
 - verify.sh passes (AC-PLAT-05 and AC-PLAT-07 included); the reviewer approved. Nothing for the owner to do.
+
+### 2026-10-13 — T011: test clock
+- Added the test clock used by the acceptance tests. `POST /api/test/clock` with a date/time moves
+  the whole app clock forward or back (it keeps ticking from there); `{"now": null}` puts it back
+  to real time. The setting is stored in the database (new `test_clock` table), so the web server
+  re-reads it on start, the worker follows it within about a quarter of a second, and the
+  command-line tool reads it each time it runs. Signing requests for file storage will use real time.
+- It only exists in test setups (the safety checks from T010 still apply); in production the clock
+  is untouched and the route answers "not found".
+- Note for later tasks: database `now()` still uses real time, so time-based queries must be given
+  the app's time. Job-trigger routes should wait for the worker to pick up a new clock setting.
+- verify.sh passes; the reviewer approved. Nothing for the owner to do.
