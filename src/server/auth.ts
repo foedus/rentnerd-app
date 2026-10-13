@@ -11,7 +11,11 @@ export function createAuth(db: Db, env: NodeJS.ProcessEnv = process.env) {
     secret: env.AUTH_SECRET,
     baseURL: env.APP_URL,
     database: drizzleAdapter(db, { provider: "pg", schema }),
-    advanced: { database: { generateId: "uuid" } },
+    advanced: {
+      database: { generateId: "uuid" },
+      useSecureCookies: env.APP_URL?.startsWith("https://") === true,
+      defaultCookieAttributes: { httpOnly: true, sameSite: "lax" },
+    },
     emailAndPassword: {
       enabled: true,
       disableSignUp: true,

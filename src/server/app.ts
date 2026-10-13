@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono";
 import { isDatabaseReachable } from "../db/client";
 import type { Auth } from "./auth";
 import type { AppConfig } from "../shared/config";
+import { mountErrorHandlers, originCheck, sessionGuard } from "./api-guard";
 import { securityHeaders } from "./security-headers";
 import { mountSpa } from "./spa";
 import { mountTestRoutes } from "./test-routes";
@@ -13,9 +14,13 @@ export function createApp(
   clientDir = "dist/client",
   auth?: Auth,
   config: AppConfig = { testRoutesEnabled: false },
+  appUrl: string | undefined = process.env.APP_URL,
 ) {
   const app = new Hono();
   app.use("*", securityHeaders);
+  mountErrorHandlers(app);
+  app.use("/api/*", originCheck(appUrl));
+  if (auth) app.use("/api/*", sessionGuard(auth));
   const health = async (c: Context) =>
     (await isDatabaseReachable(pool))
       ? c.json({ status: "ok" })

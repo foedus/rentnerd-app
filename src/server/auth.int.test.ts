@@ -16,7 +16,7 @@ const env = {
   SMOKE_USER_PASSWORD: "smoke-password-0001",
 };
 const auth = createAuth(db, env);
-const app = createApp(pool, "dist/client", auth);
+const app = createApp(pool, "dist/client", auth, { testRoutesEnabled: false }, env.APP_URL);
 
 beforeAll(() => {
   execFileSync("npm", ["run", "build"], { stdio: "pipe" });

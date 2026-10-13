@@ -186,3 +186,16 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
   digest's one-per-recipient-per-day rule still needs a queue setting plus handling when a job is
   skipped as a duplicate.
 - verify.sh passes; the reviewer approved. No screens changed, so no QA pass. Nothing for the owner to do.
+
+### 2026-10-13 — T014: sign-in rules and API guard
+- Sign-in sessions are kept in the database for 7 days (renewed at most once a day). The cookie is
+  HttpOnly, SameSite=Lax, carries a Max-Age, and is marked Secure whenever the app address is https
+  (so in production). Sign-up stays off; passwords must be 12–128 characters.
+- Every `/api` address now needs a signed-in user, except the health check, sign-in/out (`/api/auth/*`)
+  and the two public invitation addresses; otherwise the answer is 401 `UNAUTHENTICATED`. Invited and
+  deactivated people count as signed out.
+- Any POST/PATCH/PUT/DELETE must come from the app's own address (the `Origin` header), else 403
+  `FORBIDDEN`. The test-only routes are exempt. The read-only smoke user gets 403 on every write
+  except signing out. Unexpected server errors answer 500 `INTERNAL` in the standard error format.
+- Note for later tasks: the signed-in user is available in route handlers as `c.get("user")`.
+- verify.sh passes; the reviewer approved. No screens changed, so no QA pass. Nothing for the owner to do.
