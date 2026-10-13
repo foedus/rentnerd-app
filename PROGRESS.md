@@ -361,3 +361,12 @@ None.
   vacancy loss, value (latest market estimate, else purchase price), gross yield (2 decimals) and the "Based on {n} of {m} properties
   with a value." note. Callers must pass only non-archived properties and units. No screens changed.
 - verify.sh passes; the reviewer approved. No QA pass (no screens changed). Nothing for the owner to do.
+
+### 2026-10-13 — T021: forgot and reset password (finished)
+- The owner-approved fix to the test mail helper is in, and all password-reset acceptance tests (AC-AUTH-05, -06, -07, -11) now pass.
+- Final polish after the QA pass: a bad email on `/forgot-password` now shows "Enter a valid email address." on the page (and moves
+  focus to the field) instead of a browser tooltip, and the next try works on the first click. The reset page only says "invalid or
+  has expired" for a genuinely bad link; other failures show "Something went wrong. Please try again."
+- Left for later (minor): the "password has been reset" notice reappears if `/login` is reloaded; a password of 12 spaces is accepted
+  (the spec only asks for 12 characters); the inline error under the reset fields is not red; the "password changed" email's wording
+  differs slightly from §10.4. The reviewer approved. Nothing for the owner to do.

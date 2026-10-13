@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from "react";
-import { Button, FieldError, Input, Label, TextField } from "react-aria-components";
+import { Button, Input, Label, TextField } from "react-aria-components";
 import { Link } from "react-router";
 import { RESET_SENT, requestPasswordReset } from "../api";
 import { Page } from "../components/Page";
+
+const INVALID_EMAIL = "Enter a valid email address.";
 
 export function ForgotPassword() {
   const [message, setMessage] = useState("");
@@ -12,9 +14,14 @@ export function ForgotPassword() {
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const email = String(new FormData(e.currentTarget).get("email") ?? "").trim();
-    setBusy(true);
     setError("");
     setMessage("");
+    if (!/^\S+@\S+$/.test(email)) {
+      setError(INVALID_EMAIL);
+      e.currentTarget.querySelector("input")?.focus();
+      return;
+    }
+    setBusy(true);
     try {
       await requestPasswordReset(email);
       setMessage(RESET_SENT);
@@ -28,11 +35,10 @@ export function ForgotPassword() {
   return (
     <main className="mx-auto max-w-sm p-4">
       <Page title="Forgot password">
-        <form onSubmit={onSubmit} className="space-y-4">
-          <TextField name="email" type="email" autoComplete="username" isRequired className="block">
+        <form onSubmit={onSubmit} noValidate className="space-y-4">
+          <TextField name="email" type="email" autoComplete="username" isRequired validationBehavior="aria" isInvalid={error === INVALID_EMAIL} className="block">
             <Label>Email (required)</Label>
             <Input className={input} />
-            <FieldError />
           </TextField>
           <div role="status">{message}</div>
           <div role="alert" className="text-red-700">{error}</div>

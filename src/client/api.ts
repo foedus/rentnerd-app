@@ -68,7 +68,7 @@ export async function resetPassword(token: string, newPassword: string): Promise
   });
   if (res.ok) return;
   if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
-  if (res.status >= 500) throw new Error("Something went wrong. Please try again.");
+  if (res.status !== 400 && res.status !== 404) throw new Error("Something went wrong. Please try again.");
   throw new InvalidResetLinkError(INVALID_RESET);
 }
 
