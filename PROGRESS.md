@@ -473,6 +473,6 @@ None.
   of non-archived units for each property.
 - Occupied shows 0 for now because leases don't exist yet; the lease tasks must fill it in from the shared occupancy calculation. The
   Add property page (`/properties/new`, already blocked for the Smoke user) and the property detail page come with the next tasks.
-- AC-PROP-10 passes. QA noted, left as is: Show archived adds archived properties to the list rather than replacing it (same as Owners; the
-  spec doesn't say), and a failed list load shows the generic error without a retry button.
+- AC-PROP-10 passes. QA found that a failed list load had no way to retry; the page now shows "Try again" under the error. QA also asked
+  whether Show archived should add archived properties or replace the list; it adds them, as the spec says for Owners (AC-OWN-03), so that stays.
 - verify.sh passes; the reviewer approved; QA pass done. Nothing for the owner to do.

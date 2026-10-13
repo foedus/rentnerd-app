@@ -81,7 +81,14 @@ export function Properties() {
         )}
       </div>
       {properties.isPending && <p role="status">Loading…</p>}
-      {properties.isError && <p role="alert">{properties.error instanceof Error ? properties.error.message : UNEXPECTED_MESSAGE}</p>}
+      {properties.isError && (
+        <div>
+          <p role="alert">{properties.error instanceof Error ? properties.error.message : UNEXPECTED_MESSAGE}</p>
+          <Button onPress={() => void properties.refetch()} className="mt-2 min-h-6 rounded border px-3 py-1">
+            Try again
+          </Button>
+        </div>
+      )}
       {properties.data && (
         <>
           <DataTable

@@ -69,3 +69,34 @@ it("shows the empty state, and hides Add property for the Smoke user", async () 
   expect(buttonNamed("Add property")).toBeUndefined();
   await act(async () => root.unmount());
 });
+
+it("a failed load shows the error with a Try again button that reloads the list", async () => {
+  let fail = true;
+  const calls: string[] = [];
+  vi.stubGlobal("fetch", async (url: string) => {
+    calls.push(url);
+    if (url === "/api/me") return json({ id: "u", name: "Ann", email: "a@x.com", role: "admin", status: "active" });
+    return fail ? new Response("{}", { status: 500 }) : json({ data: [property], page: 1, pageSize: 50, total: 1 });
+  });
+  queryClient.clear();
+  document.body.innerHTML = '<div id="root"></div>';
+  const root = createRoot(document.getElementById("root") as HTMLElement);
+  await act(async () => {
+    root.render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/properties"]}>
+          <Routes>
+            <Route path="/properties" element={<Properties />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+  });
+  await act(async () => void (await new Promise((r) => setTimeout(r, 30))));
+  expect(document.querySelector("[role=alert]")?.textContent).toBe("Something went wrong. Please try again.");
+  fail = false;
+  await act(async () => buttonNamed("Try again")?.click());
+  await act(async () => void (await new Promise((r) => setTimeout(r, 30))));
+  expect(document.querySelector("tbody")?.textContent).toContain("Court Plaza");
+  await act(async () => root.unmount());
+});
