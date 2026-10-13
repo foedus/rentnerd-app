@@ -172,7 +172,7 @@ describe("GET /api/users", () => {
     await makeUser("b@example.com", "landlord", "active", "Bob");
     const all = await (await call(adminCookie, "GET", "/api/users")).json();
     expect(all).toMatchObject({ page: 1, pageSize: 50, total: 3 });
-    expect(all.data[0]).toEqual({ id: expect.any(String), name: "Ada Admin", email: "admin@example.com", role: "admin", status: "active", lastSignInAt: null, invitation: null });
+    expect(all.data[0]).toEqual({ id: expect.any(String), name: "Ada Admin", email: "admin@example.com", role: "admin", status: "active", lastSignInAt: expect.any(String), invitation: null });
     const page = await (await call(adminCookie, "GET", "/api/users?pageSize=2&page=2")).json();
     expect(page.data).toHaveLength(1);
     expect((await call(adminCookie, "GET", "/api/users?pageSize=500")).status).toBe(422);

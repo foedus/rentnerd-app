@@ -108,3 +108,20 @@ describe("auth configuration", () => {
     await db.insert(user).values({ name: "L2", email: "l2@x.test", role: "landlord" });
   });
 });
+
+describe("sign-in rules", () => {
+  it("refuses a deactivated user with the wrong-password answer and records last sign-in for active users", async () => {
+    await seedSmokeUser(auth, db, env);
+    const before = await signIn("smoke@example.test", "wrong-password-0000");
+    expect(before.status).toBe(401);
+    expect(await signIn("smoke@example.test", env.SMOKE_USER_PASSWORD)).toHaveProperty("status", 200);
+    const [u] = await db.select().from(user);
+    expect(u?.lastSignInAt).toBeInstanceOf(Date);
+
+    await db.update(user).set({ status: "deactivated" });
+    const res = await signIn("smoke@example.test", env.SMOKE_USER_PASSWORD);
+    expect(res.status).toBe(401);
+    expect(res.headers.get("set-cookie")).toBeNull();
+    expect(((await res.json()) as { message: string }).message).toBe(((await before.json()) as { message: string }).message);
+  });
+});

@@ -256,3 +256,17 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
   A missing `/assets/...` file now answers 404 instead of the page shell. After clicking a navigation link focus moves
   to the page's main area.
 - verify.sh passes; the reviewer approved; QA findings were fixed (the error screen now has "Try again" and shows the too-many-attempts message on 429). Nothing for the owner to do.
+
+### 2026-10-13 — T019: the sign-in page
+- `/login` now has Email and Password fields, a "Sign in" button and a "Forgot password?" link (that page arrives in T021).
+  There is no sign-up link. A wrong password, an unknown email, a deactivated account and an invited person who hasn't
+  accepted all show the same "Incorrect email or password."; a 429 shows "Too many attempts. Try again in a few minutes."
+  (the server-side limit itself is T020).
+- Signed-out visitors are sent to `/login` and, after signing in, come back to the page they asked for (including any
+  `#section`). Only addresses on this site are accepted as the return page. Signing out returns to `/login`.
+- The server now refuses to start a session for anyone who isn't "Active" (so a deactivated person with the right password
+  is turned away), and records the "Last sign-in" time shown in the Users list.
+- Fixed along the way: addresses containing an encoded line break (e.g. `/x%0a`) showed a blank page; they now behave like the
+  address without it.
+- verify.sh passes; the reviewer approved; QA findings fixed (blank page, `#section` kept, `/login/` loop, empty-field hint via
+  the browser's own required-field message). Not changed: a signed-in person opening `/login` still sees the form. Nothing for the owner to do.

@@ -1,19 +1,16 @@
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router";
 import { canAccess, pages } from "../shared/routes";
 import { fetchMe, TooManyRequestsError, UnauthenticatedError } from "./api";
 import { Layout } from "./components/Layout";
 import { NoAccess, NotFound } from "./components/Notices";
 import { Page } from "./components/Page";
+import { Login } from "./pages/Login";
 
 export const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
 });
-
-/** Placeholder until the sign-in screen arrives; keeps signed-out visitors off protected pages. */
-function LoginPlaceholder() {
-  return <Page title="Sign in" />;
-}
 
 function Shell() {
   const location = useLocation();
@@ -29,7 +26,7 @@ function Shell() {
     );
   }
   if (error instanceof UnauthenticatedError) {
-    const next = location.pathname + location.search;
+    const next = location.pathname + location.search + location.hash;
     return <Navigate to={next === "/" ? "/login" : `/login?next=${encodeURIComponent(next)}`} replace />;
   }
   if (!me) {
@@ -63,13 +60,23 @@ function Shell() {
   );
 }
 
+/** React Router's splat route can't match a path containing a line break; strip those so the normal pages (or "Page not found") show. */
+function StripLineBreaks({ children }: { children: ReactNode }) {
+  const { pathname, search, hash } = useLocation();
+  const lineBreak = /%0[ad]|[\r\n]/gi;
+  if (lineBreak.test(pathname)) return <Navigate to={pathname.replace(lineBreak, "") + search + hash} replace />;
+  return <>{children}</>;
+}
+
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Routes>
-        <Route path="/login" element={<LoginPlaceholder />} />
-        <Route path="/*" element={<Shell />} />
-      </Routes>
+      <StripLineBreaks>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/*" element={<Shell />} />
+        </Routes>
+      </StripLineBreaks>
     </QueryClientProvider>
   );
 }

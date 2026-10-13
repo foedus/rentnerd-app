@@ -1,4 +1,6 @@
 import { betterAuth } from "better-auth";
+import { APIError } from "better-auth/api";
+import { eq } from "drizzle-orm";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import type { Db } from "../db/client";
 import * as schema from "../db/schema";
@@ -21,6 +23,22 @@ export function createAuth(db: Db, env: NodeJS.ProcessEnv = process.env) {
       requireEmailVerification: true,
       minPasswordLength: PASSWORD_MIN,
       maxPasswordLength: PASSWORD_MAX,
+    },
+    databaseHooks: {
+      session: {
+        create: {
+          // Only active users may start a session; deactivated accounts get the same answer as a wrong password (§11.1).
+          before: async (session) => {
+            const [u] = await db.select({ status: schema.user.status }).from(schema.user).where(eq(schema.user.id, session.userId));
+            if (u?.status !== "active") {
+              throw new APIError("UNAUTHORIZED", { code: "INVALID_EMAIL_OR_PASSWORD", message: "Invalid email or password" });
+            }
+          },
+          after: async (session) => {
+            await db.update(schema.user).set({ lastSignInAt: new Date() }).where(eq(schema.user.id, session.userId));
+          },
+        },
+      },
     },
     session: { expiresIn: 7 * 24 * 60 * 60, updateAge: 24 * 60 * 60 },
     user: {

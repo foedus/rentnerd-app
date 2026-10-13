@@ -27,3 +27,17 @@ export async function signOut(): Promise<void> {
   });
   if (!res.ok) throw new Error("Something went wrong. Please try again.");
 }
+
+export class SignInError extends Error {}
+
+/** Signs in with email and password. 429 and every refusal get their §11.1 wording; nothing else is revealed. */
+export async function signIn(email: string, password: string): Promise<void> {
+  const res = await fetch("/api/auth/sign-in/email", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (res.ok) return;
+  if (res.status === 429) throw new SignInError("Too many attempts. Try again in a few minutes.");
+  throw new SignInError("Incorrect email or password.");
+}
