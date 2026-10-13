@@ -1,9 +1,11 @@
 import { Hono, type Context } from "hono";
-import { isDatabaseReachable } from "../db/client";
+import { isDatabaseReachable, type Db } from "../db/client";
 import type { Auth } from "./auth";
 import type { AppConfig } from "../shared/config";
 import { mountErrorHandlers, originCheck, sessionGuard } from "./api-guard";
 import { securityHeaders } from "./security-headers";
+import { mountInvitationRoutes } from "./invitation-routes";
+import { mountMeRoutes } from "./me-routes";
 import { mountSpa } from "./spa";
 import { mountTestRoutes } from "./test-routes";
 
@@ -15,6 +17,7 @@ export function createApp(
   auth?: Auth,
   config: AppConfig = { testRoutesEnabled: false },
   appUrl: string | undefined = process.env.APP_URL,
+  db?: Db,
 ) {
   const app = new Hono();
   app.use("*", securityHeaders);
@@ -28,6 +31,10 @@ export function createApp(
   app.get("/api/health", health);
   app.get("/healthz", health);
   if (auth) app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
+  if (auth && db) {
+    mountInvitationRoutes(app, db, auth);
+    mountMeRoutes(app, db);
+  }
   // Test-only routes (D-25); when disabled /api/test/* does not exist. Registered before the SPA fallback.
   if (config.testRoutesEnabled) mountTestRoutes(app, pool);
   else app.all("/api/test/*", (c) => c.json({ error: { code: "NOT_FOUND", message: "Not found" } }, 404));

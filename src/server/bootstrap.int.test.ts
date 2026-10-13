@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDb } from "../db/client";
-import { bootstrapAdmin } from "./bootstrap";
+import { bootstrapAdmin, resendAdminInvite } from "./bootstrap";
 import { hashToken, invitationEmail } from "./invitations";
 
 const url = "postgres://rentnerd:rentnerd@localhost:5432/rentnerd_test";
@@ -73,6 +73,33 @@ describe("bootstrapAdmin", () => {
   it("fails clearly when ADMIN_EMAIL belongs to a non-admin user", async () => {
     await pool.query(`insert into "user" (name, email, role, status) values ('L', 'admin@example.test', 'landlord', 'active')`);
     await expect(run()).rejects.toThrow(/not the admin/);
+  });
+});
+
+describe("resendAdminInvite", () => {
+  const resend = () => resendAdminInvite(db, pool, { send } as never, env);
+
+  it("replaces the invitation with a new one and emails it while the admin is invited", async () => {
+    await run();
+    const [first] = await q("select token_hash from invitation");
+    expect(await resend()).toEqual({ status: "sent", email: "admin@example.test" });
+    expect(send).toHaveBeenCalledTimes(2);
+    const rows = await q("select token_hash, revoked_at from invitation order by created_at");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]!.token_hash).toBe(first!.token_hash);
+    expect(rows[0]!.revoked_at).not.toBeNull();
+    expect(rows[1]!.revoked_at).toBeNull();
+    const job = send.mock.calls[1] as unknown as [string, { text: string }];
+    expect(job[1].text).toContain("administrator of RentNerd");
+  });
+
+  it("does nothing once the admin is active, and reports a missing admin", async () => {
+    expect(await resend()).toEqual({ status: "no-admin" });
+    await run();
+    await pool.query(`update "user" set status = 'active'`);
+    send.mockClear();
+    expect(await resend()).toEqual({ status: "active", email: "admin@example.test" });
+    expect(send).not.toHaveBeenCalled();
   });
 });
 

@@ -28,6 +28,6 @@ boss.on("error", (error) => console.error("[web] pg-boss error", error));
 await boss.start();
 await boss.createQueue(EMAIL_QUEUE);
 await bootstrapAdmin(db, pool, boss);
-serve({ fetch: createApp(pool, undefined, auth, config).fetch, port }, () =>
+serve({ fetch: createApp(pool, undefined, auth, config, undefined, db).fetch, port }, () =>
   console.log(`${appBanner("web")} listening on ${port}`),
 );

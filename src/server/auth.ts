@@ -3,8 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import type { Db } from "../db/client";
 import * as schema from "../db/schema";
 
-export const PASSWORD_MIN = 12;
-export const PASSWORD_MAX = 128;
+import { PASSWORD_MAX, PASSWORD_MIN } from "../shared/schemas";
 
 export function createAuth(db: Db, env: NodeJS.ProcessEnv = process.env) {
   return betterAuth({

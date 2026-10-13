@@ -64,3 +64,33 @@ function adminExists(adminEmail: string, configured: string | undefined): AdminB
   if (differs) console.warn(`[web] ADMIN_EMAIL differs from the existing admin (${adminEmail}); ignoring it.`);
   return { status: "exists", email: adminEmail, differs };
 }
+
+export type ResendAdminInviteResult = { status: "sent"; email: string } | { status: "active"; email: string } | { status: "no-admin" };
+
+/** `resend-admin-invite` (D-05): sends the admin a fresh invitation link; does nothing once the admin is active. */
+export async function resendAdminInvite(
+  db: Db,
+  pool: pg.Pool,
+  boss: Pick<PgBoss, "send">,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<ResendAdminInviteResult> {
+  const created = await db.transaction(async (tx) => {
+    const [admin] = await tx.select({ id: user.id, email: user.email, status: user.status }).from(user).where(eq(user.role, "admin")).for("update");
+    if (!admin) return { status: "no-admin" as const };
+    if (admin.status !== "invited") return { status: "active" as const, email: admin.email };
+    return { status: "sent" as const, email: admin.email, ...(await createInvitation(tx, admin.id, null)) };
+  });
+  if (created.status !== "sent") return created;
+  await enqueueEmail(
+    pool,
+    boss,
+    {
+      to: created.email,
+      template: INVITATION_TEMPLATE,
+      subject: INVITATION_SUBJECT,
+      content: invitationEmail(created.token, created.expiresAt, null, env.APP_URL ?? ""),
+    },
+    env,
+  );
+  return { status: "sent", email: created.email };
+}

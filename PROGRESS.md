@@ -212,3 +212,18 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
   saving the administrator and queuing the email, no email goes out; the resend command will cover that.
 - verify.sh passes; the reviewer approved. No screens changed, so no QA pass. Before the first deploy the owner
   must have set the `ADMIN_EMAIL` secret on Fly (`fly secrets set ADMIN_EMAIL=<email> -a rentnerd-app`).
+
+### 2026-10-13 — T016: accepting invitations, "my account" and the admin-resend command
+- The two public invitation addresses now work. Looking up a link returns the email and name it was sent
+  to; accepting it (name + password of 12–128 characters) sets the password, marks the email verified, makes
+  the user "Active" and signs them in. A link works once only, even if used twice at the same instant, and
+  used, expired or revoked links all give the same "invalid or has expired" answer. Both addresses allow
+  20 requests per visitor address per 15 minutes, then answer 429 "Too many attempts. Try again in a few minutes."
+- `GET /api/me` shows the signed-in user's own details; `PATCH /api/me` changes their name.
+- `node dist/cli.js resend-admin-invite` emails the administrator a fresh link (replacing the old one) and does
+  nothing once the administrator has set a password.
+- Added the `zod` package for shared request checking. The rate-limit counters live in memory (one web machine),
+  so a restart resets them.
+- Not done yet, on purpose: audit-log rows for accepting an invitation and renaming yourself (the audit table
+  arrives in T028), and the accept-invitation page itself (later client tasks).
+- verify.sh passes; the reviewer approved. No screens changed, so no QA pass. Nothing for the owner to do.
