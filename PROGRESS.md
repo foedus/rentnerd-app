@@ -270,3 +270,11 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
   address without it.
 - verify.sh passes; the reviewer approved; QA findings fixed (blank page, `#section` kept, `/login/` loop, empty-field hint via
   the browser's own required-field message). Nothing for the owner to do.
+
+### 2026-10-13 — T020: limits on sign-in attempts
+- Sign-in now allows 5 failed tries per email and 30 failed tries per visitor address in any 15 minutes. After that, even the
+  right password gets a 429 "Too many attempts. Try again in a few minutes." (shown on `/login`). Unknown emails are limited the
+  same way, so the page never reveals whether an account exists. Successful sign-ins are not counted.
+- The visitor address comes from Fly's `Fly-Client-IP` header in production and from the connection itself elsewhere;
+  `X-Forwarded-For` is ignored. Counters are in memory (one web machine), so a restart resets them.
+- verify.sh passes; the reviewer approved. No screens changed, so no QA pass. Nothing for the owner to do.

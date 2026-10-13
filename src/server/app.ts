@@ -8,6 +8,7 @@ import { mountInvitationRoutes } from "./invitation-routes";
 import { mountMeRoutes } from "./me-routes";
 import { mountUserRoutes } from "./user-routes";
 import type { EnqueueEmail } from "../worker/email";
+import { signInRateLimit } from "./rate-limit";
 import { mountSpa } from "./spa";
 import { mountTestRoutes } from "./test-routes";
 
@@ -33,6 +34,7 @@ export function createApp(
       : c.json({ status: "unavailable" }, 503);
   app.get("/api/health", health);
   app.get("/healthz", health);
+  if (auth) app.use("/api/auth/sign-in/email", signInRateLimit());
   if (auth) app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
   if (auth && db) {
     mountInvitationRoutes(app, db, auth);
