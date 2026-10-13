@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigint, boolean, index, integer, pgEnum, uniqueIndex, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, index, integer, jsonb, pgEnum, uniqueIndex, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const userRole = pgEnum("user_role", ["admin", "landlord", "smoke"]);
 export const emailStatus = pgEnum("email_status", ["queued", "sent", "failed"]);
@@ -127,4 +127,27 @@ export const invitation = pgTable(
       .on(t.userId)
       .where(sql`${t.acceptedAt} is null and ${t.revokedAt} is null`),
   ],
+);
+
+export const auditAction = pgEnum("audit_action", [
+  "create", "update", "delete", "archive", "restore", "sign_in", "sign_in_failed", "sign_out", "password_reset",
+  "password_changed", "invite", "invite_revoked", "deactivate", "reactivate", "pdf_generate", "pdf_download",
+  "pdf_delete", "import", "compliance_complete",
+]);
+
+// SPEC §6.16, D-27: written in the same transaction as each change; never edited or deleted (`ip` is cleared after 2 years).
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+    actorUserId: uuid("actor_user_id").references(() => user.id, { onDelete: "set null" }),
+    action: auditAction("action").notNull(),
+    entityType: text("entity_type").notNull(),
+    entityId: text("entity_id"),
+    summary: text("summary").notNull(),
+    changes: jsonb("changes").$type<Record<string, [string | null, string | null]>>(),
+    ip: text("ip"),
+  },
+  (t) => [index("audit_log_at_idx").on(t.at), index("audit_log_actor_idx").on(t.actorUserId)],
 );

@@ -3,6 +3,7 @@ import { isDatabaseReachable, type Db } from "../db/client";
 import type { Auth } from "./auth";
 import type { AppConfig } from "../shared/config";
 import { mountErrorHandlers, originCheck, sessionGuard } from "./api-guard";
+import { requestContext } from "./request-context";
 import { securityHeaders } from "./security-headers";
 import { mountInvitationRoutes } from "./invitation-routes";
 import { mountMeRoutes } from "./me-routes";
@@ -26,6 +27,7 @@ export function createApp(
   const app = new Hono();
   app.use("*", securityHeaders);
   mountErrorHandlers(app);
+  app.use("/api/*", requestContext);
   app.use("/api/*", originCheck(appUrl));
   if (auth) app.use("/api/*", sessionGuard(auth));
   const health = async (c: Context) =>

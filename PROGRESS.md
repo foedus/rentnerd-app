@@ -399,3 +399,15 @@ None.
   password."), a "saved" message clears when the other form on the page saves, and required fields are marked `aria-required`.
   The audit row for name changes waits for the "Audit log foundation" task (no audit table exists yet); the page title no longer
   flashes "Loading – RentNerd" on first load: it already shows the requested page's title (e.g. "Account settings – RentNerd").
+
+### 2026-10-13 — T028: Audit log foundation
+- Added the activity record ("audit log") that later screens will show to the Admin. Each entry stores who did it, when, what kind of
+  action, which record, a plain-words summary, the before → after of changed fields (e.g. "Name: Lou → Louise") and the visitor's
+  address. Passwords, hashes, tokens and session ids are never written (anything with such a field name is dropped automatically).
+- Recorded now: sign-in, failed sign-in (for an unknown email the typed address is not stored), sign-out, password reset, password
+  changed, invitation sent / resent, invitation revoked, user deactivated / reactivated, and a user changing their own name (the
+  gap noted at T027). Sign-in and sign-out by the Smoke user are not recorded. Admin actions are written in the same database
+  transaction as the change, so a refused action leaves no entry.
+- Not yet: the Activity page and `GET /api/audit-log` (later task), clearing addresses after 2 years (cleanup task), and entries
+  for properties/leases etc. (they will use the same writer when those exist). No screens changed.
+- verify.sh passes; the reviewer approved. No QA pass (no screens changed). Nothing for the owner to do.

@@ -4,6 +4,7 @@ import type { Db } from "../db/client";
 import { invitation, session, user } from "../db/schema";
 import { inviteLandlordSchema, listQuerySchema } from "../shared/schemas";
 import type { EnqueueEmail } from "../worker/email";
+import { writeAudit } from "./audit";
 import { apiError } from "./api-guard";
 import { INVITATION_SUBJECT, INVITATION_TEMPLATE, createInvitation, invitationEmail } from "./invitations";
 import { validate, validateBody } from "./validation";
@@ -92,14 +93,16 @@ export function mountUserRoutes(app: Hono, db: Db, enqueue: EnqueueInvitationEma
   });
 
   /** Creates the invitation for the user and queues the §10.1 email, naming the inviter. */
-  const issue = async (c: Context, create: (tx: Pick<Db, "insert" | "update">) => Promise<{ userId: string }>) => {
+  const issue = async (c: Context, create: (tx: Pick<Db, "insert" | "update">) => Promise<{ userId: string }>, resend = false) => {
     const inviterId = c.get("user").id;
     const result = await db.transaction(async (tx) => {
       const made = await create(tx);
       const inv = await createInvitation(tx, made.userId, inviterId);
       const [inviter] = await tx.select({ name: user.name }).from(user).where(eq(user.id, inviterId));
       const [row] = await tx.select(invitationColumns).from(invitation).innerJoin(user, eq(user.id, invitation.userId)).where(eq(invitation.userId, made.userId)).orderBy(desc(invitation.createdAt)).limit(1);
-      return { inv, inviter: inviter?.name ?? "The administrator", row: row as InvitationRow };
+      const invited = row as InvitationRow;
+      await writeAudit(tx, { actorUserId: inviterId, action: "invite", entityType: "user", entityId: made.userId, summary: `${resend ? "Resent invitation to" : "Invited"} ${invited.name} (${invited.email})` });
+      return { inv, inviter: inviter?.name ?? "The administrator", row: invited };
     });
     await enqueue({
       to: result.row.email,
@@ -140,17 +143,21 @@ export function mountUserRoutes(app: Hono, db: Db, enqueue: EnqueueInvitationEma
     if (!inv) return apiError(c, "NOT_FOUND", "Invitation not found.");
     const [target] = await db.select({ status: user.status }).from(user).where(eq(user.id, inv.userId));
     if (target?.status !== "invited") return apiError(c, "CONFLICT", "This person has already accepted their invitation.");
-    return c.json(await issue(c, async () => ({ userId: inv.userId })));
+    return c.json(await issue(c, async () => ({ userId: inv.userId }), true));
   });
 
   app.post("/api/invitations/:id/revoke", requireAdmin, async (c) => {
     const inv = await invitationOwner(c.req.param("id"));
     if (!inv) return apiError(c, "NOT_FOUND", "Invitation not found.");
-    const [revoked] = await db
-      .update(invitation)
-      .set({ revokedAt: new Date() })
-      .where(and(eq(invitation.id, inv.id), isNull(invitation.acceptedAt), isNull(invitation.revokedAt)))
-      .returning({ id: invitation.id });
+    const revoked = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(invitation)
+        .set({ revokedAt: new Date() })
+        .where(and(eq(invitation.id, inv.id), isNull(invitation.acceptedAt), isNull(invitation.revokedAt)))
+        .returning({ id: invitation.id });
+      if (row) await writeAudit(tx, { actorUserId: c.get("user").id, action: "invite_revoked", entityType: "user", entityId: inv.userId, summary: `Revoked the invitation for ${inv.name} (${inv.email})` });
+      return row;
+    });
     if (!revoked) return apiError(c, "CONFLICT", "This invitation can no longer be revoked.");
     return c.json(present({ ...inv, revokedAt: new Date() }));
   });
@@ -175,7 +182,10 @@ export function mountUserRoutes(app: Hono, db: Db, enqueue: EnqueueInvitationEma
         .set({ status: "deactivated", updatedAt: new Date() })
         .where(and(eq(user.id, target.id), eq(user.status, "active")))
         .returning(publicUser);
-      if (row) await tx.delete(session).where(eq(session.userId, target.id));
+      if (row) {
+        await tx.delete(session).where(eq(session.userId, target.id));
+        await writeAudit(tx, { actorUserId: c.get("user").id, action: "deactivate", entityType: "user", entityId: row.id, summary: `Deactivated ${row.name} (${row.email})` });
+      }
       return row;
     });
     return updated ? c.json(updated) : apiError(c, "CONFLICT", "Only active landlords can be deactivated.");
@@ -184,11 +194,15 @@ export function mountUserRoutes(app: Hono, db: Db, enqueue: EnqueueInvitationEma
   app.post("/api/users/:id/reactivate", requireAdmin, async (c) => {
     const target = await findUser(userId(c));
     if (!target) return apiError(c, "NOT_FOUND", "User not found.");
-    const [updated] = await db
-      .update(user)
-      .set({ status: "active", updatedAt: new Date() })
-      .where(and(eq(user.id, target.id), eq(user.status, "deactivated")))
-      .returning(publicUser);
+    const updated = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(user)
+        .set({ status: "active", updatedAt: new Date() })
+        .where(and(eq(user.id, target.id), eq(user.status, "deactivated")))
+        .returning(publicUser);
+      if (row) await writeAudit(tx, { actorUserId: c.get("user").id, action: "reactivate", entityType: "user", entityId: row.id, summary: `Reactivated ${row.name} (${row.email})` });
+      return row;
+    });
     return updated ? c.json(updated) : apiError(c, "CONFLICT", "Only deactivated users can be reactivated.");
   });
 }
