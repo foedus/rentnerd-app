@@ -370,3 +370,13 @@ know or do. The task list and statuses live in `docs/tasks.json`.
   Archived leases are ignored.
 - Overlapping terms are not defined by the spec; this code assumes later screens reject them. No screens changed.
 - verify.sh passes; the reviewer approved. No QA pass (no screens changed). Nothing for the owner to do.
+
+### 2026-10-13 — T044: tax reimbursement, other income and statistics
+- Added the single place where these numbers are worked out (used later by the lease screens, Dashboard and property pages):
+  commercial tax reimbursement (share % × the rise from the base year to the latest tax year, ÷ 12, rounded to the cent once; never
+  below $0.00; "—" when the base year, share or tax years are missing) with its explanation text, e.g.
+  "25% × (2025 tax $52,000.00 − 2020 tax $40,000.00) ÷ 12"; other income per lease (parking + tax, from the current term).
+- Portfolio and per-property statistics: units, occupied, vacant, occupancy (1 decimal), monthly/annual rent roll, other income,
+  vacancy loss, value (latest market estimate, else purchase price), gross yield (2 decimals) and the "Based on {n} of {m} properties
+  with a value." note. Callers must pass only non-archived properties and units. No screens changed.
+- verify.sh passes; the reviewer approved. No QA pass (no screens changed). Nothing for the owner to do.

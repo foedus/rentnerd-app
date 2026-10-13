@@ -24,12 +24,12 @@ function divRoundHalfUp(numerator: bigint, denominator: bigint): bigint {
   return (2n * numerator + denominator) / (2n * denominator);
 }
 
-/** cents × percent/100, rounded to the cent half up; percent is a decimal string like "3.0000". */
-export function percentOfCents(cents: number, percent: string): number {
+/** cents × percent/100 ÷ divisor, rounded to the cent half up (once); percent is a decimal string like "3.0000". */
+export function percentOfCents(cents: number, percent: string, divisor = 1): number {
   const m = PERCENT.exec(percent.trim());
   if (!m) throw new RangeError(`Not a percentage: ${percent}`);
   const scaled = BigInt(m[1]! + (m[2] ?? "").padEnd(4, "0"));
-  return Number(divRoundHalfUp(BigInt(cents) * scaled, 1_000_000n));
+  return Number(divRoundHalfUp(BigInt(cents) * scaled, 1_000_000n * BigInt(divisor)));
 }
 
 /** Rent after k compounded increases, rounded to the cent each year. */
