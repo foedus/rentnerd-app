@@ -6,6 +6,7 @@ import { fetchMe, TooManyRequestsError, UnauthenticatedError } from "./api";
 import { Layout } from "./components/Layout";
 import { NoAccess, NotFound } from "./components/Notices";
 import { Page } from "./components/Page";
+import { AcceptInvite } from "./pages/AcceptInvite";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { Login } from "./pages/Login";
 import { ResetPassword } from "./pages/ResetPassword";
@@ -86,6 +87,7 @@ export function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/accept-invite" element={<AcceptInvite />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/*" element={<Shell />} />
         </Routes>

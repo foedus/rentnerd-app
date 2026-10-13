@@ -70,3 +70,33 @@ export async function resetPassword(token: string, newPassword: string): Promise
   if (res.status >= 500) throw new Error("Something went wrong. Please try again.");
   throw new InvalidResetLinkError(INVALID_RESET);
 }
+
+export const INVALID_INVITE = "This invitation is invalid or has expired. Ask the administrator to send a new one.";
+
+export class InvalidInvitationError extends Error {}
+
+export interface InvitationInfo {
+  email: string;
+  name: string;
+}
+
+export async function lookupInvitation(token: string): Promise<InvitationInfo> {
+  const res = await fetch(`/api/invitations/lookup?token=${encodeURIComponent(token)}`, { headers: { accept: "application/json" } });
+  if (res.ok) return (await res.json()) as InvitationInfo;
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  if (res.status >= 500) throw new Error("Something went wrong. Please try again.");
+  throw new InvalidInvitationError(INVALID_INVITE);
+}
+
+/** Accepts the invitation; the server signs the new user in (session cookie). */
+export async function acceptInvitation(token: string, name: string, password: string): Promise<void> {
+  const res = await fetch("/api/invitations/accept", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ token, name, password }),
+  });
+  if (res.ok) return;
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  if (res.status >= 500) throw new Error("Something went wrong. Please try again.");
+  throw new InvalidInvitationError(INVALID_INVITE);
+}

@@ -305,3 +305,12 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 - The visitor address comes from Fly's `Fly-Client-IP` header in production and from the connection itself elsewhere;
   `X-Forwarded-For` is ignored. Counters are in memory (one web machine), so a restart resets them.
 - verify.sh passes; the reviewer approved. No screens changed, so no QA pass. Nothing for the owner to do.
+
+### 2026-10-13 — T022: the accept-invitation page
+- `/accept-invite?token=…` now shows "You're joining RentNerd as {email}." with Your name (already filled in), Password and
+  Confirm password, and a "Create account" button. Success signs the person in and opens the Dashboard.
+- A missing, wrong, used, expired or revoked link shows "This invitation is invalid or has expired. Ask the administrator to send a new one."
+  The same message appears if the link is used up between opening the page and pressing the button.
+- Password rules match the reset page (12+ characters, both fields must match); mistakes are listed in a summary that takes focus.
+  A network or server failure shows "Something went wrong. Please try again." and focus moves to that message (QA findings fixed).
+- verify.sh passes; the reviewer approved; QA findings fixed. Nothing for the owner to do.

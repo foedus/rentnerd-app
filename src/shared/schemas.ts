@@ -38,3 +38,15 @@ export const newPasswordSchema = z
     confirmPassword: z.string(),
   })
   .refine((v) => v.newPassword === v.confirmPassword, { path: ["confirmPassword"], message: "Passwords don't match." });
+
+/** Accept-invitation form (§11.4): a name plus the same password rules as the reset form. */
+export const acceptInviteFormSchema = z
+  .object({
+    name,
+    password: z
+      .string()
+      .min(PASSWORD_MIN, `Password must be at least ${PASSWORD_MIN} characters.`)
+      .max(PASSWORD_MAX, `Password must be ${PASSWORD_MAX} characters or fewer.`),
+    confirmPassword: z.string(),
+  })
+  .refine((v) => v.password === v.confirmPassword, { path: ["confirmPassword"], message: "Passwords don't match." });
