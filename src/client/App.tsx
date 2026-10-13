@@ -10,6 +10,7 @@ import { AcceptInvite } from "./pages/AcceptInvite";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { Login } from "./pages/Login";
 import { ResetPassword } from "./pages/ResetPassword";
+import { Users } from "./pages/Users";
 
 export const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
@@ -63,7 +64,7 @@ function Shell() {
           <Route
             key={p.path}
             path={p.path}
-            element={canAccess(p.access, me.role) ? <Page title={p.title} /> : <NoAccess />}
+            element={canAccess(p.access, me.role) ? p.path === "/users" ? <Users /> : <Page title={p.title} /> : <NoAccess />}
           />
         ))}
         <Route path="*" element={<NotFound />} />

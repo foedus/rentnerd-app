@@ -11,6 +11,13 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 
 ## Disputed tests
 
+**AC-PLAT-08** (`tests/acceptance/plat.spec.ts:145`, via `tests/acceptance/helpers/mailpit.ts:40`), T025. Same helper bug as AC-AUTH-05 below.
+- Failure: `TypeError: Cannot read properties of undefined (reading 'localeCompare')` at `helpers/mailpit.ts:40`, reached from
+  `waitForMail(..., { count: 2 })` after `node dist/cli.js resend-admin-invite`.
+- Reason: with two matching invitation emails (the first one and the resent one) `findMail` sorts full messages by `Created`, which
+  Mailpit's `GET /api/v1/message/{id}` does not return (it has `Date`). The app does send two emails; the helper crashes.
+  AC-USR-05 (T026) will hit the same crash. Fix: sort by `Date`, or keep `Created` from the list summaries.
+
 **AC-AUTH-05** (`tests/acceptance/auth.spec.ts:83`, via `tests/acceptance/helpers/mailpit.ts:40`), T021.
 - Failure: `TypeError: Cannot read properties of undefined (reading 'localeCompare')` at `helpers/mailpit.ts:40`,
   reached from `countMailAfter` at `auth.spec.ts:95`.
@@ -25,6 +32,14 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 - All other T021 criteria (AC-AUTH-06, -07, -11) pass in verify.sh.
 
 ## Log
+
+### 2026-10-13 — T025: Users screen (BLOCKED on one disputed test)
+- `/users` (Admin only) now has the "Invite landlord" button and dialog (Name, Email, "Send invitation"; an existing email shows
+  "A user with this email already exists.") and the Users table: Name, Email, Role, Status (Active / Invited / Invitation expired /
+  Invitation revoked / Deactivated) and Last sign-in. New invitees show up immediately. Row actions come with T026.
+- verify.sh: 19 of 20 acceptance tests pass (AC-USR-01, -02, -04, -06 and AC-PLAT-04 among them); AC-PLAT-08 crashes inside the
+  locked Mailpit helper (see Disputed tests). Owner: the locked helper needs the fix described there; then set T021 and T025 back to "todo".
+- Not yet done because of the block: the reviewer subagent pass.
 
 ### 2026-10-13 — T021: forgot and reset password (BLOCKED on one disputed test)
 - `/forgot-password` ("Send reset link", "Back to sign in") always shows "If an account exists for that email, we've sent a reset link."

@@ -1,4 +1,5 @@
 import type { Role } from "../shared/routes";
+import type { UserRow } from "../shared/users";
 
 export interface Me {
   id: string;
@@ -99,4 +100,33 @@ export async function acceptInvitation(token: string, name: string, password: st
   if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
   if (res.status >= 500) throw new Error("Something went wrong. Please try again.");
   throw new InvalidInvitationError(INVALID_INVITE);
+}
+
+export const DUPLICATE_USER = "A user with this email already exists.";
+export class DuplicateUserError extends Error {}
+
+export interface UsersPage {
+  data: UserRow[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export async function fetchUsers(page: number): Promise<UsersPage> {
+  const res = await fetch(`/api/users?page=${page}`, { headers: { accept: "application/json" } });
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  if (!res.ok) throw new Error("Something went wrong. Please try again.");
+  return (await res.json()) as UsersPage;
+}
+
+export async function inviteLandlord(name: string, email: string): Promise<void> {
+  const res = await fetch("/api/invitations", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name, email }),
+  });
+  if (res.ok) return;
+  if (res.status === 409) throw new DuplicateUserError(DUPLICATE_USER);
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  throw new Error("Something went wrong. Please try again.");
 }
