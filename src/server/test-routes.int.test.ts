@@ -74,3 +74,15 @@ describe("POST /api/test/reset", () => {
     expect((await off.request("/api/test/reset", { method: "POST" })).status).toBe(404);
   });
 });
+
+describe("POST /api/test/fail-next-email", () => {
+  it("arms a one-shot flag (idempotent) that reset clears", async () => {
+    for (let i = 0; i < 2; i++) {
+      const res = await app.request("/api/test/fail-next-email", { method: "POST" });
+      expect(res.status).toBe(200);
+    }
+    expect((await pool.query("select name from test_flag")).rows).toEqual([{ name: "fail-next-email" }]);
+    await app.request("/api/test/reset", { method: "POST" });
+    expect((await pool.query("select name from test_flag")).rowCount).toBe(0);
+  });
+});

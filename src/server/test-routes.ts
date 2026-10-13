@@ -16,6 +16,10 @@ export function mountTestRoutes(app: Hono, pool: Pick<pg.Pool, "query">) {
     await applyClock(pool, parsed.data.now);
     return c.json({ now: new Date().toISOString() });
   });
+  app.post("/api/test/fail-next-email", async (c) => {
+    await pool.query("insert into test_flag (name) values ('fail-next-email') on conflict do nothing");
+    return c.json({ armed: true });
+  });
   app.post("/api/test/reset", async (c) => {
     await resetAppData(pool);
     return c.json({ reset: true });

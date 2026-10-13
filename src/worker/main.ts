@@ -4,6 +4,7 @@ import { installClock } from "../shared/clock";
 import { createDb, requireDatabaseUrl } from "../db/client";
 import { loadClock, startClockSync } from "../db/test-clock";
 import { startWorker } from "./boss";
+import { startEmailConsumer } from "./email";
 
 const config = loadConfigOrExit("worker");
 const { pool } = createDb();
@@ -14,6 +15,7 @@ if (config.testRoutesEnabled) {
   stopClockSync = startClockSync(pool);
 }
 const worker = await startWorker(requireDatabaseUrl());
+await startEmailConsumer(worker.boss, pool, config.testRoutesEnabled);
 console.log(`${appBanner("worker")} started`);
 
 let shuttingDown = false;

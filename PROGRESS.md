@@ -172,3 +172,17 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
 - Owner/next builder: the worker machine on Fly was "stopped" (see T009). After this deploy, check
   `fly status -a rentnerd-app`; the worker may still need starting by the deploy workflow.
 - verify.sh passes; the reviewer approved. No screens changed, so no QA pass.
+
+### 2026-10-13 — T013: email sending
+- The worker can now send email. Messages go out through the mail server named in the settings
+  (Mailpit on your computer, the real mail service in production). Every message has a plain-text and a
+  simple HTML version, both ending with "RentNerd · private landlord tools".
+- Each message is recorded in a new `email_log` table (recipient, template, subject, queued/sent/failed,
+  time sent, last error) and sent by a background job that retries up to 5 times with growing waits.
+  It is marked "failed" only after the last retry.
+- Added `POST /api/test/fail-next-email` (test setups only): the next email fails on every retry; later
+  ones send normally. Reset clears it.
+- Nothing sends email yet; later tasks (invitations, digest) will use `enqueueEmail`. Note for them: the
+  digest's one-per-recipient-per-day rule still needs a queue setting plus handling when a job is
+  skipped as a duplicate.
+- verify.sh passes; the reviewer approved. No screens changed, so no QA pass. Nothing for the owner to do.

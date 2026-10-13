@@ -15,6 +15,13 @@
       "when": 1791850298445,
       "tag": "0001_yellow_natasha_romanoff",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791851277067,
+      "tag": "0002_amusing_moira_mactaggert",
+      "breakpoints": true
     }
   ]
 }

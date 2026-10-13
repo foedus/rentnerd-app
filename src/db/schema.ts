@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { bigint, boolean, index, integer, pgEnum, uniqueIndex, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const userRole = pgEnum("user_role", ["admin", "landlord", "smoke"]);
+export const emailStatus = pgEnum("email_status", ["queued", "sent", "failed"]);
 export const userStatus = pgEnum("user_status", ["invited", "active", "deactivated"]);
 
 // Better Auth's `user` table, extended (SPEC §6.1). Its other tables are used unchanged.
@@ -82,4 +83,25 @@ export const verification = pgTable(
 export const testClock = pgTable("test_clock", {
   id: integer("id").primaryKey().default(1),
   offsetMs: bigint("offset_ms", { mode: "number" }).notNull().default(0),
+});
+
+// SPEC §6: one row per email message; the email.send job updates it (D-28).
+export const emailLog = pgTable(
+  "email_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    to: text("to").notNull(),
+    template: text("template").notNull(),
+    subject: text("subject").notNull(),
+    status: emailStatus("status").notNull().default("queued"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("email_log_status_idx").on(t.status)],
+);
+
+// Test environments only (D-25): named one-shot switches shared by the web and worker processes.
+export const testFlag = pgTable("test_flag", {
+  name: text("name").primaryKey(),
 });
