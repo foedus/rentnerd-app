@@ -349,3 +349,13 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 - For later tasks: the money box fills its text only when first shown, so a form that resets its values must remount it
   (give it a `key`). `formatDate` assumes a real `YYYY-MM-DD` date.
 - verify.sh passes; the reviewer approved. No QA pass (no screens changed). Nothing for the owner to do.
+
+### 2026-10-13 — T042: shared calculations (dates and rent)
+- Added the one place where date and rent maths lives (used later by leases, dashboard, emails and PDFs): "plus N months/years"
+  that land on the last day of a short month (Jan 31 + 1 month = Feb 28; Feb 29 + 1 year = Feb 28), whole months between two dates
+  (2026-11-01 to 2027-10-31 = 12; a 365-day lease = 12), days between, and full years since a start date.
+- Rent: rent on a given date for "none", fixed-percentage (compounded each anniversary, rounded to the cent half-up every year,
+  Feb 29 starts use Feb 28) and custom-schedule terms, plus the rent schedule table rows (Period start, Period end, Monthly rent).
+  The $2,000 at 3% example gives $2,000.00, $2,060.00, $2,121.80 as the spec requires.
+- Money formatting already existed (T024), so it was not repeated. No screens changed.
+- verify.sh passes; the reviewer approved. No QA pass (no screens changed). Nothing for the owner to do.
