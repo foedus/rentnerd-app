@@ -108,3 +108,26 @@ it("goes to the originally requested page after a successful sign-in", async () 
   expect(fetchMock).toHaveBeenCalledWith("/api/auth/sign-in/email", expect.objectContaining({ method: "POST" }));
   await act(async () => root.unmount());
 });
+
+it("shows the password-reset notice once and clears it from history state", async () => {
+  vi.stubGlobal("fetch", async () => new Response("{}", { status: 401 }));
+  queryClient.clear();
+  document.body.innerHTML = '<div id="root"></div>';
+  function State() {
+    return <p data-testid="state">{JSON.stringify(useLocation().state)}</p>;
+  }
+  await act(async () => {
+    createRoot(document.getElementById("root") as HTMLElement).render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={[{ pathname: "/login", state: { notice: "Your password has been reset. Please sign in." } }]}>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+          </Routes>
+          <State />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+  });
+  expect(document.body.textContent).toContain("Your password has been reset. Please sign in.");
+  expect(document.querySelector('[data-testid="state"]')?.textContent).toBe("null");
+});

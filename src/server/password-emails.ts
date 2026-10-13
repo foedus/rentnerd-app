@@ -26,7 +26,7 @@ export function passwordChangedEmail(at: Date, appUrl: string): EmailContent {
   }).format(at);
   return {
     heading: PASSWORD_CHANGED_SUBJECT,
-    paragraphs: [`Your password was changed on ${when} ET. If this wasn't you, reset your password now.`],
+    paragraphs: [`Your password was changed on ${when} ET. If this wasn't you, reset your password now:`],
     action: { label: "Reset your password", url: `${base(appUrl)}/forgot-password` },
   };
 }

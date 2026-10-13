@@ -367,6 +367,7 @@ None.
 - Final polish after the QA pass: a bad email on `/forgot-password` now shows "Enter a valid email address." on the page (and moves
   focus to the field) instead of a browser tooltip, and the next try works on the first click. The reset page only says "invalid or
   has expired" for a genuinely bad link; other failures show "Something went wrong. Please try again."
-- Left for later (minor): the "password has been reset" notice reappears if `/login` is reloaded; a password of 12 spaces is accepted
-  (the spec only asks for 12 characters); the inline error under the reset fields is not red; the "password changed" email's wording
-  differs slightly from §10.4. The reviewer approved. Nothing for the owner to do.
+- Also fixed from QA: the "password has been reset" notice no longer comes back when `/login` is reloaded, the reset page's field
+  errors are red, and the "password changed" email now reads "...reset your password now:" followed by the link, as §10.4 says.
+- Not changed: a password of 12 spaces is accepted, because the spec only asks for 12 characters (tell me if you want a
+  "not all spaces" rule). The reviewer approved. Nothing for the owner to do.

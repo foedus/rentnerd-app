@@ -15,6 +15,7 @@ describe("password emails", () => {
     const e = passwordChangedEmail(new Date("2026-10-13T19:05:00Z"), "https://x.test");
     expect(e.paragraphs[0]).toContain("October 13, 2026 at 3:05 PM ET");
     expect(e.action?.url).toBe("https://x.test/forgot-password");
+    expect(e.paragraphs[0]).toMatch(/reset your password now:$/);
   });
 
   it("sends only to active verified users, at most 3 per address per hour", async () => {

@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Button, FieldError, Input, Label, TextField } from "react-aria-components";
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router";
 import { fetchMe, signIn, SignInError } from "../api";
@@ -15,7 +15,12 @@ export function safeNext(next: string | null): string {
 export function Login() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const notice = (useLocation().state as { notice?: string } | null)?.notice;
+  const location = useLocation();
+  const [notice] = useState(() => (location.state as { notice?: string } | null)?.notice);
+  // Show the notice once: drop it from history so a reload doesn't bring it back.
+  useEffect(() => {
+    if (notice) navigate(location.pathname + location.search + location.hash, { replace: true, state: null });
+  }, [notice, navigate, location.pathname, location.search, location.hash]);
   const queryClient = useQueryClient();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);

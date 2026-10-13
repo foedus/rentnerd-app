@@ -83,12 +83,12 @@ export function ResetPassword() {
             <TextField name="newPassword" type="password" autoComplete="new-password" isInvalid={!!fieldErrors.newPassword} className="block">
               <Label>New password (required)</Label>
               <Input id="new-password" className={input} />
-              <FieldError>{fieldErrors.newPassword}</FieldError>
+              <FieldError className="text-red-700">{fieldErrors.newPassword}</FieldError>
             </TextField>
             <TextField name="confirmPassword" type="password" autoComplete="new-password" isInvalid={!!fieldErrors.confirmPassword} className="block">
               <Label>Confirm new password (required)</Label>
               <Input id="confirm-password" className={input} />
-              <FieldError>{fieldErrors.confirmPassword}</FieldError>
+              <FieldError className="text-red-700">{fieldErrors.confirmPassword}</FieldError>
             </TextField>
             <div role="alert" className="text-red-700">{error}</div>
             <Button type="submit" isDisabled={busy} className="min-h-6 rounded bg-slate-900 px-4 py-1 text-white">
