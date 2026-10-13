@@ -93,6 +93,20 @@ it("an unknown property shows Page not found", async () => {
   await act(async () => root.unmount());
 });
 
+it("keeps Show archived ticked after visiting another tab", async () => {
+  const { root, calls } = await mount("admin");
+  const box = () => document.querySelector("input[type=checkbox]") as HTMLInputElement;
+  await act(async () => box().click());
+  await wait();
+  const tabs = Array.from(document.querySelectorAll("[role=tab]")) as HTMLElement[];
+  await act(async () => tabs[1]!.click());
+  await act(async () => tabs[0]!.click());
+  await wait();
+  expect(box().checked).toBe(true);
+  expect(calls.at(-1)).toContain("archived=true");
+  await act(async () => root.unmount());
+});
+
 it("a failed load shows the error with Try again", async () => {
   vi.stubGlobal("fetch", async (url: string) =>
     url === "/api/me" ? json({ id: "u", name: "A", email: "a@x.com", role: "admin", status: "active" }) : new Response("{}", { status: 500 }));
@@ -111,5 +125,31 @@ it("a failed load shows the error with Try again", async () => {
   await wait();
   expect(document.querySelector("[role=alert]")).not.toBeNull();
   expect(buttonNamed("Try again")).toBeDefined();
+  expect(document.activeElement).toBe(document.querySelector("[role=alert]"));
+  await act(async () => root.unmount());
+});
+
+it("a lost session re-checks who is signed in so the app can send the user to sign in", async () => {
+  const calls: string[] = [];
+  vi.stubGlobal("fetch", async (url: string) => {
+    calls.push(url);
+    return url === "/api/me" ? json({ id: "u", name: "A", email: "a@x.com", role: "admin", status: "active" }) : new Response("{}", { status: 401 });
+  });
+  queryClient.clear();
+  queryClient.setQueryData(["me"], { id: "u" });
+  document.body.innerHTML = '<div id="root"></div>';
+  const root = createRoot(document.getElementById("root") as HTMLElement);
+  await act(async () => {
+    root.render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/properties/p1"]}>
+          <Routes><Route path="/properties/:id" element={<PropertyDetail />} /></Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+  });
+  await wait();
+  expect(queryClient.getQueryState(["me"])?.isInvalidated).toBe(true);
+  expect(calls.every((u) => u.startsWith("/api/properties/"))).toBe(true);
   await act(async () => root.unmount());
 });

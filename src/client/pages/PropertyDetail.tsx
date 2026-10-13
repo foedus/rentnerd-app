@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { Button, Tab, TabList, TabPanel, Tabs } from "react-aria-components";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { UNEXPECTED_MESSAGE } from "../../shared/form-messages";
@@ -7,6 +7,7 @@ import { formatCents, formatDate } from "../../shared/format";
 import { NotFound } from "../components/Notices";
 import { Page } from "../components/Page";
 import { DataTable, type Column } from "../components/ui";
+import { UnauthenticatedError } from "../api";
 import { useCanWrite } from "../me";
 import { fetchProperty, fetchPropertyUnits, PropertyNotFoundError, type PropertyRecord, type UnitRecord } from "../properties-api";
 
@@ -62,10 +63,9 @@ function Summary({ property }: { property: PropertyRecord }) {
   );
 }
 
-function UnitsTab({ property }: { property: PropertyRecord }) {
+function UnitsTab({ property, archived, setArchived }: { property: PropertyRecord; archived: boolean; setArchived: (v: boolean) => void }) {
   const navigate = useNavigate();
   const canWrite = useCanWrite();
-  const [archived, setArchived] = useState(false);
   const units = useQuery({ queryKey: ["property-units", property.id, archived], queryFn: () => fetchPropertyUnits(property.id, archived), gcTime: 0 });
   return (
     <>
@@ -98,6 +98,7 @@ function PropertyView({ property }: { property: PropertyRecord }) {
   const navigate = useNavigate();
   const canWrite = useCanWrite();
   const [params, setParams] = useSearchParams();
+  const [showArchived, setShowArchived] = useState(false);
   const asked = params.get("tab");
   const selected = TABS.find((t) => t === asked) ?? "Units";
   return (
@@ -120,7 +121,7 @@ function PropertyView({ property }: { property: PropertyRecord }) {
           ))}
         </TabList>
         <TabPanel id="Units">
-          <UnitsTab property={property} />
+          <UnitsTab property={property} archived={showArchived} setArchived={setShowArchived} />
         </TabPanel>
         {TABS.slice(1).map((t) => (
           <TabPanel key={t} id={t}>
@@ -135,13 +136,25 @@ function PropertyView({ property }: { property: PropertyRecord }) {
 
 export function PropertyDetail() {
   const { id } = useParams();
+  const queryClient = useQueryClient();
   const property = useQuery({ queryKey: ["property", id], queryFn: () => fetchProperty(id ?? ""), gcTime: 0 });
+  const alertRef = useRef<HTMLParagraphElement>(null);
+  const signedOut = property.error instanceof UnauthenticatedError;
+  // A lost session sends the user to sign in again (the Shell redirects once /api/me answers 401).
+  useEffect(() => {
+    if (signedOut) void queryClient.invalidateQueries({ queryKey: ["me"] });
+  }, [signedOut, queryClient]);
+  useEffect(() => {
+    if (property.isError) alertRef.current?.focus();
+  }, [property.isError]);
   if (property.isPending) return <Page title="Property details"><p role="status">Loading…</p></Page>;
   if (property.error instanceof PropertyNotFoundError) return <NotFound />;
   if (property.isError) {
     return (
       <Page title="Property details">
-        <p role="alert">{property.error.message}</p>
+        <p role="alert" ref={alertRef} tabIndex={-1} className="outline-none">
+          {property.error.message}
+        </p>
         <Button onPress={() => void property.refetch()} className="mt-2 min-h-6 rounded border px-3 py-1">
           Try again
         </Button>

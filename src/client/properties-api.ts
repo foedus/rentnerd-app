@@ -1,4 +1,4 @@
-import { FieldErrorsError, TOO_MANY, TooManyRequestsError } from "./api";
+import { FieldErrorsError, TOO_MANY, TooManyRequestsError, UnauthenticatedError } from "./api";
 
 export interface PropertyRecord {
   id: string;
@@ -60,6 +60,7 @@ export class PropertyNotFoundError extends Error {}
 
 export async function fetchProperty(id: string): Promise<PropertyRecord> {
   const res = await fetch(`/api/properties/${encodeURIComponent(id)}`, { headers: { accept: "application/json" } });
+  if (res.status === 401) throw new UnauthenticatedError("Not signed in");
   if (res.status === 404) throw new PropertyNotFoundError("not found");
   if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
   if (!res.ok) throw new Error(GENERIC);
@@ -109,6 +110,7 @@ export interface UnitRecord {
 export async function fetchPropertyUnits(propertyId: string, archived: boolean): Promise<UnitRecord[]> {
   const qs = new URLSearchParams({ archived: String(archived), pageSize: "200" });
   const res = await fetch(`/api/properties/${encodeURIComponent(propertyId)}/units?${qs}`, { headers: { accept: "application/json" } });
+  if (res.status === 401) throw new UnauthenticatedError("Not signed in");
   if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
   if (!res.ok) throw new Error(GENERIC);
   return ((await res.json()) as { data: UnitRecord[] }).data;
