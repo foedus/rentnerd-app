@@ -47,3 +47,13 @@ describe("owner schemas", () => {
     expect(ownerListQuerySchema.safeParse({ pageSize: "201" }).success).toBe(false);
   });
 });
+
+describe("propertyType", () => {
+  it("is derived from unit uses", async () => {
+    const { propertyType } = await import("./schemas");
+    expect(propertyType([])).toBe("—");
+    expect(propertyType(["Residential", "Residential"])).toBe("Residential");
+    expect(propertyType(["Commercial"])).toBe("Commercial");
+    expect(propertyType(["Residential", "Commercial"])).toBe("Mixed");
+  });
+});

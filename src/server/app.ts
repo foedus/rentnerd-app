@@ -7,6 +7,7 @@ import { requestContext } from "./request-context";
 import { securityHeaders } from "./security-headers";
 import { mountInvitationRoutes } from "./invitation-routes";
 import { mountOwnerRoutes } from "./owner-routes";
+import { mountPropertyRoutes } from "./property-routes";
 import { mountMeRoutes } from "./me-routes";
 import { mountUserRoutes } from "./user-routes";
 import type { EnqueueEmail } from "../worker/email";
@@ -50,6 +51,7 @@ export function createApp(
     mountInvitationRoutes(app, db, auth);
     mountMeRoutes(app, db);
     mountOwnerRoutes(app, db);
+    mountPropertyRoutes(app, db);
     if (enqueueEmail) mountUserRoutes(app, db, enqueueEmail, appUrl ?? "");
   }
   // Test-only routes (D-25); when disabled /api/test/* does not exist. Registered before the SPA fallback.

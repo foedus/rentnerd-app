@@ -89,3 +89,10 @@ export function fullYearsBetween(start: string, on: string): number {
   if (addYears(start, years) > on) years -= 1;
   return Math.max(0, years);
 }
+
+const NY_YMD = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
+
+/** The calendar date in America/New_York (D-04) for an instant; defaults to the app clock's "now". */
+export function todayNy(now: Date = new Date()): string {
+  return NY_YMD.format(now);
+}

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigint, boolean, index, integer, jsonb, pgEnum, uniqueIndex, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, date, index, integer, jsonb, pgEnum, primaryKey, uniqueIndex, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const userRole = pgEnum("user_role", ["admin", "landlord", "smoke"]);
 export const emailStatus = pgEnum("email_status", ["queued", "sent", "failed"]);
@@ -179,4 +179,44 @@ export const owner = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("owner_name_idx").on(t.name)],
+);
+
+// SPEC §6.4: archivable; `version` is the optimistic-lock counter (D-10). The unique name applies to non-archived rows only.
+export const property = pgTable(
+  "property",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    street: text("street").notNull(),
+    city: text("city").notNull(),
+    state: text("state").notNull(),
+    zip: text("zip").notNull(),
+    inNyc: boolean("in_nyc").notNull().default(true),
+    bbl: text("bbl"),
+    yearBuilt: integer("year_built"),
+    ownerId: uuid("owner_id").notNull().references(() => owner.id),
+    purchasePriceCents: bigint("purchase_price_cents", { mode: "number" }),
+    purchaseDate: date("purchase_date", { mode: "string" }),
+    notes: text("notes"),
+    version: integer("version").notNull().default(1),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    archiveBatchId: uuid("archive_batch_id"),
+    createdById: uuid("created_by_id").references(() => user.id, { onDelete: "set null" }),
+    updatedById: uuid("updated_by_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("property_active_name_idx").on(sql`lower(${t.name})`).where(sql`${t.archivedAt} is null`),
+    index("property_owner_idx").on(t.ownerId),
+  ],
+);
+
+export const propertyResponsible = pgTable(
+  "property_responsible",
+  {
+    propertyId: uuid("property_id").notNull().references(() => property.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => user.id),
+  },
+  (t) => [primaryKey({ columns: [t.propertyId, t.userId] }), index("property_responsible_user_idx").on(t.userId)],
 );

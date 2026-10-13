@@ -439,3 +439,16 @@ None.
 - QA noted, left as is: a ZIP written "12180-1234" is refused (the spec says 5 or 9 digits and an earlier unit test pins this), and
   State accepts any two letters.
 - verify.sh passes; the reviewer approved; QA pass done and findings fixed. Nothing for the owner to do.
+
+### 2026-10-13 — T031: Properties API
+- Added the properties back end: list (search by name or address, sort, paging, "show archived"), create, read and edit, plus `GET /api/people`
+  (active Admin/Landlord users with name and email, for the "Responsible landlords" choice). Rules follow §6.4: required fields with plain
+  messages per field, 2-letter state, 5 or 9 digit ZIP, 10-digit BBL, year built from 1700 to this year, purchase price in cents, and the
+  owner must exist and not be archived. The name must be unique among non-archived properties (ignoring capitals): "A property with this
+  name already exists."
+- Responsible landlords default to whoever creates the property; each must be an active Admin or Landlord, so the Smoke user, deactivated
+  and invited users are refused with a validation error. Editing a stale copy gives the "changed by someone else" conflict, unknown ids
+  give "not found", and every create/edit writes an Activity-log row (edits show before → after, including owner and responsible landlords).
+- Not yet (later tasks): archive/restore/delete, the "Single-unit property" option, and the property type, which shows "—" until units
+  exist. Owner archive/delete checks still need to be plugged in to the real property lookups (`OwnerUsage`). No screens changed.
+- verify.sh passes; the reviewer approved. No QA pass (no screens changed). Nothing for the owner to do.

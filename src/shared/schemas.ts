@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isValidYmd, todayNy } from "./dates";
 
 export const PASSWORD_MIN = 12;
 export const PASSWORD_MAX = 128;
@@ -111,3 +112,51 @@ export const ownerListQuerySchema = listQuerySchema.extend({
   q: z.string().trim().max(200).optional(),
   archived: z.enum(["true", "false"]).default("false"),
 });
+
+const optionalNullable = <T extends z.ZodType>(schema: T) => z.preprocess((v) => (v === "" ? null : v), schema.nullable());
+
+/** §6.4 property fields. `yearBuilt` may not be later than the current year (New York calendar). */
+export const propertyFieldsSchema = z.object({
+  name: required("Enter the property name."),
+  street: required("Enter the street address."),
+  city: required("Enter the city."),
+  state: z.string({ error: "Enter a 2-letter state code." }).trim().toUpperCase().regex(/^[A-Z]{2}$/, "Enter a 2-letter state code."),
+  zip: z.string({ error: "Enter a 5 or 9 digit ZIP code." }).trim().regex(/^(\d{5}|\d{9})$/, "Enter a 5 or 9 digit ZIP code."),
+  inNyc: z.boolean({ error: "Choose yes or no." }),
+  bbl: optionalNullable(z.string().trim().regex(/^\d{10}$/, "Enter the 10 digits of the Borough-Block-Lot number.")),
+  yearBuilt: optionalNullable(
+    z.number({ error: "Enter a year." }).int("Enter a year.").min(1700, "Enter a year from 1700 on.").refine((y) => y <= Number(todayNy().slice(0, 4)), "The year can't be in the future."),
+  ),
+  ownerId: z.string({ error: "Choose an owner." }).uuid("Choose an owner."),
+  responsibleUserIds: z
+    .array(z.string().uuid("Choose at least one responsible landlord."), { error: "Choose at least one responsible landlord." })
+    .min(1, "Choose at least one responsible landlord.")
+    .max(100)
+    .refine((ids) => new Set(ids).size === ids.length, "Each landlord can only be chosen once."),
+  purchasePriceCents: optionalNullable(z.number({ error: "Enter an amount." }).int("Enter an amount in whole cents.").min(0, "The amount can't be negative.").max(Number.MAX_SAFE_INTEGER)),
+  purchaseDate: optionalNullable(z.string().refine(isValidYmd, "Enter a valid date.")),
+  notes: optionalText(5000),
+});
+
+/** `inNyc` defaults to true; responsible landlords default to the creator (filled in by the route). */
+export const createPropertySchema = propertyFieldsSchema
+  .extend({ inNyc: propertyFieldsSchema.shape.inNyc.default(true), responsibleUserIds: propertyFieldsSchema.shape.responsibleUserIds.optional() })
+  .partial({ bbl: true, yearBuilt: true, purchasePriceCents: true, purchaseDate: true, notes: true });
+
+export const updatePropertySchema = propertyFieldsSchema.partial().extend({ version: z.number().int().min(1, "version is required") });
+
+export const propertyListQuerySchema = listQuerySchema.extend({
+  sort: z.enum(["name", "city", "createdAt"]).default("name"),
+  order: z.enum(["asc", "desc"]).default("asc"),
+  q: z.string().trim().max(200).optional(),
+  archived: z.enum(["true", "false"]).default("false"),
+});
+
+export type PropertyType = "Residential" | "Commercial" | "Mixed";
+/** Derived property type from the uses of its non-archived units; "—" when it has none (§6.4). */
+export function propertyType(uses: readonly ("Residential" | "Commercial")[]): PropertyType | "—" {
+  const residential = uses.includes("Residential");
+  const commercial = uses.includes("Commercial");
+  if (residential && commercial) return "Mixed";
+  return residential ? "Residential" : commercial ? "Commercial" : "—";
+}

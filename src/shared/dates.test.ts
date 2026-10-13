@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, addMonths, addYears, compareYmd, daysBetween, fullYearsBetween, isLeapYear, isValidYmd, wholeMonthsBetween } from "./dates";
+import { addDays, addMonths, addYears, compareYmd, daysBetween, fullYearsBetween, isLeapYear, isValidYmd, todayNy, wholeMonthsBetween } from "./dates";
 
 describe("dates", () => {
   it("knows leap years", () => {
@@ -68,5 +68,12 @@ describe("dates", () => {
   });
   it("rejects invalid dates", () => {
     expect(() => addDays("2026-02-30", 1)).toThrow(RangeError);
+  });
+});
+
+describe("todayNy", () => {
+  it("uses the New York calendar day, not UTC", () => {
+    expect(todayNy(new Date("2027-01-01T03:30:00Z"))).toBe("2026-12-31");
+    expect(todayNy(new Date("2026-07-01T05:00:00Z"))).toBe("2026-07-01");
   });
 });
