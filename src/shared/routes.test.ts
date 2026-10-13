@@ -39,3 +39,9 @@ describe("matchPage", () => {
     expect(matchPage("/verify-email")).toBeUndefined();
   });
 });
+
+it("knows the unit pages and who may open them", () => {
+  expect(matchPage("/properties/abc/units/new")).toMatchObject({ title: "Add unit", access: "write" });
+  expect(matchPage("/units/abc/edit")).toMatchObject({ title: "Edit unit", access: "write" });
+  expect(matchPage("/units/abc")).toMatchObject({ title: "Unit details", access: "any" });
+});

@@ -202,3 +202,11 @@ it("a refused property load says the user has no access", async () => {
   expect(document.querySelector("[role=alert]")?.textContent).toBe("You don't have access to this page.");
   await act(async () => root.unmount());
 });
+
+it("lists each active unit as Vacant, linked to its page", async () => {
+  await mount("landlord");
+  const rows = Array.from(document.querySelectorAll("table tbody tr"));
+  expect(rows[0]?.textContent).toContain("2R");
+  expect(rows[0]?.textContent).toContain("Vacant");
+  expect(rows[0]?.querySelector("a")?.getAttribute("href")).toBe("/units/n1");
+});

@@ -235,10 +235,12 @@ interface TextFieldProps {
   hint?: string;
   /** Blank gives null and anything else a number (non-numbers reach the schema as NaN and get its message). */
   numeric?: boolean;
+  /** With `numeric`: ask for a keyboard that has a decimal point. */
+  decimal?: boolean;
 }
 
 /** Labelled input; "(required)" is added to the label and the error is linked with aria-describedby. */
-export function TextFieldInput({ name, label, required = false, type = "text", autoComplete, hint, numeric = false }: TextFieldProps) {
+export function TextFieldInput({ name, label, required = false, type = "text", autoComplete, hint, numeric = false, decimal = false }: TextFieldProps) {
   const ids = useIds();
   const {
     register,
@@ -271,7 +273,7 @@ export function TextFieldInput({ name, label, required = false, type = "text", a
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
         className="mt-1 block min-h-6 w-full rounded border px-3 py-1"
-        inputMode={numeric ? "numeric" : undefined}
+        inputMode={numeric ? (decimal ? "decimal" : "numeric") : undefined}
         {...register(name, numeric ? { setValueAs: (v: unknown) => (v === null || v === undefined || String(v).trim() === "" ? null : Number(v)) } : undefined)}
       />
     </div>

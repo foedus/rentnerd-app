@@ -106,6 +106,15 @@ export interface UnitRecord {
   label: string;
   use: string;
   archivedAt: string | null;
+  version?: number;
+  propertyId?: string;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  squareFeet?: number | null;
+  notes?: string | null;
+  ownerOverrideId?: string | null;
+  owner?: { id: string; name: string } | null;
+  property?: { id: string; name: string } | null;
 }
 
 /** A property's units (first page of up to 200), optionally with archived ones. */
@@ -117,4 +126,40 @@ export async function fetchPropertyUnits(propertyId: string, archived: boolean):
   if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
   if (!res.ok) throw new Error(GENERIC);
   return ((await res.json()) as { data: UnitRecord[] }).data;
+}
+
+/** The unit doesn't exist (or no longer does). */
+export class UnitNotFoundError extends Error {}
+
+export async function fetchUnit(id: string): Promise<UnitRecord> {
+  const res = await fetch(`/api/units/${encodeURIComponent(id)}`, { headers: { accept: "application/json" } });
+  if (res.status === 401) throw new UnauthenticatedError("Not signed in");
+  if (res.status === 403) throw new Error(NO_ACCESS);
+  if (res.status === 404) throw new UnitNotFoundError("not found");
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  if (!res.ok) throw new Error(GENERIC);
+  return (await res.json()) as UnitRecord;
+}
+
+/** The unit changed since it was loaded (409 without field messages, D-10). */
+export class StaleUnitError extends Error {}
+
+/** Adds a unit to a property (`target.propertyId`) or edits one (`target.id` and `version`); field problems come back as FieldErrorsError. */
+export async function saveUnit(
+  values: Record<string, unknown>,
+  target: { propertyId: string } | { id: string; version: number },
+): Promise<UnitRecord> {
+  const edit = "id" in target;
+  const res = await fetch(edit ? `/api/units/${encodeURIComponent(target.id)}` : `/api/properties/${encodeURIComponent(target.propertyId)}/units`, {
+    method: edit ? "PATCH" : "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(edit ? { ...values, version: target.version } : values),
+  });
+  if (res.ok) return (await res.json()) as UnitRecord;
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  const body = (await res.json().catch(() => null)) as { error?: { fields?: Record<string, string> } } | null;
+  const fields = body?.error?.fields;
+  if ((res.status === 409 || res.status === 422) && fields && Object.keys(fields).length > 0) throw new FieldErrorsError(fields);
+  if (res.status === 409) throw new StaleUnitError("conflict");
+  throw new Error(GENERIC);
 }

@@ -17,6 +17,8 @@ import { PropertyForm } from "./pages/PropertyForm";
 import { PropertyDetail } from "./pages/PropertyDetail";
 import { Login } from "./pages/Login";
 import { ResetPassword } from "./pages/ResetPassword";
+import { UnitDetail } from "./pages/UnitDetail";
+import { UnitForm } from "./pages/UnitForm";
 import { Users } from "./pages/Users";
 
 export const queryClient = new QueryClient({
@@ -32,6 +34,8 @@ function pageElement(path: string, title: string, me: Me) {
   if (path === "/properties") return <Properties />;
   if (path === "/properties/:id") return <PropertyDetail />;
   if (path === "/properties/new" || path === "/properties/:id/edit") return <PropertyForm />;
+  if (path === "/units/:id") return <UnitDetail />;
+  if (path === "/properties/:id/units/new" || path === "/units/:id/edit") return <UnitForm />;
   if (path === "/account") return <Account me={me} />;
   return <Page title={title} />;
 }

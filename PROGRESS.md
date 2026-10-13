@@ -506,3 +506,18 @@ None.
   and had no Try again; both fixed. Very long names now wrap instead of widening the page. The error message now takes keyboard focus, a lost session (on the property or its Units list) sends you back to sign in, a refused request says "You don't have access to this page.", and
   "Show archived" stays ticked when you switch tabs and come back.
 - verify.sh passes; the reviewer approved; QA pass done. Nothing for the owner to do.
+
+### 2026-10-13 — T036: Unit screens
+- New pages **Add unit** (`/properties/:id/units/new`), **Edit unit** (`/units/:id/edit`) and **Unit** (`/units/:id`). The form has Unit label, Use, Bedrooms,
+  Bathrooms, Square feet, "Owner (if different from property)" and Notes, with Save unit and Cancel. A duplicate label shows "A unit with this label already
+  exists in this property." next to the field. On Edit, Use is shown as plain text with the hint "Use can't be changed. To change it, archive this unit and add a
+  new one." The unit page's heading is "{Property name} – Unit {label}" and the summary lists Use, Bedrooms, Bathrooms, Square feet, Owner (the unit's own
+  owner if set, otherwise the property's) and Status. Saving lands on the unit page with "Unit saved."
+- On the property's Units tab each unit now links to its page and shows Status "Vacant" (every unit is vacant until leases exist; Tenants, Current rent and
+  Lease end still show "—").
+- Not yet (later tasks): Current lease card, Lease history, rent figures, New lease, Archive/Restore/Delete unit.
+- AC-UNIT-01, AC-UNIT-02 and AC-UNIT-05 pass. The reviewer approved; QA found nothing blocking. Left alone: the property page is wider than a 320 px screen
+  (from T035), focus isn't placed anywhere after "Reload" on a stale-edit message (shared form behaviour), and numbers typed with commas ("1,200") are refused.
+  QA's note about the read-only Use text was fixed (the hint is now linked to it for screen readers).
+- One email test (fail-next-email) failed once in the first verify.sh run and passed on re-run and alone; it's a timing flake unrelated to this task.
+- verify.sh passes. Nothing for the owner to do.
