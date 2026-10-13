@@ -503,6 +503,6 @@ None.
   summary, Archive/Restore/Delete property, and the unit screens (Add unit leads to a "Page not found" until the Units screens are built). Status,
   Tenants, Current rent and Lease end show "—" until leases exist.
 - AC-PROP-01, AC-PROP-02, AC-PROP-04 and AC-USR-14 pass. QA found that an unknown property showed "Something went wrong" instead of "Page not found"
-  and had no Try again; both fixed. Very long names now wrap instead of widening the page. The error message now takes keyboard focus, a lost session sends you back to sign in, and
+  and had no Try again; both fixed. Very long names now wrap instead of widening the page. The error message now takes keyboard focus, a lost session (on the property or its Units list) sends you back to sign in, a refused request says "You don't have access to this page.", and
   "Show archived" stays ticked when you switch tabs and come back.
 - verify.sh passes; the reviewer approved; QA pass done. Nothing for the owner to do.

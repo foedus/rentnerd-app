@@ -153,3 +153,52 @@ it("a lost session re-checks who is signed in so the app can send the user to si
   expect(calls.every((u) => u.startsWith("/api/properties/"))).toBe(true);
   await act(async () => root.unmount());
 });
+
+it("a lost session or refused access on the Units list is handled", async () => {
+  for (const [status, text] of [[401, null], [403, "You don't have access to this page."]] as const) {
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      calls.push(url);
+      if (url === "/api/me") return json({ id: "u", name: "A", email: "a@x.com", role: "admin", status: "active" });
+      return url.startsWith("/api/properties/p1/units") ? new Response("{}", { status }) : json(property);
+    });
+    queryClient.clear();
+    document.body.innerHTML = '<div id="root"></div>';
+    const root = createRoot(document.getElementById("root") as HTMLElement);
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={["/properties/p1"]}>
+            <Routes><Route path="/properties/:id" element={<PropertyDetail />} /></Routes>
+          </MemoryRouter>
+        </QueryClientProvider>,
+      );
+    });
+    await wait();
+    await wait();
+    if (text) expect(document.querySelector("[role=alert]")?.textContent).toBe(text);
+    // Signed out: /api/me is asked again (once on load, once after the 401) so the app can send the user to sign in.
+    else expect(calls.filter((u) => u === "/api/me").length).toBe(2);
+    await act(async () => root.unmount());
+  }
+});
+
+it("a refused property load says the user has no access", async () => {
+  vi.stubGlobal("fetch", async (url: string) =>
+    url === "/api/me" ? json({ id: "u", name: "A", email: "a@x.com", role: "admin", status: "active" }) : new Response("{}", { status: 403 }));
+  queryClient.clear();
+  document.body.innerHTML = '<div id="root"></div>';
+  const root = createRoot(document.getElementById("root") as HTMLElement);
+  await act(async () => {
+    root.render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/properties/p1"]}>
+          <Routes><Route path="/properties/:id" element={<PropertyDetail />} /></Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+  });
+  await wait();
+  expect(document.querySelector("[role=alert]")?.textContent).toBe("You don't have access to this page.");
+  await act(async () => root.unmount());
+});

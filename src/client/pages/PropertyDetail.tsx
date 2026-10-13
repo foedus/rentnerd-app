@@ -66,7 +66,12 @@ function Summary({ property }: { property: PropertyRecord }) {
 function UnitsTab({ property, archived, setArchived }: { property: PropertyRecord; archived: boolean; setArchived: (v: boolean) => void }) {
   const navigate = useNavigate();
   const canWrite = useCanWrite();
+  const queryClient = useQueryClient();
   const units = useQuery({ queryKey: ["property-units", property.id, archived], queryFn: () => fetchPropertyUnits(property.id, archived), gcTime: 0 });
+  const signedOut = units.error instanceof UnauthenticatedError;
+  useEffect(() => {
+    if (signedOut) void queryClient.invalidateQueries({ queryKey: ["me"] });
+  }, [signedOut, queryClient]);
   return (
     <>
       <div className="mb-4 flex flex-wrap items-center gap-4">

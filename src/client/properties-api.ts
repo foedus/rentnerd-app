@@ -47,6 +47,7 @@ export interface Person {
 }
 
 const GENERIC = "Something went wrong. Please try again.";
+const NO_ACCESS = "You don't have access to this page.";
 
 export async function fetchPeople(): Promise<Person[]> {
   const res = await fetch("/api/people", { headers: { accept: "application/json" } });
@@ -61,6 +62,7 @@ export class PropertyNotFoundError extends Error {}
 export async function fetchProperty(id: string): Promise<PropertyRecord> {
   const res = await fetch(`/api/properties/${encodeURIComponent(id)}`, { headers: { accept: "application/json" } });
   if (res.status === 401) throw new UnauthenticatedError("Not signed in");
+  if (res.status === 403) throw new Error(NO_ACCESS);
   if (res.status === 404) throw new PropertyNotFoundError("not found");
   if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
   if (!res.ok) throw new Error(GENERIC);
@@ -111,6 +113,7 @@ export async function fetchPropertyUnits(propertyId: string, archived: boolean):
   const qs = new URLSearchParams({ archived: String(archived), pageSize: "200" });
   const res = await fetch(`/api/properties/${encodeURIComponent(propertyId)}/units?${qs}`, { headers: { accept: "application/json" } });
   if (res.status === 401) throw new UnauthenticatedError("Not signed in");
+  if (res.status === 403) throw new Error(NO_ACCESS);
   if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
   if (!res.ok) throw new Error(GENERIC);
   return ((await res.json()) as { data: UnitRecord[] }).data;
