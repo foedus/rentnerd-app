@@ -13,6 +13,7 @@ export function Layout({ me }: { me: Me }) {
   const menuButton = useRef<HTMLButtonElement>(null);
   const { pathname } = useLocation();
   const firstRender = useRef(true);
+  const [announcement, setAnnouncement] = useState("");
 
   // After a client-side navigation, move focus to <main> so keyboard and screen-reader users start at the new page.
   useEffect(() => {
@@ -21,6 +22,9 @@ export function Layout({ me }: { me: Me }) {
       return;
     }
     document.getElementById("main")?.focus();
+    // Pages set their title in an effect; wait a tick so the new title is the one announced.
+    const t = setTimeout(() => setAnnouncement(document.title), 0);
+    return () => clearTimeout(t);
   }, [pathname]);
 
   const onMenuAction = async (key: React.Key) => {
@@ -107,6 +111,9 @@ export function Layout({ me }: { me: Me }) {
             ))}
           </ul>
         </nav>
+        <div role="status" aria-live="polite" className="sr-only">
+          {announcement}
+        </div>
         <main id="main" tabIndex={-1} className="min-w-0 flex-1 p-4 focus:outline-none">
           {signOutError && <p role="alert">Something went wrong. Please try again.</p>}
           <Outlet />

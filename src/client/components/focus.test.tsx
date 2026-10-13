@@ -42,6 +42,10 @@ describe("Layout focus", () => {
     await act(async () => go("/tenants"));
     expect(document.activeElement).toBe(document.getElementById("main"));
     expect(document.title).toBe("Tenants – RentNerd");
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+    expect(document.querySelector('[role="status"]')?.textContent).toBe("Tenants – RentNerd");
     await act(async () => root.unmount());
   });
 });
