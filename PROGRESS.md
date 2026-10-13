@@ -465,3 +465,14 @@ None.
 - Not yet (later tasks): archive, restore and delete of units, status/rent figures on units (they need leases), the unit screens, and the
   owner archive/delete checks (`OwnerUsage`) still need plugging in to real property/unit lookups. No screens changed.
 - verify.sh passes; the reviewer approved. No QA pass (no screens changed). Nothing for the owner to do.
+
+### 2026-10-13 — T033: Properties list screen
+- New page **Properties** (`/properties`): Search properties (matches name or address), Show archived, Add property, and a table with
+  Property (links to the property), Address, Owner, Type, Units, Occupied and Responsible landlords. The empty state reads "No properties
+  yet. Add a property or import a spreadsheet." The Smoke user doesn't see Add property. The property list API now also returns the number
+  of non-archived units for each property.
+- Occupied shows 0 for now because leases don't exist yet; the lease tasks must fill it in from the shared occupancy calculation. The
+  Add property page (`/properties/new`, already blocked for the Smoke user) and the property detail page come with the next tasks.
+- AC-PROP-10 passes. QA noted, left as is: Show archived adds archived properties to the list rather than replacing it (same as Owners; the
+  spec doesn't say), and a failed list load shows the generic error without a retry button.
+- verify.sh passes; the reviewer approved; QA pass done. Nothing for the owner to do.

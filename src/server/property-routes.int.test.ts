@@ -171,6 +171,17 @@ describe("properties API", () => {
     expect((await call(admin.cookie, "GET", "/api/properties?pageSize=201")).status).toBe(422);
   });
 
+  it("lists the number of non-archived units and the occupied count for each property", async () => {
+    const admin = await makeUser("admin@example.com", "admin");
+    const o = await newOwner(admin.cookie);
+    const p = await create(admin.cookie, o.id, { name: "Alpha" });
+    await call(admin.cookie, "POST", `/api/properties/${p.id}/units`, { label: "1", use: "Residential" });
+    await call(admin.cookie, "POST", `/api/properties/${p.id}/units`, { label: "2", use: "Residential" });
+    await pool.query("update unit set archived_at = now() where label = '2'");
+    const body = (await (await call(admin.cookie, "GET", "/api/properties")).json()) as { data: { unitCount: number; occupiedCount: number }[] };
+    expect(body.data[0]).toMatchObject({ unitCount: 1, occupiedCount: 0 });
+  });
+
   it("GET /api/people lists only active Admin/Landlord users with id, name and email", async () => {
     const admin = await makeUser("admin@example.com", "admin");
     await makeUser("lou@example.com", "landlord");

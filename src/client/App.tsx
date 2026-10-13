@@ -12,6 +12,7 @@ import { ForgotPassword } from "./pages/ForgotPassword";
 import { OwnerDetail } from "./pages/OwnerDetail";
 import { OwnerForm } from "./pages/OwnerForm";
 import { Owners } from "./pages/Owners";
+import { Properties } from "./pages/Properties";
 import { Login } from "./pages/Login";
 import { ResetPassword } from "./pages/ResetPassword";
 import { Users } from "./pages/Users";
@@ -26,6 +27,7 @@ function pageElement(path: string, title: string, me: Me) {
   if (path === "/owners/new") return <OwnerForm />;
   if (path === "/owners/:id") return <OwnerDetail />;
   if (path === "/owners/:id/edit") return <OwnerForm />;
+  if (path === "/properties") return <Properties />;
   if (path === "/account") return <Account me={me} />;
   return <Page title={title} />;
 }

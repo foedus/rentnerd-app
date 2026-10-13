@@ -70,7 +70,9 @@ export function mountPropertyRoutes(app: Hono, db: Db) {
     const [people, owners, uses] = await Promise.all([responsibleFor(tx, ids), ownerSummary(tx, [...new Set(rows.map((r) => r.ownerId))]), usesFor(tx, ids)]);
     return rows.map((r) => {
       const responsible = people.get(r.id) ?? [];
-      return { ...r, owner: owners.get(r.ownerId) ?? null, responsible, responsibleUserIds: responsible.map((p) => p.id), propertyType: propertyType(uses.get(r.id) ?? []) };
+      const unitUses = uses.get(r.id) ?? [];
+      // Leases don't exist yet, so no unit is occupied; the lease tasks derive this with unitOccupancy (§7.4).
+      return { ...r, owner: owners.get(r.ownerId) ?? null, responsible, responsibleUserIds: responsible.map((p) => p.id), propertyType: propertyType(unitUses), unitCount: unitUses.length, occupiedCount: 0 };
     });
   };
 
