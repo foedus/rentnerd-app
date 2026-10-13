@@ -21,8 +21,19 @@ it("shows a titled page with one h1 while loading and when /api/me fails", async
     root.render(<MemoryRouter initialEntries={["/tenants"]}><App /></MemoryRouter>);
   });
   expect(document.querySelectorAll("h1")).toHaveLength(1);
-  expect(document.title).toBe("Loading – RentNerd");
+  // The title is already the requested page's, so it doesn't flash "Loading" before the page appears.
+  expect(document.title).toBe("Tenants – RentNerd");
+  expect(document.body.textContent).toContain("Loading…");
   await act(async () => root.unmount());
+
+  queryClient.clear();
+  document.body.innerHTML = '<div id="root"></div>';
+  const root0 = createRoot(document.getElementById("root") as HTMLElement);
+  await act(async () => {
+    root0.render(<MemoryRouter initialEntries={["/nowhere"]}><App /></MemoryRouter>);
+  });
+  expect(document.title).toBe("Loading – RentNerd");
+  await act(async () => root0.unmount());
 
   queryClient.clear();
   vi.stubGlobal("fetch", async () => new Response("{}", { status: 500 }));

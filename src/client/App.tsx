@@ -30,7 +30,7 @@ function Shell() {
   if (isPending) {
     return (
       <main>
-        <Page title="Loading">
+        <Page title={pages.find((p) => p.path === (location.pathname.replace(/\/+$/, "") || "/"))?.title ?? "Loading"}>
           <p role="status">Loading…</p>
         </Page>
       </main>

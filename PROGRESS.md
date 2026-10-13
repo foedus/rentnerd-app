@@ -397,5 +397,5 @@ None.
 - verify.sh passes; the reviewer approved. Nothing for the owner to do.
 - T027 follow-up: a new password equal to the current one is now refused ("New password must be different from your current
   password."), a "saved" message clears when the other form on the page saves, and required fields are marked `aria-required`.
-  The audit row for name changes waits for the "Audit log foundation" task (no audit table exists yet); the "Loading" page title
-  is shared app behaviour that an existing test expects, so it is unchanged.
+  The audit row for name changes waits for the "Audit log foundation" task (no audit table exists yet); the page title no longer
+  flashes "Loading – RentNerd" on first load: it already shows the requested page's title (e.g. "Account settings – RentNerd").
