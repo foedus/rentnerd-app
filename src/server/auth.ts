@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
-import { eq } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import type { Db } from "../db/client";
 import * as schema from "../db/schema";
@@ -30,6 +30,10 @@ export function createAuth(db: Db, env: NodeJS.ProcessEnv = process.env, mail?: 
         if (mail) await sendResetEmail(mail, user as typeof user & { status?: unknown }, token);
       },
       onPasswordReset: async ({ user }) => {
+        // Any other reset link issued earlier must die with this reset (single use, §11.3).
+        await db
+          .delete(schema.verification)
+          .where(and(eq(schema.verification.value, user.id), like(schema.verification.identifier, "reset-password:%")));
         if (mail) await sendPasswordChangedEmail(mail, user);
       },
     },

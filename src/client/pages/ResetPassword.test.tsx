@@ -49,5 +49,7 @@ it("shows the length and confirmation messages without calling the server", asyn
   expect(document.body.textContent).toContain("Password must be at least 12 characters.");
   await submit("Long-enough-password-1", "Long-enough-password-2");
   expect(document.body.textContent).toContain("Passwords don't match.");
+  expect(document.body.textContent).toContain("There is a problem");
+  expect(document.activeElement?.textContent).toContain("There is a problem");
   expect(fetchMock).not.toHaveBeenCalled();
 });

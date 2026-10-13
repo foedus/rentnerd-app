@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Button, FieldError, Input, Label, TextField } from "react-aria-components";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { INVALID_RESET, InvalidResetLinkError, resetPassword } from "../api";
@@ -13,6 +13,16 @@ export function ResetPassword() {
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ newPassword?: string; confirmPassword?: string }>({});
   const [busy, setBusy] = useState(false);
+  const summaryRef = useRef<HTMLDivElement>(null);
+  const invalidRef = useRef<HTMLParagraphElement>(null);
+  const problems = Object.keys(fieldErrors).length;
+  // After a failed submit focus moves to the summary; when the link turns out to be bad it moves to the message (AC-A11Y-05).
+  useEffect(() => {
+    if (problems > 0) summaryRef.current?.focus();
+  }, [problems, fieldErrors]);
+  useEffect(() => {
+    if (invalid) invalidRef.current?.focus();
+  }, [invalid]);
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -48,7 +58,7 @@ export function ResetPassword() {
       <Page title="Reset password">
         {invalid ? (
           <>
-            <p role="alert">{INVALID_RESET}</p>
+            <p role="alert" tabIndex={-1} ref={invalidRef}>{INVALID_RESET}</p>
             <p className="mt-4">
               <Link to="/forgot-password" className="inline-block min-h-6 underline">
                 Request a new link
@@ -57,14 +67,27 @@ export function ResetPassword() {
           </>
         ) : (
           <form onSubmit={onSubmit} noValidate className="space-y-4">
+            {problems > 0 && (
+              <div ref={summaryRef} tabIndex={-1} role="alert" className="rounded border border-red-700 p-3 text-red-700">
+                <h2 className="font-semibold">There is a problem</h2>
+                <ul>
+                  {fieldErrors.newPassword && (
+                    <li><a href="#new-password" className="underline">{fieldErrors.newPassword}</a></li>
+                  )}
+                  {fieldErrors.confirmPassword && (
+                    <li><a href="#confirm-password" className="underline">{fieldErrors.confirmPassword}</a></li>
+                  )}
+                </ul>
+              </div>
+            )}
             <TextField name="newPassword" type="password" autoComplete="new-password" isInvalid={!!fieldErrors.newPassword} className="block">
               <Label>New password (required)</Label>
-              <Input className={input} />
+              <Input id="new-password" className={input} />
               <FieldError>{fieldErrors.newPassword}</FieldError>
             </TextField>
             <TextField name="confirmPassword" type="password" autoComplete="new-password" isInvalid={!!fieldErrors.confirmPassword} className="block">
               <Label>Confirm new password (required)</Label>
-              <Input className={input} />
+              <Input id="confirm-password" className={input} />
               <FieldError>{fieldErrors.confirmPassword}</FieldError>
             </TextField>
             <div role="alert" className="text-red-700">{error}</div>

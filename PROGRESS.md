@@ -36,7 +36,11 @@ know or do. The task list and statuses live in `docs/tasks.json`.
   Reset attempts are limited to 20 per visitor address per 15 minutes.
 - Signed-out visitors to addresses that aren't pages (e.g. `/verify-email`) now see "Page not found" instead of the sign-in page.
 - verify.sh: everything passes except AC-AUTH-05, which crashes inside the locked Mailpit helper (see Disputed tests).
-  Owner: the locked helper needs the fix described there. The reviewer and QA passes were not run because the task is blocked.
+  Owner: the locked helper needs the fix described there.
+- The reviewer approved. QA findings fixed: using one reset link now cancels any other outstanding reset links; failed password checks show
+  a "There is a problem" summary with links to the fields and move focus to it; the "invalid or has expired" message takes focus.
+  Left for later: the "password has been reset" notice reappears if `/login` is reloaded, and the browser's own tooltip shows for an
+  empty or malformed email on `/forgot-password`. The audit rows for password reset/changed come with T028.
 
 ### 2026-10-12 — T007: Fly.io settings (fly.toml)
 - Added `fly.toml`: app `rentnerd-app` in San Jose (`sjc`), a `web` program and a `worker` program,

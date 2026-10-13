@@ -98,6 +98,17 @@ describe("reset password", () => {
     expect((await post(a, "/api/auth/reset-password", { token, newPassword: "Another-password-0003" })).status).toBe(400);
   });
 
+  it("kills every other outstanding reset link once one is used", async () => {
+    await makeUser("active@example.com");
+    const a = app();
+    await forgot(a, "active@example.com");
+    await forgot(a, "active@example.com");
+    await sentCount(2);
+    const [first, second] = sent.map(tokenOf);
+    expect((await post(a, "/api/auth/reset-password", { token: first, newPassword: "Brand-new-password-0002" })).status).toBe(200);
+    expect((await post(a, "/api/auth/reset-password", { token: second, newPassword: "Another-password-0003" })).status).toBe(400);
+  });
+
   it("rejects an expired token", async () => {
     await makeUser("active@example.com");
     const a = app();
