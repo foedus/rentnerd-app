@@ -1,9 +1,9 @@
 import type { Context, Hono, MiddlewareHandler } from "hono";
 import type { Auth } from "./auth";
 
-export type ErrorCode = "BAD_REQUEST" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "VALIDATION_ERROR" | "RATE_LIMITED" | "INTERNAL";
+export type ErrorCode = "BAD_REQUEST" | "UNAUTHENTICATED" | "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "VALIDATION_ERROR" | "RATE_LIMITED" | "INTERNAL";
 
-const STATUS = { BAD_REQUEST: 400, UNAUTHENTICATED: 401, FORBIDDEN: 403, NOT_FOUND: 404, VALIDATION_ERROR: 422, RATE_LIMITED: 429, INTERNAL: 500 } as const;
+const STATUS = { BAD_REQUEST: 400, UNAUTHENTICATED: 401, FORBIDDEN: 403, NOT_FOUND: 404, CONFLICT: 409, VALIDATION_ERROR: 422, RATE_LIMITED: 429, INTERNAL: 500 } as const;
 
 /** The §14.1 error envelope. `fields` is only for validation errors. */
 export function errorBody(code: ErrorCode, message: string, fields?: Record<string, string>) {

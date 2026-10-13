@@ -227,3 +227,16 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
 - Not done yet, on purpose: audit-log rows for accepting an invitation and renaming yourself (the audit table
   arrives in T028), and the accept-invitation page itself (later client tasks).
 - verify.sh passes; the reviewer approved. No screens changed, so no QA pass. Nothing for the owner to do.
+
+### 2026-10-13 — T017: user-management API for the administrator
+- The administrator can now list all users (`GET /api/users`, with each invited person's invitation state: valid,
+  expired or revoked) and list invitations (`GET /api/invitations`). Landlords get 403 FORBIDDEN on all of these.
+- `POST /api/invitations` (name + email) creates the invited landlord straight away and emails the "You're invited"
+  message naming the administrator. An email that already belongs to anyone answers 409 "A user with this email already exists."
+- Resend replaces the old link with a new one and emails it; Revoke kills the link and leaves the person "invited".
+- Deactivate (landlords only, never the administrator: 403) signs the person out everywhere immediately; Reactivate
+  brings them back with their old password.
+- Not done yet, on purpose: audit-log rows (T028), moving a deactivated landlord's properties to the administrator
+  (arrives with properties), and refusing a deactivated person's sign-in with "Incorrect email or password." (T019).
+  Until T019 their sign-in itself still succeeds, but every request they then make is answered 401.
+- verify.sh passes; the reviewer approved. No screens changed, so no QA pass. Nothing for the owner to do.

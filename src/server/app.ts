@@ -6,6 +6,8 @@ import { mountErrorHandlers, originCheck, sessionGuard } from "./api-guard";
 import { securityHeaders } from "./security-headers";
 import { mountInvitationRoutes } from "./invitation-routes";
 import { mountMeRoutes } from "./me-routes";
+import { mountUserRoutes } from "./user-routes";
+import type { EnqueueEmail } from "../worker/email";
 import { mountSpa } from "./spa";
 import { mountTestRoutes } from "./test-routes";
 
@@ -18,6 +20,7 @@ export function createApp(
   config: AppConfig = { testRoutesEnabled: false },
   appUrl: string | undefined = process.env.APP_URL,
   db?: Db,
+  enqueueEmail?: (email: EnqueueEmail) => Promise<unknown>,
 ) {
   const app = new Hono();
   app.use("*", securityHeaders);
@@ -34,6 +37,7 @@ export function createApp(
   if (auth && db) {
     mountInvitationRoutes(app, db, auth);
     mountMeRoutes(app, db);
+    if (enqueueEmail) mountUserRoutes(app, db, enqueueEmail, appUrl ?? "");
   }
   // Test-only routes (D-25); when disabled /api/test/* does not exist. Registered before the SPA fallback.
   if (config.testRoutesEnabled) mountTestRoutes(app, pool);

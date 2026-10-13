@@ -9,7 +9,7 @@ import { createAuth } from "./auth";
 import { seedSmokeUser } from "./seed";
 import { bootstrapAdmin } from "./bootstrap";
 import { PgBoss } from "pg-boss";
-import { EMAIL_QUEUE } from "../worker/email";
+import { EMAIL_QUEUE, enqueueEmail } from "../worker/email";
 import { requireDatabaseUrl } from "../db/client";
 
 const config = loadConfigOrExit("web");
@@ -28,6 +28,6 @@ boss.on("error", (error) => console.error("[web] pg-boss error", error));
 await boss.start();
 await boss.createQueue(EMAIL_QUEUE);
 await bootstrapAdmin(db, pool, boss);
-serve({ fetch: createApp(pool, undefined, auth, config, undefined, db).fetch, port }, () =>
+serve({ fetch: createApp(pool, undefined, auth, config, undefined, db, (email) => enqueueEmail(pool, boss, email)).fetch, port }, () =>
   console.log(`${appBanner("web")} listening on ${port}`),
 );
