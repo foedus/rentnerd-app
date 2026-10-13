@@ -54,6 +54,7 @@ it("shows Profile with a read-only email and Change password", async () => {
   expect(input("Name (required)").value).toBe("Pat Lee");
   expect(document.body.textContent).toContain("pat@example.com");
   expect(document.querySelector('input[type="email"]')).toBeNull();
+  expect(input("Name (required)").getAttribute("aria-required")).toBe("true");
   for (const l of ["Current password (required)", "New password (required)", "Confirm new password (required)"]) expect(input(l)).toBeTruthy();
   await act(async () => root.unmount());
 });
@@ -75,6 +76,16 @@ it("shows the trimmed name after saving and clears the message when edited again
   expect(document.body.textContent).toContain("Name saved.");
   await type(input("Name (required)"), "Trim Me 2");
   expect(document.body.textContent).not.toContain("Name saved.");
+  await act(async () => root.unmount());
+});
+
+it("keeps keyboard focus on the Save name button after saving", async () => {
+  const root = await mount(me, async () => Response.json(me));
+  const save = button("Save name");
+  save.focus();
+  await click(save);
+  expect(document.body.textContent).toContain("Name saved.");
+  expect(document.activeElement).toBe(save);
   await act(async () => root.unmount());
 });
 

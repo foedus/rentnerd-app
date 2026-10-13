@@ -229,6 +229,7 @@ export function TextFieldInput({ name, label, required = false, type = "text", a
         id={fieldId(name)}
         type={type}
         autoComplete={autoComplete}
+        aria-required={required || undefined}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
         className="mt-1 block min-h-6 w-full rounded border px-3 py-1"
