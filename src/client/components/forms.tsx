@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { createContext, useContext, useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "react-aria-components";
 import {
+  Controller,
   FormProvider,
   useForm,
   useFormContext,
@@ -20,7 +21,9 @@ import {
   savedMessage,
   UNEXPECTED_MESSAGE,
 } from "../../shared/form-messages";
-import { TooManyRequestsError } from "../api";
+import { FieldErrorsError, TooManyRequestsError } from "../api";
+import { parseMoneyToCents } from "../../shared/format";
+import { MoneyInput } from "./ui";
 
 const SAVED_EVENT = "appform-saved";
 
@@ -35,6 +38,13 @@ type Status = { kind: "idle" } | { kind: "saved"; thing: string; message?: strin
 interface FormKit {
   status: Status;
 }
+/** Prefix for field ids, so a form in a dialog doesn't repeat the ids of the page behind it. */
+const IdPrefixContext = createContext("");
+function useIds() {
+  const prefix = useContext(IdPrefixContext);
+  return { id: (name: string) => prefix + fieldId(name), err: (name: string) => prefix + fieldErrorId(name) };
+}
+
 const KitContext = createContext<FormKit>({ status: { kind: "idle" } });
 
 /** Form state validated by the same Zod schema the API uses. Errors show after the first submit. */
@@ -65,6 +75,7 @@ export function flattenErrors(errors: FieldErrors, prefix = ""): FlatError[] {
 
 /** "There is a problem" summary; takes focus after each failed submit and links to every field with an error. */
 export function ErrorSummary() {
+  const ids = useIds();
   const {
     formState: { errors, submitCount },
   } = useFormContext();
@@ -82,11 +93,11 @@ export function ErrorSummary() {
         {list.map((e) => (
           <li key={e.path}>
             <a
-              href={`#${fieldId(e.path)}`}
+              href={`#${ids.id(e.path)}`}
               className="underline"
               onClick={(ev) => {
                 ev.preventDefault();
-                document.getElementById(fieldId(e.path))?.focus();
+                document.getElementById(ids.id(e.path))?.focus();
               }}
             >
               {e.message}
@@ -141,10 +152,12 @@ interface AppFormProps<V extends FieldValues, O> {
   submitLabel: string;
   /** Rendered next to the submit button, e.g. a Cancel button. */
   secondary?: ReactNode;
+  /** Prepended to field ids when the form sits in a dialog over another form. */
+  idPrefix?: string;
 }
 
 /** `<form>` wrapper: validation, error summary, saved/conflict/unexpected messages and a submit button. */
-export function AppForm<V extends FieldValues, O>({ form, thing, successMessage, save, onReload, children, submitLabel, secondary }: AppFormProps<V, O>) {
+export function AppForm<V extends FieldValues, O>({ form, thing, successMessage, save, onReload, children, submitLabel, secondary, idPrefix = "" }: AppFormProps<V, O>) {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [busy, setBusy] = useState(false);
   const submitButton = useRef<HTMLButtonElement>(null);
@@ -177,7 +190,10 @@ export function AppForm<V extends FieldValues, O>({ form, thing, successMessage,
       setStatus({ kind: "saved", thing, message: successMessage });
     } catch (err) {
       if (err instanceof VersionConflictError) setStatus({ kind: "conflict" });
-      else if (err instanceof FormMessageError) setStatus({ kind: "error", message: err.message });
+      else if (err instanceof FieldErrorsError) {
+        for (const [name, message] of Object.entries(err.fields)) form.setError(name as never, { message });
+        setStatus({ kind: "idle" });
+      } else if (err instanceof FormMessageError) setStatus({ kind: "error", message: err.message });
       else setStatus({ kind: "error", message: err instanceof TooManyRequestsError ? err.message : UNEXPECTED_MESSAGE });
     } finally {
       setBusy(false);
@@ -185,6 +201,7 @@ export function AppForm<V extends FieldValues, O>({ form, thing, successMessage,
   });
   return (
     <FormProvider {...(form as unknown as UseFormReturn<FieldValues>)}>
+      <IdPrefixContext.Provider value={idPrefix}>
       <KitContext.Provider value={{ status }}>
         <form
           noValidate
@@ -204,6 +221,7 @@ export function AppForm<V extends FieldValues, O>({ form, thing, successMessage,
           </div>
         </form>
       </KitContext.Provider>
+      </IdPrefixContext.Provider>
     </FormProvider>
   );
 }
@@ -215,21 +233,24 @@ interface TextFieldProps {
   type?: "text" | "email" | "password" | "date" | "number" | "tel";
   autoComplete?: string;
   hint?: string;
+  /** Blank gives null and anything else a number (non-numbers reach the schema as NaN and get its message). */
+  numeric?: boolean;
 }
 
 /** Labelled input; "(required)" is added to the label and the error is linked with aria-describedby. */
-export function TextFieldInput({ name, label, required = false, type = "text", autoComplete, hint }: TextFieldProps) {
+export function TextFieldInput({ name, label, required = false, type = "text", autoComplete, hint, numeric = false }: TextFieldProps) {
+  const ids = useIds();
   const {
     register,
     getFieldState,
     formState,
   } = useFormContext();
   const error = getFieldState(name, formState).error?.message;
-  const hintId = `${fieldId(name)}-hint`;
-  const describedBy = [error ? fieldErrorId(name) : "", hint ? hintId : ""].filter(Boolean).join(" ") || undefined;
+  const hintId = `${ids.id(name)}-hint`;
+  const describedBy = [error ? ids.err(name) : "", hint ? hintId : ""].filter(Boolean).join(" ") || undefined;
   return (
     <div>
-      <label htmlFor={fieldId(name)} className="block">
+      <label htmlFor={ids.id(name)} className="block">
         {fieldLabel(label, required)}
       </label>
       {hint && (
@@ -238,19 +259,20 @@ export function TextFieldInput({ name, label, required = false, type = "text", a
         </p>
       )}
       {error && (
-        <p id={fieldErrorId(name)} className="text-red-700">
+        <p id={ids.err(name)} className="text-red-700">
           {error}
         </p>
       )}
       <input
-        id={fieldId(name)}
+        id={ids.id(name)}
         type={type}
         autoComplete={autoComplete}
         aria-required={required || undefined}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
         className="mt-1 block min-h-6 w-full rounded border px-3 py-1"
-        {...register(name)}
+        inputMode={numeric ? "numeric" : undefined}
+        {...register(name, numeric ? { setValueAs: (v: unknown) => (v === null || v === undefined || String(v).trim() === "" ? null : Number(v)) } : undefined)}
       />
     </div>
   );
@@ -259,39 +281,137 @@ export function TextFieldInput({ name, label, required = false, type = "text", a
 interface SelectFieldProps {
   name: string;
   label: string;
-  options: readonly string[];
+  options: readonly (string | { value: string; label: string })[];
   required?: boolean;
 }
 
 /** Labelled native select with an empty first choice; errors are linked like TextFieldInput. */
 export function SelectInput({ name, label, options, required = false }: SelectFieldProps) {
+  const ids = useIds();
   const { register, getFieldState, formState } = useFormContext();
   const error = getFieldState(name, formState).error?.message;
   return (
     <div>
-      <label htmlFor={fieldId(name)} className="block">
+      <label htmlFor={ids.id(name)} className="block">
         {fieldLabel(label, required)}
       </label>
       {error && (
-        <p id={fieldErrorId(name)} className="text-red-700">
+        <p id={ids.err(name)} className="text-red-700">
           {error}
         </p>
       )}
       <select
-        id={fieldId(name)}
+        id={ids.id(name)}
         aria-required={required || undefined}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? fieldErrorId(name) : undefined}
+        aria-describedby={error ? ids.err(name) : undefined}
         className="mt-1 block min-h-6 w-full rounded border px-3 py-1"
         {...register(name)}
       >
         <option value="">Select…</option>
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
+        {options.map((o) => {
+          const { value, label: text } = typeof o === "string" ? { value: o, label: o } : o;
+          return (
+            <option key={value} value={value}>
+              {text}
+            </option>
+          );
+        })}
       </select>
     </div>
+  );
+}
+
+interface CheckboxProps {
+  name: string;
+  label: string;
+  onChange?: (checked: boolean) => void;
+}
+
+/** Labelled checkbox bound to a boolean form value. */
+export function CheckboxInput({ name, label, onChange }: CheckboxProps) {
+  const ids = useIds();
+  const { register } = useFormContext();
+  return (
+    <label className="flex min-h-6 items-center gap-2">
+      <input id={ids.id(name)} type="checkbox" {...register(name, { onChange: (e: { target: HTMLInputElement }) => onChange?.(e.target.checked) })} />
+      {label}
+    </label>
+  );
+}
+
+interface ChoiceGroupProps {
+  name: string;
+  legend: string;
+  choices: readonly { id: string; label: string }[];
+  required?: boolean;
+}
+
+/** Group of checkboxes bound to an array of ids; the error is linked to the group. */
+export function CheckboxGroupInput({ name, legend, choices, required = false }: ChoiceGroupProps) {
+  const ids = useIds();
+  const { control, getFieldState, formState } = useFormContext();
+  const error = getFieldState(name, formState).error?.message;
+  return (
+    <Controller
+      control={control}
+      name={name}
+      render={({ field }) => {
+        const chosen: string[] = field.value ?? [];
+        return (
+          <fieldset
+            id={ids.id(name)}
+            tabIndex={-1}
+            aria-required={required || undefined}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? ids.err(name) : undefined}
+            className="space-y-1"
+          >
+            <legend>{fieldLabel(legend, required)}</legend>
+            {error && (
+              <p id={ids.err(name)} className="text-red-700">
+                {error}
+              </p>
+            )}
+            {choices.map((c) => (
+              <label key={c.id} className="flex min-h-6 items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={chosen.includes(c.id)}
+                  onChange={(e) => field.onChange(e.target.checked ? [...chosen, c.id] : chosen.filter((x) => x !== c.id))}
+                />
+                {c.label}
+              </label>
+            ))}
+          </fieldset>
+        );
+      }}
+    />
+  );
+}
+
+/** Money field bound to integer cents (null when empty). */
+export function MoneyFieldInput({ name, label, required = false }: { name: string; label: string; required?: boolean }) {
+  const ids = useIds();
+  const { control, getFieldState, formState } = useFormContext();
+  return (
+    <Controller
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <MoneyInput
+          id={ids.id(name)}
+          label={label}
+          required={required}
+          value={typeof field.value === "number" ? field.value : null}
+          onChange={field.onChange}
+          // Text that isn't an amount goes on as NaN so the schema can say so, instead of looking like an empty field.
+          onTextChange={(text) => {
+            if (text.trim() !== "" && parseMoneyToCents(text) === null) field.onChange(Number.NaN);
+          }}
+          error={getFieldState(name, formState).error?.message}
+        />
+      )}
+    />
   );
 }

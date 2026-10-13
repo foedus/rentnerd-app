@@ -476,3 +476,18 @@ None.
 - AC-PROP-10 passes. QA found that a failed list load had no way to retry; the page now shows "Try again" under the error. QA also asked
   whether Show archived should add archived properties or replace the list; it adds them, as the spec says for Owners (AC-OWN-03), so that stays.
 - verify.sh passes; the reviewer approved; QA pass done. Nothing for the owner to do.
+
+### 2026-10-13 — T034: Add/Edit property form
+- New pages **Add property** (`/properties/new`) and **Edit property** (`/properties/:id/edit`) with every §11.8 field: name, address, city, State,
+  ZIP, "Located in New York City", BBL, year built, Owner, Responsible landlords, purchase price, purchase date and notes, plus Save property and
+  Cancel. The Owner choice lists only owners that aren't archived, with an **Add owner** button that opens the owner form in a pop-up; after saving,
+  the new owner is selected. Responsible landlords are tick boxes showing name and email, with you ticked by default and "Choose at least one
+  responsible landlord." if none. On Add only, **Single-unit property** shows **Use** (Residential/Commercial) and creates the "Entire property" unit.
+  A name that's already taken shows "A property with this name already exists." next to the field. The Smoke user still can't open the page.
+- A purchase price that isn't an amount (e.g. "abc") is now refused with a message instead of being silently dropped (QA found this). Fields in the
+  Add owner pop-up have their own ids so screen readers and the "There is a problem" links point at the pop-up's fields (QA found this).
+- Saving goes to `/properties/:id`, which has no page yet (the property detail comes with a later task), so it shows "Page not found" for now.
+- AC-PROP-03, AC-OWN-04 and AC-PLAT-03 pass.
+- QA also noticed that archiving an owner used by properties is still allowed. That is the known switch point (`OwnerUsage`) that the later Properties
+  tasks (T075, AC-OWN-03) must plug in; not part of this task.
+- verify.sh passes; the reviewer's findings (missing Edit tests, version fallback, archived current owner) are fixed; QA pass done.

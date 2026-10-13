@@ -20,15 +20,17 @@ const initial = (o?: OwnerRecord) =>
       }
     : blank;
 
-function Fields({ owner }: { owner?: OwnerRecord }) {
+/** The owner form; `onSaved` (used by the Add owner dialog on the property form) replaces going to the owner's page. */
+export function OwnerFields({ owner, onSaved, onCancel, idPrefix }: { idPrefix?: string; owner?: OwnerRecord; onSaved?: (saved: OwnerRecord) => void; onCancel?: () => void }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const form = useAppForm(createOwnerSchema, initial(owner) as never);
-  const cancel = () => navigate(owner ? `/owners/${owner.id}` : "/owners");
+  const cancel = onCancel ?? (() => navigate(owner ? `/owners/${owner.id}` : "/owners"));
   return (
     <AppForm
       form={form}
       thing="Owner"
+      idPrefix={idPrefix}
       submitLabel="Save owner"
       secondary={
         <Button onPress={cancel} className="min-h-6 rounded border px-4 py-1">
@@ -46,6 +48,7 @@ function Fields({ owner }: { owner?: OwnerRecord }) {
         }
         await queryClient.invalidateQueries({ queryKey: ["owners"] });
         await queryClient.invalidateQueries({ queryKey: ["owner"] });
+        if (onSaved) return onSaved(saved);
         navigate(`/owners/${saved.id}`, { state: { saved: "Owner saved." } });
       }}
     >
@@ -73,7 +76,7 @@ export function OwnerForm() {
     return (
       <Page title="Add owner">
         <div className="max-w-xl">
-          <Fields />
+          <OwnerFields />
         </div>
       </Page>
     );
@@ -83,7 +86,7 @@ export function OwnerForm() {
       <div className="max-w-xl">
         {owner.isPending && <p role="status">Loading…</p>}
         {owner.isError && <p role="alert">{owner.error.message}</p>}
-        {owner.data && <Fields key={owner.data.version} owner={owner.data} />}
+        {owner.data && <OwnerFields key={owner.data.version} owner={owner.data} />}
       </div>
     </Page>
   );

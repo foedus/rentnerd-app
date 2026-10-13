@@ -86,11 +86,13 @@ interface MoneyInputProps {
   /** Integer cents, or null when empty or not yet valid. */
   value: number | null;
   onChange: (cents: number | null) => void;
+  /** Called with the typed text after onChange, e.g. to tell an empty field from text that isn't an amount. */
+  onTextChange?: (text: string) => void;
   error?: string;
 }
 
 /** Accepts "2150", "2,150" or "2150.00"; shows "$2,150.00" once the field is left (SPEC §11). */
-export function MoneyInput({ id, label, required = false, value, onChange, error }: MoneyInputProps) {
+export function MoneyInput({ id, label, required = false, value, onChange, onTextChange, error }: MoneyInputProps) {
   const [text, setText] = useState(value === null ? "" : formatCents(value));
   const errorId = `${id}-error`;
   return (
@@ -114,6 +116,7 @@ export function MoneyInput({ id, label, required = false, value, onChange, error
         onChange={(e) => {
           setText(e.target.value);
           onChange(parseMoneyToCents(e.target.value));
+          onTextChange?.(e.target.value);
         }}
         onBlur={() => {
           const cents = parseMoneyToCents(text);
