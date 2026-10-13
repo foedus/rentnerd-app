@@ -75,6 +75,26 @@ describe("forgot password", () => {
 });
 
 describe("reset password", () => {
+  it("refuses a password made only of spaces and keeps the old one", async () => {
+    await makeUser("active@example.com");
+    const a = app();
+    await forgot(a, "active@example.com");
+    await sentCount(1);
+    const token = tokenOf(sent[0] as EnqueueEmail);
+    expect((await post(a, "/api/auth/reset-password", { token, newPassword: " ".repeat(12) })).status).toBe(400);
+    expect((await post(a, "/api/auth/sign-in/email", { email: "active@example.com", password: OLD })).status).toBe(200);
+  });
+
+  it("answers a blank sign-in password the same for known and unknown emails", async () => {
+    await makeUser("active@example.com");
+    const a = app();
+    const known = await post(a, "/api/auth/sign-in/email", { email: "active@example.com", password: " ".repeat(12) });
+    const unknown = await post(a, "/api/auth/sign-in/email", { email: "nobody@example.com", password: " ".repeat(12) });
+    expect(known.status).toBe(401);
+    expect(unknown.status).toBe(401);
+    expect(await unknown.json()).toEqual(await known.json());
+  });
+
   it("resets once, signs out every session, and sends the password-changed email", async () => {
     await makeUser("active@example.com");
     const a = app();

@@ -1,11 +1,11 @@
 import { betterAuth } from "better-auth";
-import { APIError } from "better-auth/api";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { and, eq, like } from "drizzle-orm";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import type { Db } from "../db/client";
 import * as schema from "../db/schema";
 
-import { PASSWORD_MAX, PASSWORD_MIN } from "../shared/schemas";
+import { BLANK_PASSWORD, PASSWORD_MAX, PASSWORD_MIN, notBlank } from "../shared/schemas";
 import { RESET_TOKEN_TTL_SECONDS, sendPasswordChangedEmail, sendResetEmail, type PasswordMail } from "./password-emails";
 
 export function createAuth(db: Db, env: NodeJS.ProcessEnv = process.env, mail?: PasswordMail) {
@@ -36,6 +36,16 @@ export function createAuth(db: Db, env: NodeJS.ProcessEnv = process.env, mail?: 
           .where(and(eq(schema.verification.value, user.id), like(schema.verification.identifier, "reset-password:%")));
         if (mail) await sendPasswordChangedEmail(mail, user);
       },
+    },
+    hooks: {
+      // Better Auth only checks length. Sign-in is not listed, so it keeps its uniform 401 for every wrong password.
+      before: createAuthMiddleware(async (ctx) => {
+        if (!["/reset-password", "/change-password", "/set-password"].includes(ctx.path)) return;
+        const body = ctx.body as { newPassword?: unknown } | undefined;
+        if (typeof body?.newPassword === "string" && !notBlank(body.newPassword)) {
+          throw new APIError("BAD_REQUEST", { code: "PASSWORD_BLANK", message: BLANK_PASSWORD });
+        }
+      }),
     },
     databaseHooks: {
       session: {

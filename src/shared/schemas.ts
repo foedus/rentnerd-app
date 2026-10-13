@@ -3,6 +3,9 @@ import { z } from "zod";
 export const PASSWORD_MIN = 12;
 export const PASSWORD_MAX = 128;
 
+export const BLANK_PASSWORD = "Password can't be only spaces.";
+export const notBlank = (v: string) => v.trim().length > 0;
+
 const name = z.string().trim().min(1, "Enter your name.").max(200, "Use 200 characters or fewer.");
 
 export const acceptInvitationSchema = z.object({
@@ -11,7 +14,8 @@ export const acceptInvitationSchema = z.object({
   password: z
     .string()
     .min(PASSWORD_MIN, `Use at least ${PASSWORD_MIN} characters.`)
-    .max(PASSWORD_MAX, `Use ${PASSWORD_MAX} characters or fewer.`),
+    .max(PASSWORD_MAX, `Use ${PASSWORD_MAX} characters or fewer.`)
+    .refine(notBlank, BLANK_PASSWORD),
 });
 
 export const lookupInvitationSchema = z.object({ token: z.string().min(1).max(200) });
@@ -34,7 +38,8 @@ export const newPasswordSchema = z
     newPassword: z
       .string()
       .min(PASSWORD_MIN, `Password must be at least ${PASSWORD_MIN} characters.`)
-      .max(PASSWORD_MAX, `Password must be ${PASSWORD_MAX} characters or fewer.`),
+      .max(PASSWORD_MAX, `Password must be ${PASSWORD_MAX} characters or fewer.`)
+      .refine(notBlank, BLANK_PASSWORD),
     confirmPassword: z.string(),
   })
   .refine((v) => v.newPassword === v.confirmPassword, { path: ["confirmPassword"], message: "Passwords don't match." });
@@ -46,7 +51,8 @@ export const acceptInviteFormSchema = z
     password: z
       .string()
       .min(PASSWORD_MIN, `Password must be at least ${PASSWORD_MIN} characters.`)
-      .max(PASSWORD_MAX, `Password must be ${PASSWORD_MAX} characters or fewer.`),
+      .max(PASSWORD_MAX, `Password must be ${PASSWORD_MAX} characters or fewer.`)
+      .refine(notBlank, BLANK_PASSWORD),
     confirmPassword: z.string(),
   })
   .refine((v) => v.password === v.confirmPassword, { path: ["confirmPassword"], message: "Passwords don't match." });

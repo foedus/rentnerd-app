@@ -369,5 +369,5 @@ None.
   has expired" for a genuinely bad link; other failures show "Something went wrong. Please try again."
 - Also fixed from QA: the "password has been reset" notice no longer comes back when `/login` is reloaded, the reset page's field
   errors are red, and the "password changed" email now reads "...reset your password now:" followed by the link, as §10.4 says.
-- Not changed: a password of 12 spaces is accepted, because the spec only asks for 12 characters (tell me if you want a
-  "not all spaces" rule). The reviewer approved. Nothing for the owner to do.
+- Also fixed: a password made only of spaces is now refused (reset page, invitation page and the server), with "Password can't be
+  only spaces." The reviewer approved. Nothing for the owner to do.

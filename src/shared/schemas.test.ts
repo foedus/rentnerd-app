@@ -14,3 +14,10 @@ describe("schemas", () => {
     expect(updateMeSchema.safeParse({ name: "n".repeat(201) }).success).toBe(false);
   });
 });
+
+it("rejects all-space passwords in the reset form", async () => {
+  const { newPasswordSchema, BLANK_PASSWORD } = await import("./schemas");
+  const r = newPasswordSchema.safeParse({ newPassword: " ".repeat(12), confirmPassword: " ".repeat(12) });
+  expect(r.success).toBe(false);
+  expect(r.error?.issues[0]?.message).toBe(BLANK_PASSWORD);
+});
