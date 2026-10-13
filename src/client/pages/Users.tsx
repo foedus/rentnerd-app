@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button, Dialog, Heading, Modal, ModalOverlay } from "react-aria-components";
 import { FormProvider, type UseFormReturn, type FieldValues } from "react-hook-form";
-import { DuplicateUserError, fetchUsers, inviteLandlord } from "../api";
+import { DuplicateUserError, FieldErrorsError, fetchUsers, inviteLandlord } from "../api";
 import { TooManyRequestsError } from "../api";
 import { ErrorSummary, useAppForm, TextFieldInput } from "../components/forms";
 import { Page } from "../components/Page";
@@ -35,6 +35,10 @@ function InviteDialog({ isOpen, onOpenChange, onInvited }: { isOpen: boolean; on
     } catch (err) {
       if (err instanceof DuplicateUserError) {
         form.setError("email", { message: err.message });
+      } else if (err instanceof FieldErrorsError) {
+        for (const [field, message] of Object.entries(err.fields)) {
+          if (field === "name" || field === "email") form.setError(field, { message });
+        }
       } else setFailure(err instanceof TooManyRequestsError ? err.message : UNEXPECTED_MESSAGE);
     } finally {
       setBusy(false);

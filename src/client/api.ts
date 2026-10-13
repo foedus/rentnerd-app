@@ -104,6 +104,11 @@ export async function acceptInvitation(token: string, name: string, password: st
 
 export const DUPLICATE_USER = "A user with this email already exists.";
 export class DuplicateUserError extends Error {}
+export class FieldErrorsError extends Error {
+  constructor(readonly fields: Record<string, string>) {
+    super("Please check the highlighted fields.");
+  }
+}
 
 export interface UsersPage {
   data: UserRow[];
@@ -128,5 +133,10 @@ export async function inviteLandlord(name: string, email: string): Promise<void>
   if (res.ok) return;
   if (res.status === 409) throw new DuplicateUserError(DUPLICATE_USER);
   if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  if (res.status === 422) {
+    const body = (await res.json().catch(() => null)) as { error?: { fields?: Record<string, string> } } | null;
+    const fields = body?.error?.fields;
+    if (fields && Object.keys(fields).length > 0) throw new FieldErrorsError(fields);
+  }
   throw new Error("Something went wrong. Please try again.");
 }

@@ -21,8 +21,8 @@ None.
 - After the owner-approved fix to the Mailpit test helper, all 24 acceptance tests pass in verify.sh (including AC-USR-01, -02, -04, -06,
   AC-PLAT-04 and AC-PLAT-08).
 - Reviewer: PASS. QA findings fixed: the invite dialog now clears its fields and errors when closed, and shows the "There is a problem"
-  summary (focus moves to it after a failed send). Left for later: a server-side field error (422) shows the generic message, which can't
-  happen through the screen's own checks; the Name error reads "Enter your name." as in the shared form messages.
+  summary (focus moves to it after a failed send); a server-side field error now shows on the matching field; the empty-name message in
+  this dialog reads "Enter a name."; a role sent in the request is ignored (tested - invitees are always landlords).
 
 ### 2026-10-13 — T021: forgot and reset password (BLOCKED on one disputed test)
 - `/forgot-password` ("Send reset link", "Back to sign in") always shows "If an account exists for that email, we've sent a reset link."

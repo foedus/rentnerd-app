@@ -84,3 +84,44 @@ it("shows the duplicate-email message in the invite dialog on a 409", async () =
   expect((reopened.querySelectorAll("input")[1] as HTMLInputElement).value).toBe("");
   await act(async () => root.unmount());
 });
+
+it("maps server 422 field errors onto the invite dialog fields", async () => {
+  const root = await mount(async (url, init) =>
+    init?.method === "POST"
+      ? Response.json({ error: { code: "VALIDATION_ERROR", message: "Please check.", fields: { email: "Enter a valid email address." } } }, { status: 422 })
+      : Response.json({ data: rows, page: 1, pageSize: 50, total: 3 }),
+  );
+  const open = Array.from(document.querySelectorAll("button")).find((b) => b.textContent === "Invite landlord") as HTMLElement;
+  await act(async () => open.click());
+  const set = (el: HTMLInputElement, v: string) => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(el, v);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+  const dialog = document.querySelector('[role="dialog"]') as HTMLElement;
+  const inputs = dialog.querySelectorAll("input");
+  await act(async () => {
+    set(inputs[0] as HTMLInputElement, "Someone");
+    set(inputs[1] as HTMLInputElement, "someone@example.com");
+  });
+  await act(async () => {
+    dialog.querySelector("form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    await new Promise((r) => setTimeout(r, 30));
+  });
+  expect(dialog.textContent).toContain("Enter a valid email address.");
+  expect(dialog.textContent).not.toContain("Something went wrong");
+  await act(async () => root.unmount());
+});
+
+it("asks for a name with neutral wording", async () => {
+  const root = await mount(async () => Response.json({ data: rows, page: 1, pageSize: 50, total: 3 }));
+  const open = Array.from(document.querySelectorAll("button")).find((b) => b.textContent === "Invite landlord") as HTMLElement;
+  await act(async () => open.click());
+  const dialog = document.querySelector('[role="dialog"]') as HTMLElement;
+  await act(async () => {
+    dialog.querySelector("form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    await new Promise((r) => setTimeout(r, 30));
+  });
+  expect(dialog.textContent).toContain("Enter a name.");
+  expect(dialog.textContent).not.toContain("Enter your name.");
+  await act(async () => root.unmount());
+});

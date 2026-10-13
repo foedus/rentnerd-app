@@ -89,6 +89,14 @@ describe("POST /api/invitations", () => {
     expect(sent[0]?.content.action?.url).toMatch(/^http:\/\/localhost:8080\/accept-invite\?token=/);
   });
 
+  it("ignores a role sent in the body and always invites a landlord", async () => {
+    const { adminCookie } = await setup();
+    const res = await call(adminCookie, "POST", "/api/invitations", { name: "Eve", email: "eve@example.com", role: "admin" });
+    expect(res.status).toBe(201);
+    const { rows } = await pool.query(`select role from "user" where email = 'eve@example.com'`);
+    expect(rows).toEqual([{ role: "landlord" }]);
+  });
+
   it("rejects an email that already belongs to any user with 409 and sends nothing", async () => {
     const { adminCookie } = await setup();
     await makeUser("old@example.com", "landlord", "deactivated");

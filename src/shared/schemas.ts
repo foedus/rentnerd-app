@@ -23,7 +23,7 @@ export const lookupInvitationSchema = z.object({ token: z.string().min(1).max(20
 export const updateMeSchema = z.object({ name });
 
 export const inviteLandlordSchema = z.object({
-  name,
+  name: z.string().trim().min(1, "Enter a name.").max(200, "Use 200 characters or fewer."),
   email: z.string().trim().toLowerCase().max(254, "Use 254 characters or fewer.").pipe(z.email("Enter a valid email address.")),
 });
 
