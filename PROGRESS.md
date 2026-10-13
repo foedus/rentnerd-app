@@ -324,3 +324,13 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 - Nothing on screen changes yet, because no page uses the kit until the form screens (from T031). The earlier sign-in, reset
   and invitation pages keep their own code for now.
 - verify.sh passes; the reviewer approved. No QA pass (no screens changed). Nothing for the owner to do.
+
+### 2026-10-13 — T024: shared interface pieces
+- Added the reusable pieces later screens will use: a confirmation dialog (focus starts on "Cancel", Escape closes it and
+  focus goes back to the button that opened it), a button that stays focusable but does nothing when unavailable and explains
+  why to screen readers, a money box ("2150", "2,150" and "2150.00" all become $2,150.00), date helpers in New York time
+  ("Jan 5, 2027"), a named table inside a keyboard-scrollable area, and "Previous" / "Next" with "Page X of Y".
+- Nothing on screen changes yet; no page uses them until the list and form screens. 
+- For later tasks: the money box fills its text only when first shown, so a form that resets its values must remount it
+  (give it a `key`). `formatDate` assumes a real `YYYY-MM-DD` date.
+- verify.sh passes; the reviewer approved. No QA pass (no screens changed). Nothing for the owner to do.
