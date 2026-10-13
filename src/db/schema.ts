@@ -105,3 +105,26 @@ export const emailLog = pgTable(
 export const testFlag = pgTable("test_flag", {
   name: text("name").primaryKey(),
 });
+
+// SPEC §6.2: single-use invitation links (SHA-256 of the token is stored, never the token).
+export const invitation = pgTable(
+  "invitation",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    invitedById: uuid("invited_by_id").references(() => user.id, { onDelete: "set null" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // At most one unaccepted, unrevoked invitation per user.
+    uniqueIndex("invitation_one_live_idx")
+      .on(t.userId)
+      .where(sql`${t.acceptedAt} is null and ${t.revokedAt} is null`),
+  ],
+);

@@ -199,3 +199,16 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
   except signing out. Unexpected server errors answer 500 `INTERNAL` in the standard error format.
 - Note for later tasks: the signed-in user is available in route handlers as `c.get("user")`.
 - verify.sh passes; the reviewer approved. No screens changed, so no QA pass. Nothing for the owner to do.
+
+### 2026-10-13 — T015: administrator set-up at startup
+- When the web app starts and there is no administrator yet, it creates one from the `ADMIN_EMAIL`
+  setting (status "Invited") and emails the "You're invited to RentNerd" message with the administrator
+  wording and a "Set your password" link that works for 7 days. Starting again sends no second email,
+  and starting several copies at once still creates one administrator and one email.
+- If `ADMIN_EMAIL` differs from the existing administrator, a warning is logged and nothing changes.
+  In production the web app refuses to start if `ADMIN_EMAIL` is missing (the test-route safety check still comes first).
+- Added the `invitation` table (only the hash of the link token is stored). The accept-invitation page and
+  the `resend-admin-invite` command come in later tasks. Small gap: if the app crashed in the instant between
+  saving the administrator and queuing the email, no email goes out; the resend command will cover that.
+- verify.sh passes; the reviewer approved. No screens changed, so no QA pass. Before the first deploy the owner
+  must have set the `ADMIN_EMAIL` secret on Fly (`fly secrets set ADMIN_EMAIL=<email> -a rentnerd-app`).

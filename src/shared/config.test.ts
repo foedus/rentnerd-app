@@ -35,3 +35,15 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ ...safe, ...override })).toThrow(/ENABLE_TEST_ROUTES/);
   });
 });
+
+describe("loadConfig ADMIN_EMAIL in production", () => {
+  it("makes the web process refuse to start without ADMIN_EMAIL", () => {
+    expect(() => loadConfig({ NODE_ENV: "production" }, "web")).toThrow(/ADMIN_EMAIL/);
+    expect(() => loadConfig({ NODE_ENV: "production", ADMIN_EMAIL: "  " }, "web")).toThrow(ConfigError);
+  });
+  it("accepts it when set, and does not require it elsewhere", () => {
+    expect(() => loadConfig({ NODE_ENV: "production", ADMIN_EMAIL: "a@b.c" }, "web")).not.toThrow();
+    expect(() => loadConfig({ NODE_ENV: "production" }, "worker")).not.toThrow();
+    expect(() => loadConfig({ NODE_ENV: "test" }, "web")).not.toThrow();
+  });
+});
