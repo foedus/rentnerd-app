@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createContext, useContext, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "react-aria-components";
 import {
   FormProvider,
@@ -21,6 +21,8 @@ import {
   UNEXPECTED_MESSAGE,
 } from "../../shared/form-messages";
 import { TooManyRequestsError } from "../api";
+
+const SAVED_EVENT = "appform-saved";
 
 /** Throw from a save function when the API answers 409 (version mismatch, D-10). */
 export class VersionConflictError extends Error {}
@@ -144,6 +146,15 @@ export function AppForm<V extends FieldValues, O>({ form, thing, successMessage,
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [busy, setBusy] = useState(false);
   const submitButton = useRef<HTMLButtonElement>(null);
+  const formId = useId();
+  // When another form on the page reports a save, this form's own "saved" message is out of date.
+  useEffect(() => {
+    const onOtherSaved = (e: Event) => {
+      if ((e as CustomEvent<string>).detail !== formId) setStatus((s) => (s.kind === "saved" ? { kind: "idle" } : s));
+    };
+    window.addEventListener(SAVED_EVENT, onOtherSaved);
+    return () => window.removeEventListener(SAVED_EVENT, onOtherSaved);
+  }, [formId]);
   // A "saved" message is out of date as soon as the person edits again.
   useEffect(() => {
     const sub = form.watch(() => setStatus((s) => (s.kind === "saved" ? { kind: "idle" } : s)));
@@ -160,6 +171,7 @@ export function AppForm<V extends FieldValues, O>({ form, thing, successMessage,
     setStatus({ kind: "idle" });
     try {
       await save(values);
+      window.dispatchEvent(new CustomEvent(SAVED_EVENT, { detail: formId }));
       setStatus({ kind: "saved", thing, message: successMessage });
     } catch (err) {
       if (err instanceof VersionConflictError) setStatus({ kind: "conflict" });

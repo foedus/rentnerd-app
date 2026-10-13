@@ -51,7 +51,11 @@ export const changePasswordSchema = z
     newPassword: newPasswordSchema.shape.newPassword,
     confirmPassword: z.string(),
   })
-  .refine((v) => v.newPassword === v.confirmPassword, { path: ["confirmPassword"], message: "Passwords don't match." });
+  .refine((v) => v.newPassword === v.confirmPassword, { path: ["confirmPassword"], message: "Passwords don't match." })
+  .refine((v) => v.newPassword !== v.currentPassword, {
+    path: ["newPassword"],
+    message: "New password must be different from your current password.",
+  });
 
 /** Accept-invitation form (§11.4): a name plus the same password rules as the reset form. */
 export const acceptInviteFormSchema = z

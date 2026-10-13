@@ -89,6 +89,31 @@ it("keeps keyboard focus on the Save name button after saving", async () => {
   await act(async () => root.unmount());
 });
 
+it("refuses a new password equal to the current one", async () => {
+  const fetchMock = vi.fn(async () => Response.json({}));
+  const root = await mount(me, fetchMock);
+  for (const l of ["Current password (required)", "New password (required)", "Confirm new password (required)"]) {
+    await type(input(l), "Same-password-0001");
+  }
+  await click(button("Change password"));
+  expect(document.body.textContent).toContain("New password must be different from your current password.");
+  expect(fetchMock).not.toHaveBeenCalled();
+  await act(async () => root.unmount());
+});
+
+it("clears the Name saved message when the password is changed", async () => {
+  const root = await mount(me, async () => Response.json(me));
+  await click(button("Save name"));
+  expect(document.body.textContent).toContain("Name saved.");
+  await type(input("Current password (required)"), "Old-password-0001");
+  await type(input("New password (required)"), "Next-password-00001");
+  await type(input("Confirm new password (required)"), "Next-password-00001");
+  await click(button("Change password"));
+  expect(document.body.textContent).toContain("Password changed.");
+  expect(document.body.textContent).not.toContain("Name saved.");
+  await act(async () => root.unmount());
+});
+
 it("validates the new password length and confirmation before calling the server", async () => {
   const fetchMock = vi.fn(async () => Response.json({}));
   const root = await mount(me, fetchMock);

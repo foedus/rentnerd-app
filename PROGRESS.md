@@ -395,3 +395,7 @@ None.
   shows the trimmed name after saving.
 - Note for later: changing a name doesn't write an Activity-log row yet (no audit logging exists so far); to add when the audit task lands.
 - verify.sh passes; the reviewer approved. Nothing for the owner to do.
+- T027 follow-up: a new password equal to the current one is now refused ("New password must be different from your current
+  password."), a "saved" message clears when the other form on the page saves, and required fields are marked `aria-required`.
+  The audit row for name changes waits for the "Audit log foundation" task (no audit table exists yet); the "Loading" page title
+  is shared app behaviour that an existing test expects, so it is unchanged.
