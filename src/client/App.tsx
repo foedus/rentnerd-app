@@ -19,7 +19,15 @@ function Shell() {
   const location = useLocation();
   const { data: me, error, isPending } = useQuery({ queryKey: ["me"], queryFn: fetchMe });
 
-  if (isPending) return <p role="status">Loading…</p>;
+  if (isPending) {
+    return (
+      <main>
+        <Page title="Loading">
+          <p role="status">Loading…</p>
+        </Page>
+      </main>
+    );
+  }
   if (error instanceof UnauthenticatedError) {
     const next = location.pathname + location.search;
     return <Navigate to={next === "/" ? "/login" : `/login?next=${encodeURIComponent(next)}`} replace />;

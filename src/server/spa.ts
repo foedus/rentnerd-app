@@ -8,6 +8,8 @@ export function mountSpa(app: Hono, clientDir: string) {
   const root = path.relative(process.cwd(), path.resolve(clientDir)) || ".";
   app.all("/api/*", (c) => c.json({ error: { code: "NOT_FOUND", message: "Not found" } }, 404));
   app.use("*", serveStatic({ root }));
+  // A missing build asset must not come back as HTML (a stale bundle name after a deploy).
+  app.get("/assets/*", (c) => c.text("Not found", 404));
   app.get("*", async (c) => {
     const html = await readFile(path.join(clientDir, "index.html"), "utf8");
     return c.html(html);

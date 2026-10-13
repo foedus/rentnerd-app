@@ -250,7 +250,9 @@ the test, the failure output and its reasoning here; see SPEC.md §15.5.)
   editing pages such as `/properties/new` for the read-only smoke user). Visitors who aren't signed in are sent to `/login`.
 - All pages are still empty placeholders, and `/login` is only a placeholder until T019. Added the libraries React Router,
   TanStack Query, React Aria and Tailwind.
-- For later tasks: T019 must only accept a same-site `next` address after sign-in. QA noticed the browser console logs a
-  harmless Content-Security-Policy warning about inline styles (from the menu pop-up); I left the security policy
-  unchanged — owner/later task may decide whether to allow inline styles.
-- verify.sh passes; the reviewer approved; QA found only minor issues, the useful ones fixed. Nothing for the owner to do.
+- For later tasks: T019 must only accept a same-site `next` address after sign-in. The browser console shows a harmless Content-Security-Policy warning about inline
+  styles (from the menu pop-up); the policy is set by SPEC §15 and is unchanged — the owner can decide whether to allow
+  inline styles later.
+  A missing `/assets/...` file now answers 404 instead of the page shell. After clicking a navigation link focus moves
+  to the page's main area.
+- verify.sh passes; the reviewer approved; QA's findings were fixed (only the nicety of distinguishing 403/429 on the loading error screen was left). Nothing for the owner to do.

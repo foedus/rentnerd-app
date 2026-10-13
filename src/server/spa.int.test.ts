@@ -33,6 +33,12 @@ describe("SPA serving", () => {
     expect(await res.text()).toContain("RentNerd");
   });
 
+  it("returns 404, not the HTML shell, for a missing asset", async () => {
+    const res = await app.request("/assets/missing.js");
+    expect(res.status).toBe(404);
+    expect(res.headers.get("content-type")).not.toContain("text/html");
+  });
+
   it("returns a JSON 404 for unknown /api paths", async () => {
     const res = await app.request("/api/nope");
     expect(res.status).toBe(404);

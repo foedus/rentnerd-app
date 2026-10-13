@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Menu, MenuItem, MenuTrigger, Popover } from "react-aria-components";
-import { Link, NavLink, Outlet, useNavigate } from "react-router";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { signOut, type Me } from "../api";
 import { navPagesFor } from "../../shared/routes";
 
@@ -11,6 +11,17 @@ export function Layout({ me }: { me: Me }) {
   const queryClient = useQueryClient();
   const [signOutError, setSignOutError] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
+  const { pathname } = useLocation();
+  const firstRender = useRef(true);
+
+  // After a client-side navigation, move focus to <main> so keyboard and screen-reader users start at the new page.
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    document.getElementById("main")?.focus();
+  }, [pathname]);
 
   const onMenuAction = async (key: React.Key) => {
     if (key === "account") return navigate("/account");
@@ -25,7 +36,15 @@ export function Layout({ me }: { me: Me }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div
+      className="min-h-screen bg-slate-50 text-slate-900"
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && navOpen) {
+          setNavOpen(false);
+          menuButton.current?.focus();
+        }
+      }}
+    >
       <a
         className="skip-link"
         href="#main"
@@ -69,12 +88,6 @@ export function Layout({ me }: { me: Me }) {
         <nav
           id="site-nav"
           aria-label="Main"
-          onKeyDown={(e) => {
-            if (e.key === "Escape" && navOpen) {
-              setNavOpen(false);
-              menuButton.current?.focus();
-            }
-          }}
           className={`${navOpen ? "block" : "hidden"} border-b bg-white p-2 lg:block lg:min-h-[calc(100vh-3rem)] lg:w-56 lg:border-r lg:border-b-0`}
         >
           <ul>
@@ -85,7 +98,6 @@ export function Layout({ me }: { me: Me }) {
                   end={p.path === "/"}
                   onClick={() => {
                     setNavOpen(false);
-                    document.getElementById("main")?.focus();
                   }}
                   className="block min-h-6 rounded px-3 py-1.5 aria-[current=page]:bg-slate-200 aria-[current=page]:font-semibold"
                 >
