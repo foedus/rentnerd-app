@@ -75,5 +75,12 @@ it("shows the duplicate-email message in the invite dialog on a 409", async () =
     await new Promise((r) => setTimeout(r, 30));
   });
   expect(dialog.textContent).toContain("A user with this email already exists.");
+  expect(dialog.textContent).toContain("There is a problem");
+  const cancel = Array.from(dialog.querySelectorAll("button")).find((b) => b.textContent === "Cancel") as HTMLElement;
+  await act(async () => cancel.click());
+  await act(async () => open.click());
+  const reopened = document.querySelector('[role="dialog"]') as HTMLElement;
+  expect(reopened.textContent).not.toContain("A user with this email already exists.");
+  expect((reopened.querySelectorAll("input")[1] as HTMLInputElement).value).toBe("");
   await act(async () => root.unmount());
 });

@@ -59,7 +59,7 @@ export function flattenErrors(errors: FieldErrors, prefix = ""): FlatError[] {
 }
 
 /** "There is a problem" summary; takes focus after each failed submit and links to every field with an error. */
-function ErrorSummary() {
+export function ErrorSummary() {
   const {
     formState: { errors, submitCount },
   } = useFormContext();

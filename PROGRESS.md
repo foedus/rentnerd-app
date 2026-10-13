@@ -14,13 +14,15 @@ None.
 
 ## Log
 
-### 2026-10-13 — T025: Users screen (BLOCKED on one disputed test)
-- `/users` (Admin only) now has the "Invite landlord" button and dialog (Name, Email, "Send invitation"; an existing email shows
+### 2026-10-13 — T025: Users screen (done)
+- `/users` (Admin only) has the "Invite landlord" button and dialog (Name, Email, "Send invitation"; an existing email shows
   "A user with this email already exists.") and the Users table: Name, Email, Role, Status (Active / Invited / Invitation expired /
   Invitation revoked / Deactivated) and Last sign-in. New invitees show up immediately. Row actions come with T026.
-- verify.sh: 19 of 20 acceptance tests pass (AC-USR-01, -02, -04, -06 and AC-PLAT-04 among them); AC-PLAT-08 crashes inside the
-  locked Mailpit helper (see Disputed tests). Owner: the locked helper needs the fix described there; then set T021 and T025 back to "todo".
-- Not yet done because of the block: the reviewer subagent pass.
+- After the owner-approved fix to the Mailpit test helper, all 24 acceptance tests pass in verify.sh (including AC-USR-01, -02, -04, -06,
+  AC-PLAT-04 and AC-PLAT-08).
+- Reviewer: PASS. QA findings fixed: the invite dialog now clears its fields and errors when closed, and shows the "There is a problem"
+  summary (focus moves to it after a failed send). Left for later: a server-side field error (422) shows the generic message, which can't
+  happen through the screen's own checks; the Name error reads "Enter your name." as in the shared form messages.
 
 ### 2026-10-13 — T021: forgot and reset password (BLOCKED on one disputed test)
 - `/forgot-password` ("Send reset link", "Back to sign in") always shows "If an account exists for that email, we've sent a reset link."

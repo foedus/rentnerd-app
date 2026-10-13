@@ -4,7 +4,7 @@ import { Button, Dialog, Heading, Modal, ModalOverlay } from "react-aria-compone
 import { FormProvider, type UseFormReturn, type FieldValues } from "react-hook-form";
 import { DuplicateUserError, fetchUsers, inviteLandlord } from "../api";
 import { TooManyRequestsError } from "../api";
-import { useAppForm, TextFieldInput } from "../components/forms";
+import { ErrorSummary, useAppForm, TextFieldInput } from "../components/forms";
 import { Page } from "../components/Page";
 import { DataTable, Pagination, type Column } from "../components/ui";
 import { UNEXPECTED_MESSAGE } from "../../shared/form-messages";
@@ -35,14 +35,20 @@ function InviteDialog({ isOpen, onOpenChange, onInvited }: { isOpen: boolean; on
     } catch (err) {
       if (err instanceof DuplicateUserError) {
         form.setError("email", { message: err.message });
-        form.setFocus("email");
       } else setFailure(err instanceof TooManyRequestsError ? err.message : UNEXPECTED_MESSAGE);
     } finally {
       setBusy(false);
     }
   });
+  const changeOpen = (open: boolean) => {
+    if (!open) {
+      form.reset();
+      setFailure("");
+    }
+    onOpenChange(open);
+  };
   return (
-    <ModalOverlay isOpen={isOpen} onOpenChange={onOpenChange} isDismissable className="fixed inset-0 z-50 grid place-items-center bg-black/40">
+    <ModalOverlay isOpen={isOpen} onOpenChange={changeOpen} isDismissable className="fixed inset-0 z-50 grid place-items-center bg-black/40">
       <Modal className="w-full max-w-md rounded bg-white p-6 shadow-lg">
         <Dialog className="space-y-4 outline-none">
           <Heading slot="title" className="text-lg font-semibold">
@@ -50,11 +56,12 @@ function InviteDialog({ isOpen, onOpenChange, onInvited }: { isOpen: boolean; on
           </Heading>
           <FormProvider {...(form as unknown as UseFormReturn<FieldValues>)}>
             <form noValidate onSubmit={(e) => void submit(e)} className="space-y-4">
+              <ErrorSummary />
               <TextFieldInput name="name" label="Name" required autoComplete="off" />
               <TextFieldInput name="email" label="Email" required type="email" autoComplete="off" />
               {failure && <p role="alert" className="text-red-700">{failure}</p>}
               <div className="flex justify-end gap-2">
-                <Button onPress={() => onOpenChange(false)} className="min-h-6 rounded border px-4 py-1">
+                <Button onPress={() => changeOpen(false)} className="min-h-6 rounded border px-4 py-1">
                   Cancel
                 </Button>
                 <Button type="submit" isDisabled={busy} className="min-h-6 rounded bg-slate-900 px-4 py-1 text-white">
