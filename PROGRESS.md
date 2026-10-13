@@ -359,3 +359,14 @@ know or do. The task list and statuses live in `docs/tasks.json`.
   The $2,000 at 3% example gives $2,000.00, $2,060.00, $2,121.80 as the spec requires.
 - Money formatting already existed (T024), so it was not repeated. No screens changed.
 - verify.sh passes; the reviewer approved. No QA pass (no screens changed). Nothing for the owner to do.
+
+### 2026-10-13 — T043: lease calculations
+- Added the single place that works out a lease's facts from its dates (used later by lease screens, dashboard, emails and PDFs):
+  the effective end date (latest extension), the current term, the rent on any date (including gaps between terms, month-to-month
+  rent, and the "last known rent" after a term ends), and the last rent (on the move-out date, else the end date).
+- Lease status follows the six rules in order (Ended, Upcoming, Active incl. "moving out {date}", Month-to-month, Ended (superseded),
+  Needs decision). A unit is Occupied for Active, Month-to-month and Needs decision leases; otherwise Vacant, or "leased from {date}"
+  with an Upcoming lease. Potential rent of a vacant unit is the last rent of its most recent non-archived lease; never-leased units have none.
+  Archived leases are ignored.
+- Overlapping terms are not defined by the spec; this code assumes later screens reject them. No screens changed.
+- verify.sh passes; the reviewer approved. No QA pass (no screens changed). Nothing for the owner to do.
