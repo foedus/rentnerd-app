@@ -16,7 +16,7 @@ beforeAll(() => {
   execFileSync("node", ["dist/migrate.js"], { env: { ...process.env, DATABASE_URL: url }, stdio: "pipe" });
 });
 beforeEach(async () => {
-  await pool.query('truncate "user", owner, property, audit_log cascade');
+  await pool.query('truncate "user", owner, property, unit, audit_log cascade');
 });
 afterAll(() => pool.end());
 

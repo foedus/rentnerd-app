@@ -50,6 +50,13 @@
       "when": 1791912186842,
       "tag": "0006_secret_proteus",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791913625920,
+      "tag": "0007_loose_maddog",
+      "breakpoints": true
     }
   ]
 }

@@ -57,3 +57,32 @@ describe("propertyType", () => {
     expect(propertyType(["Residential", "Commercial"])).toBe("Mixed");
   });
 });
+
+describe("unit schemas", () => {
+  it("requires a label and a use, and trims the label", async () => {
+    const { createUnitSchema } = await import("./schemas");
+    const bad = createUnitSchema.safeParse({});
+    expect(bad.success).toBe(false);
+    const ok = createUnitSchema.parse({ label: "  2R ", use: "Residential" });
+    expect(ok.label).toBe("2R");
+    expect(createUnitSchema.safeParse({ label: "2R", use: "Retail" }).success).toBe(false);
+  });
+
+  it("limits bedrooms to 0–20 and bathrooms to one decimal place", async () => {
+    const { createUnitSchema } = await import("./schemas");
+    const unit = { label: "A", use: "Commercial" as const };
+    expect(createUnitSchema.safeParse({ ...unit, bedrooms: 0 }).success).toBe(true);
+    expect(createUnitSchema.safeParse({ ...unit, bedrooms: 21 }).success).toBe(false);
+    expect(createUnitSchema.safeParse({ ...unit, bedrooms: 1.5 }).success).toBe(false);
+    expect(createUnitSchema.safeParse({ ...unit, bathrooms: 1.5 }).success).toBe(true);
+    expect(createUnitSchema.safeParse({ ...unit, bathrooms: 1.25 }).success).toBe(false);
+    expect(createUnitSchema.safeParse({ ...unit, squareFeet: 0 }).success).toBe(false);
+  });
+
+  it("treats blank optional values as null and requires a version to update", async () => {
+    const { createUnitSchema, updateUnitSchema } = await import("./schemas");
+    expect(createUnitSchema.parse({ label: "A", use: "Residential", bedrooms: "", notes: " " })).toMatchObject({ bedrooms: null, notes: null });
+    expect(updateUnitSchema.safeParse({ label: "B" }).success).toBe(false);
+    expect(updateUnitSchema.safeParse({ label: "B", version: 1 }).success).toBe(true);
+  });
+});

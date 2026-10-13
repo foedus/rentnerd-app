@@ -452,3 +452,16 @@ None.
 - Not yet (later tasks): archive/restore/delete, the "Single-unit property" option, and the property type, which shows "—" until units
   exist. Owner archive/delete checks still need to be plugged in to the real property lookups (`OwnerUsage`). No screens changed.
 - verify.sh passes; the reviewer approved. No QA pass (no screens changed). Nothing for the owner to do.
+
+### 2026-10-13 — T032: Units API
+- Added the units back end: list a property's units (sorted, paged, "show archived"), add a unit, read a unit and edit it. Rules follow §6.7:
+  label and use are required; bedrooms 0–20, bathrooms one decimal, square feet whole numbers; the label must be unique within the property
+  (ignoring capitals): "A unit with this label already exists in this property."; the use (Residential/Commercial) can't change after the unit
+  is created (asking for a different one is refused with "Use can't be changed. To change it, archive this unit and add a new one.").
+- A unit can have an "owner if different from the property"; it must exist and not be archived, and the unit then shows that owner (otherwise
+  the property's owner). Editing a stale copy gives the "changed by someone else" conflict; every create/edit writes an Activity-log row.
+- A property's Type (Residential / Commercial / Mixed) now comes from its non-archived units ("—" when it has none). Adding a property with
+  `singleUnitUse` also creates the unit "Entire property" with that use, in the same step (the Add property screen's checkbox will use it).
+- Not yet (later tasks): archive, restore and delete of units, status/rent figures on units (they need leases), the unit screens, and the
+  owner archive/delete checks (`OwnerUsage`) still need plugging in to real property/unit lookups. No screens changed.
+- verify.sh passes; the reviewer approved. No QA pass (no screens changed). Nothing for the owner to do.

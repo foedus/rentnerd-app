@@ -143,6 +143,11 @@ export const createPropertySchema = propertyFieldsSchema
   .extend({ inNyc: propertyFieldsSchema.shape.inNyc.default(true), responsibleUserIds: propertyFieldsSchema.shape.responsibleUserIds.optional() })
   .partial({ bbl: true, yearBuilt: true, purchasePriceCents: true, purchaseDate: true, notes: true });
 
+export const UNIT_USES = ["Residential", "Commercial"] as const;
+
+/** `singleUnitUse` (Add only, §11.8): also creates the unit "Entire property" with that use. */
+export const createPropertyWithUnitSchema = createPropertySchema.extend({ singleUnitUse: z.enum(UNIT_USES, "Choose Residential or Commercial.").optional() });
+
 export const updatePropertySchema = propertyFieldsSchema.partial().extend({ version: z.number().int().min(1, "version is required") });
 
 export const propertyListQuerySchema = listQuerySchema.extend({
@@ -160,3 +165,25 @@ export function propertyType(uses: readonly ("Residential" | "Commercial")[]): P
   if (residential && commercial) return "Mixed";
   return residential ? "Residential" : commercial ? "Commercial" : "—";
 }
+
+/** §6.7 unit fields. `use` is fixed at creation: PATCH refuses a different value (422). */
+export const unitFieldsSchema = z.object({
+  label: required("Enter the unit label."),
+  use: z.enum(UNIT_USES, "Choose Residential or Commercial."),
+  bedrooms: optionalNullable(z.number({ error: "Enter a whole number." }).int("Enter a whole number.").min(0, "Enter a number from 0 to 20.").max(20, "Enter a number from 0 to 20.")),
+  bathrooms: optionalNullable(
+    z.number({ error: "Enter a number." }).min(0, "Enter a number from 0 to 99.9.").max(99.9, "Enter a number from 0 to 99.9.").refine((n) => Math.abs(n * 10 - Math.round(n * 10)) < 1e-9, "Use at most one decimal place."),
+  ),
+  squareFeet: optionalNullable(z.number({ error: "Enter a whole number." }).int("Enter a whole number.").min(1, "Enter a number above 0.").max(10_000_000, "Enter a smaller number.")),
+  ownerOverrideId: optionalNullable(z.string().uuid("Choose an owner.")),
+  notes: optionalText(5000),
+});
+
+export const createUnitSchema = unitFieldsSchema.partial({ bedrooms: true, bathrooms: true, squareFeet: true, ownerOverrideId: true, notes: true });
+export const updateUnitSchema = unitFieldsSchema.partial().extend({ version: z.number().int().min(1, "version is required") });
+
+export const unitListQuerySchema = listQuerySchema.extend({
+  sort: z.enum(["label", "use", "createdAt"]).default("label"),
+  order: z.enum(["asc", "desc"]).default("asc"),
+  archived: z.enum(["true", "false"]).default("false"),
+});

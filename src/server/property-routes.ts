@@ -1,8 +1,8 @@
 import { and, asc, count, desc, eq, ilike, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import type { Context, Hono } from "hono";
 import type { Db } from "../db/client";
-import { owner, property, propertyResponsible, user } from "../db/schema";
-import { createPropertySchema, propertyListQuerySchema, propertyType, updatePropertySchema } from "../shared/schemas";
+import { owner, property, propertyResponsible, unit, user } from "../db/schema";
+import { createPropertyWithUnitSchema, propertyListQuerySchema, propertyType, updatePropertySchema } from "../shared/schemas";
 import { formatCents } from "../shared/format";
 import { diffChanges, writeAudit, type AuditChanges } from "./audit";
 import { apiError } from "./api-guard";
@@ -20,6 +20,7 @@ const LABELS = {
 const SORT = { name: property.name, city: property.city, createdAt: property.createdAt } as const;
 const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 const escapeLike = (q: string) => q.replace(/[\\%_]/g, "\\$&");
+const ENTIRE_PROPERTY = "Entire property";
 const DUPLICATE_NAME = "A property with this name already exists.";
 
 const notFound = (c: Context) => apiError(c, "NOT_FOUND", "Property not found.");
@@ -31,7 +32,7 @@ const isUniqueViolation = (e: unknown) => (e as { code?: string; cause?: { code?
 const activeEditors = (tx: Tx) =>
   tx.select({ id: user.id, name: user.name, email: user.email }).from(user).where(and(eq(user.status, "active"), inArray(user.role, ["admin", "landlord"]))).orderBy(asc(user.name), asc(user.email));
 
-/** Properties CRUD-lite (§6.4, §14.2): list, create, read, edit. Archive, restore, delete and units come with later tasks. */
+/** Properties CRUD-lite (§6.4, §14.2): list, create (optionally with the single "Entire property" unit), read, edit. Archive, restore and delete come with later tasks. */
 export function mountPropertyRoutes(app: Hono, db: Db) {
   const actor = (c: Context) => c.get("user").id;
 
@@ -54,12 +55,22 @@ export function mountPropertyRoutes(app: Hono, db: Db) {
     return new Map(rows.map((o) => [o.id, o]));
   };
 
-  /** Rows plus owner, responsible landlords and the derived type. Units arrive with the Units task, so the type is "—" until then. */
+  /** Uses of each property's non-archived units, for the derived type (§6.4). */
+  const usesFor = async (tx: Tx, ids: string[]): Promise<Map<string, ("Residential" | "Commercial")[]>> => {
+    const out = new Map<string, ("Residential" | "Commercial")[]>(ids.map((id) => [id, []]));
+    if (ids.length === 0) return out;
+    const rows = await tx.select({ propertyId: unit.propertyId, use: unit.use }).from(unit).where(and(inArray(unit.propertyId, ids), isNull(unit.archivedAt)));
+    for (const r of rows) out.get(r.propertyId)?.push(r.use);
+    return out;
+  };
+
+  /** Rows plus owner, responsible landlords and the derived type. */
   const present = async (tx: Tx, rows: PropertyRow[]) => {
-    const [people, owners] = await Promise.all([responsibleFor(tx, rows.map((r) => r.id)), ownerSummary(tx, [...new Set(rows.map((r) => r.ownerId))])]);
+    const ids = rows.map((r) => r.id);
+    const [people, owners, uses] = await Promise.all([responsibleFor(tx, ids), ownerSummary(tx, [...new Set(rows.map((r) => r.ownerId))]), usesFor(tx, ids)]);
     return rows.map((r) => {
       const responsible = people.get(r.id) ?? [];
-      return { ...r, owner: owners.get(r.ownerId) ?? null, responsible, responsibleUserIds: responsible.map((p) => p.id), propertyType: propertyType([]) };
+      return { ...r, owner: owners.get(r.ownerId) ?? null, responsible, responsibleUserIds: responsible.map((p) => p.id), propertyType: propertyType(uses.get(r.id) ?? []) };
     });
   };
 
@@ -107,9 +118,9 @@ export function mountPropertyRoutes(app: Hono, db: Db) {
   });
 
   app.post("/api/properties", async (c) => {
-    const parsed = await validateBody(c, createPropertySchema);
+    const parsed = await validateBody(c, createPropertyWithUnitSchema);
     if (!parsed.ok) return parsed.response;
-    const { responsibleUserIds = [actor(c)], ...fields } = parsed.data;
+    const { responsibleUserIds = [actor(c)], singleUnitUse, ...fields } = parsed.data;
     try {
       const result = await db.transaction(async (tx) => {
         const bad = await checkReferences(tx, { ownerId: fields.ownerId, responsibleUserIds });
@@ -119,6 +130,10 @@ export function mountPropertyRoutes(app: Hono, db: Db) {
         const created = row as PropertyRow;
         await tx.insert(propertyResponsible).values(responsibleUserIds.map((userId) => ({ propertyId: created.id, userId })));
         await writeAudit(tx, { actorUserId: actor(c), action: "create", entityType: "property", entityId: created.id, summary: `Created property ${created.name}` });
+        if (singleUnitUse) {
+          const [u] = await tx.insert(unit).values({ propertyId: created.id, label: ENTIRE_PROPERTY, use: singleUnitUse, createdById: actor(c), updatedById: actor(c) }).returning({ id: unit.id });
+          await writeAudit(tx, { actorUserId: actor(c), action: "create", entityType: "unit", entityId: (u as { id: string }).id, summary: `Created unit ${ENTIRE_PROPERTY} (${singleUnitUse}) on ${created.name}` });
+        }
         return (await present(tx, [created]))[0];
       });
       return result instanceof Response ? result : c.json(result, 201);

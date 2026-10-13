@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigint, boolean, date, index, integer, jsonb, pgEnum, primaryKey, uniqueIndex, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, date, index, integer, jsonb, numeric, pgEnum, primaryKey, uniqueIndex, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const userRole = pgEnum("user_role", ["admin", "landlord", "smoke"]);
 export const emailStatus = pgEnum("email_status", ["queued", "sent", "failed"]);
@@ -219,4 +219,33 @@ export const propertyResponsible = pgTable(
     userId: uuid("user_id").notNull().references(() => user.id),
   },
   (t) => [primaryKey({ columns: [t.propertyId, t.userId] }), index("property_responsible_user_idx").on(t.userId)],
+);
+
+export const unitUse = pgEnum("unit_use", ["Residential", "Commercial"]);
+
+// SPEC §6.7: archivable; `use` never changes after creation. The unique label applies to non-archived rows of one property.
+export const unit = pgTable(
+  "unit",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    propertyId: uuid("property_id").notNull().references(() => property.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    use: unitUse("use").notNull(),
+    bedrooms: integer("bedrooms"),
+    bathrooms: numeric("bathrooms", { precision: 3, scale: 1 }),
+    squareFeet: integer("square_feet"),
+    ownerOverrideId: uuid("owner_override_id").references(() => owner.id),
+    notes: text("notes"),
+    version: integer("version").notNull().default(1),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    archiveBatchId: uuid("archive_batch_id"),
+    createdById: uuid("created_by_id").references(() => user.id, { onDelete: "set null" }),
+    updatedById: uuid("updated_by_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("unit_active_label_idx").on(t.propertyId, sql`lower(${t.label})`).where(sql`${t.archivedAt} is null`),
+    index("unit_owner_override_idx").on(t.ownerOverrideId),
+  ],
 );
