@@ -18,7 +18,10 @@ const unit = {
   ownerOverrideId: null, owner: { id: "o1", name: "Acme LLC" }, archivedAt: null,
 };
 
+let served = unit;
+
 async function mount(path: string, respond: (init: RequestInit) => Response = () => json({ id: "n9" }, 201)) {
+  served = unit;
   const sent: { url: string; method?: string; body: Record<string, unknown> }[] = [];
   vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
     if (init?.method === "POST" || init?.method === "PATCH") {
@@ -26,7 +29,7 @@ async function mount(path: string, respond: (init: RequestInit) => Response = ()
       return respond(init);
     }
     if (url.startsWith("/api/owners?")) return json({ data: [{ id: OWNER, name: "Override Trust" }], page: 1, pageSize: 200, total: 1 });
-    if (url === "/api/units/n1") return json(unit);
+    if (url === "/api/units/n1") return json(served);
     if (url === "/api/properties/p1") return json(property);
     return json({ error: { message: "nope" } }, 404);
   });
@@ -128,4 +131,13 @@ it("a stale edit shows the changed-by-someone-else message", async () => {
 it("an unknown unit or property is Page not found", async () => {
   await mount("/properties/zzz/units/new");
   expect(document.querySelector("h1")?.textContent).toBe("Page not found");
+});
+
+it("after Reload on a stale edit, focus goes to the first field of the reloaded form", async () => {
+  await mount("/units/n1/edit", () => json({ error: { code: "CONFLICT", message: "stale" } }, 409));
+  await submit();
+  served = { ...unit, version: 4, label: "3F (changed elsewhere)" };
+  await act(async () => button("Reload").click());
+  await act(async () => void (await new Promise((r) => setTimeout(r, 450))));
+  expect(document.activeElement?.id).toBe("field-label");
 });

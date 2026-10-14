@@ -19,7 +19,7 @@ function UnitView({ unit }: { unit: UnitRecord }) {
     ["Bedrooms", orDash(unit.bedrooms)],
     ["Bathrooms", orDash(unit.bathrooms)],
     ["Square feet", orDash(unit.squareFeet)],
-    ["Owner", unit.owner?.name ?? "—"],
+    ["Owner", unit.owner ? (unit.ownerOverrideId ? `${unit.owner.name} (set for this unit, not the property's owner)` : unit.owner.name) : "—"],
     ["Status", unit.archivedAt ? "Archived" : "Vacant"],
   ];
   return (
@@ -32,11 +32,11 @@ function UnitView({ unit }: { unit: UnitRecord }) {
           </Link>
         </p>
       )}
-      <dl className="mb-6 grid max-w-xl grid-cols-[max-content_1fr] gap-x-6 gap-y-1">
+      <dl className="mb-6 grid max-w-xl grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-1">
         {rows.map(([term, value]) => (
           <div key={term} className="contents">
             <dt className="font-semibold">{term}</dt>
-            <dd>{value}</dd>
+            <dd className="break-words">{value}</dd>
           </div>
         ))}
       </dl>

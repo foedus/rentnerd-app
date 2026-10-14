@@ -43,7 +43,7 @@ it("shows the heading and summary, including the owner override and Vacant statu
   await mount("landlord");
   expect(document.querySelector("h1")?.textContent).toBe("Court Plaza – Unit 2R");
   const text = document.querySelector("dl")?.textContent ?? "";
-  for (const s of ["UseResidential", "Bedrooms2", "Bathrooms1.5", "Square feet—", "OwnerOverride Trust", "StatusVacant"]) expect(text).toContain(s);
+  for (const s of ["UseResidential", "Bedrooms2", "Bathrooms1.5", "Square feet—", "OwnerOverride Trust (set for this unit, not the property's owner)", "StatusVacant"]) expect(text).toContain(s);
   expect(buttonNamed("Edit unit")).toBeTruthy();
 });
 
@@ -66,4 +66,11 @@ it("a failed load offers Try again", async () => {
   await mount("landlord", json({}, 500));
   expect(document.querySelector("[role=alert]")?.textContent).toContain("Something went wrong");
   expect(buttonNamed("Try again")).toBeTruthy();
+});
+
+it("shows the plain owner name when there is no override", async () => {
+  await mount("landlord", json({ ...unit, ownerOverrideId: null, owner: { id: "o1", name: "Acme LLC" } }));
+  const text = document.querySelector("dl")?.textContent ?? "";
+  expect(text).toContain("OwnerAcme LLC");
+  expect(text).not.toContain("set for this unit");
 });

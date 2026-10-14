@@ -27,6 +27,9 @@ import { MoneyInput } from "./ui";
 
 const SAVED_EVENT = "appform-saved";
 
+/** "1,200" and "1,200.5" read as 1200 and 1200.5; anything else (e.g. "1,5") is left for the schema to refuse. */
+export const withoutThousandsCommas = (v: string) => (/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(v) ? v.replaceAll(",", "") : v);
+
 /** Throw from a save function when the API answers 409 (version mismatch, D-10). */
 export class VersionConflictError extends Error {}
 
@@ -127,7 +130,14 @@ function Messages({ onReload }: { onReload?: () => void }) {
           <>
             <p>{CONFLICT_MESSAGE}</p>
             <Button
-              onPress={() => (onReload ? onReload() : window.location.reload())}
+              onPress={() => {
+                if (!onReload) return window.location.reload();
+                onReload();
+                // The reloaded form replaces this one (and the button with it); put focus on its first field.
+                setTimeout(() => {
+                  if (document.activeElement === document.body) document.querySelector<HTMLElement>("form input, form select, form textarea")?.focus();
+                }, 300);
+              }}
               className="mt-2 min-h-6 rounded border border-red-700 px-3 py-1"
             >
               Reload
@@ -274,7 +284,7 @@ export function TextFieldInput({ name, label, required = false, type = "text", a
         aria-describedby={describedBy}
         className="mt-1 block min-h-6 w-full rounded border px-3 py-1"
         inputMode={numeric ? (decimal ? "decimal" : "numeric") : undefined}
-        {...register(name, numeric ? { setValueAs: (v: unknown) => (v === null || v === undefined || String(v).trim() === "" ? null : Number(v)) } : undefined)}
+        {...register(name, numeric ? { setValueAs: (v: unknown) => (v === null || v === undefined || String(v).trim() === "" ? null : Number(withoutThousandsCommas(String(v).trim()))) } : undefined)}
       />
     </div>
   );

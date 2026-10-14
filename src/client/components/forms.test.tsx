@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { TooManyRequestsError } from "../api";
-import { AppForm, flattenErrors, TextFieldInput, useAppForm, VersionConflictError } from "./forms";
+import { AppForm, flattenErrors, TextFieldInput, useAppForm, VersionConflictError, withoutThousandsCommas } from "./forms";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -118,4 +118,11 @@ describe("form kit", () => {
       { path: "b.0.c", message: "y" },
     ]);
   });
+});
+
+it("reads thousands separators but leaves other comma use for the schema to refuse", () => {
+  expect(withoutThousandsCommas("1,200")).toBe("1200");
+  expect(withoutThousandsCommas("1,234,567.5")).toBe("1234567.5");
+  expect(withoutThousandsCommas("1,5")).toBe("1,5");
+  expect(withoutThousandsCommas("12,34")).toBe("12,34");
 });

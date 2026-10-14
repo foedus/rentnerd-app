@@ -36,16 +36,16 @@ function Summary({ property }: { property: PropertyRecord }) {
     ["Purchase date", property.purchaseDate ? formatDate(property.purchaseDate) : "—"],
   ];
   return (
-    <dl className="mb-6 grid max-w-xl grid-cols-[max-content_1fr] gap-x-6 gap-y-1">
+    <dl className="mb-6 grid max-w-xl grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-1">
       {rows.map(([term, value]) => (
         <div key={term} className="contents">
           <dt className="font-semibold">{term}</dt>
-          <dd>{value}</dd>
+          <dd className="break-words">{value}</dd>
         </div>
       ))}
       <div className="contents">
         <dt className="font-semibold">Responsible landlords</dt>
-        <dd>
+        <dd className="break-words">
           {property.responsible.length === 0 ? (
             "—"
           ) : (

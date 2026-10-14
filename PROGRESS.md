@@ -516,8 +516,9 @@ None.
 - On the property's Units tab each unit now links to its page and shows Status "Vacant" (every unit is vacant until leases exist; Tenants, Current rent and
   Lease end still show "—").
 - Not yet (later tasks): Current lease card, Lease history, rent figures, New lease, Archive/Restore/Delete unit.
-- AC-UNIT-01, AC-UNIT-02 and AC-UNIT-05 pass. The reviewer approved; QA found nothing blocking. Left alone: the property page is wider than a 320 px screen
-  (from T035), focus isn't placed anywhere after "Reload" on a stale-edit message (shared form behaviour), and numbers typed with commas ("1,200") are refused.
-  QA's note about the read-only Use text was fixed (the hint is now linked to it for screen readers).
+- AC-UNIT-01, AC-UNIT-02 and AC-UNIT-05 pass. The reviewer approved; QA found nothing blocking and every QA finding was fixed: the Use hint is linked to
+  the read-only value for screen readers; after "Reload" on a stale-edit message, focus moves to the first field (all forms); the property and unit summaries
+  no longer overflow a 320 px screen; numbers typed with thousands commas ("1,200") are accepted; and the unit page says when the Owner is set for this unit
+  rather than inherited from the property.
 - One email test (fail-next-email) failed once in the first verify.sh run and passed on re-run and alone; it's a timing flake unrelated to this task.
 - verify.sh passes. Nothing for the owner to do.
