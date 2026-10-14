@@ -381,7 +381,10 @@ export function leaseRuleIssues(l: LeaseTermInput & { moveOutDate?: string | nul
   return out;
 }
 
-/** POST /units/{id}/leases (§14.2): the lease fields without the unit, plus the optional "Replace current lease" choice (§6.9). */
+/** POST /units/{id}/leases (§14.2): the lease fields without the unit, plus the optional "Replace current lease" choice (§6.9).
+ * `newTenants` are created in the same transaction as the lease; together with `tenants` they need exactly one primary. */
 export const createLeaseSchema = leaseFieldsSchema.omit({ unitId: true }).extend({
+  tenants: z.array(tenantRefSchema).max(20, "Use 20 tenants or fewer.").default([]),
+  newTenants: z.array(z.object({ isPrimary: z.boolean({ error: "Choose the primary tenant." }), tenant: createTenantSchema })).max(20, "Use 20 tenants or fewer.").default([]),
   replaceCurrentLease: z.object({ endReason: z.enum(END_REASONS, "Choose a reason.").default("Replaced by new lease") }).optional(),
 });

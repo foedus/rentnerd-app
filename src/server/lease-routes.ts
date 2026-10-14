@@ -5,10 +5,11 @@ import { lease, leaseExtension, leaseTenant, propertyTax, rentStep, tenant, unit
 import { addDays, todayNy } from "../shared/dates";
 import { formatDate } from "../shared/format";
 import { occupiedPeriod, periodsOverlap, unitLeaseStatuses, type LeaseTerms, type UnitLease } from "../shared/lease";
-import { createLeaseSchema, leaseRuleIssues } from "../shared/schemas";
+import { createLeaseSchema, leaseRuleIssues, normalizeTenantNames } from "../shared/schemas";
 import { writeAudit } from "./audit";
 import { apiError } from "./api-guard";
 import { loadLease, writeRevision } from "./lease-store";
+import { tenantDisplayName } from "./tenant-routes";
 import { validateBody } from "./validation";
 
 const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -25,19 +26,21 @@ export function mountLeaseRoutes(app: Hono, db: Db) {
     const parsed = await validateBody(c, createLeaseSchema);
     if (!parsed.ok) return parsed.response;
     if (!isUuid(unitId)) return apiError(c, "NOT_FOUND", "Unit not found.");
-    const { replaceCurrentLease, tenants, rentSteps, increasePercent, taxSharePercent, ...fields } = parsed.data;
+    const { replaceCurrentLease, tenants: existingTenants, newTenants, rentSteps, increasePercent, taxSharePercent, ...fields } = parsed.data;
 
     const result = await db.transaction(async (tx) => {
       const [u] = await tx.select().from(unit).where(eq(unit.id, unitId)).for("update");
       if (!u) return apiError(c, "NOT_FOUND", "Unit not found.");
       if (u.archivedAt) return apiError(c, "CONFLICT", "This unit is archived. Restore it before adding leases.");
 
-      const issues = leaseRuleIssues({ ...fields, increasePercent, taxSharePercent, rentSteps, tenants }, u.use);
+      // New tenants take part in the rules under placeholder ids until they are created below.
+      const placeholders = newTenants.map((t, i) => ({ tenantId: `new-${i}`, isPrimary: t.isPrimary }));
+      const issues = leaseRuleIssues({ ...fields, increasePercent, taxSharePercent, rentSteps, tenants: [...existingTenants, ...placeholders] }, u.use);
       if (Object.keys(issues).length > 0) return fieldErrors(c, issues);
 
-      const found = await tx.select({ id: tenant.id, archivedAt: tenant.archivedAt }).from(tenant).where(inArray(tenant.id, tenants.map((t) => t.tenantId)));
+      const found = existingTenants.length === 0 ? [] : await tx.select({ id: tenant.id, archivedAt: tenant.archivedAt }).from(tenant).where(inArray(tenant.id, existingTenants.map((t) => t.tenantId)));
       const byId = new Map(found.map((t) => [t.id, t]));
-      const missing = tenants.some((t) => !byId.has(t.tenantId));
+      const missing = existingTenants.some((t) => !byId.has(t.tenantId));
       if (missing || found.some((t) => t.archivedAt)) {
         return fieldErrors(c, { tenants: missing ? "Choose a tenant." : "Choose tenants that aren't archived." });
       }
@@ -71,6 +74,14 @@ export function mountLeaseRoutes(app: Hono, db: Db) {
         if (!canReplace) return apiError(c, "CONFLICT", OVERLAP, { startDate: OVERLAP });
         replaced = existing.find((l) => l.id === clash.id)!;
       }
+
+      const createdTenants = [];
+      for (const n of newTenants) {
+        const [t] = await tx.insert(tenant).values({ ...normalizeTenantNames(n.tenant), createdById: actor(c), updatedById: actor(c) }).returning();
+        await writeAudit(tx, { actorUserId: actor(c), action: "create", entityType: "tenant", entityId: t!.id, summary: `Created tenant ${tenantDisplayName(t!)}` });
+        createdTenants.push({ tenantId: t!.id, isPrimary: n.isPrimary });
+      }
+      const tenants = [...existingTenants, ...createdTenants];
 
       const [row] = await tx
         .insert(lease)

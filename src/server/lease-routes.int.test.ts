@@ -224,6 +224,43 @@ describe("POST /api/units/{id}/leases", () => {
   });
 });
 
+describe("new tenants in the same request", () => {
+  const ann = { tenantType: "Individual", firstName: "Cy", lastName: "Ng" };
+  it("creates them with the lease, audited, and links them", async () => {
+    const f = await fixture();
+    const res = await post(f, f.res, { tenants: [{ tenantId: f.t1, isPrimary: false }], newTenants: [{ isPrimary: true, tenant: ann }] });
+    expect(res.status).toBe(201);
+    const created = await json<Lease>(res);
+    expect(created.tenants).toHaveLength(2);
+    const primary = (await pool.query("select first_name from tenant where id = $1", [created.tenants.find((t) => t.isPrimary)!.tenantId])).rows[0];
+    expect(primary.first_name).toBe("Cy");
+    expect(await count("select count(*) n from audit_log where entity_type = 'tenant' and summary = 'Created tenant Cy Ng'")).toBe(1);
+  });
+
+  it("works with only new tenants", async () => {
+    const f = await fixture();
+    const res = await post(f, f.res, { tenants: undefined, newTenants: [{ isPrimary: true, tenant: { tenantType: "Business", businessName: "Acme Shop", contactPerson: "Bo Diaz" } }] });
+    expect(res.status).toBe(201);
+  });
+
+  it("counts them toward the one-primary rule and validates their fields", async () => {
+    const f = await fixture();
+    expect(await fieldsOf(await post(f, f.res, { newTenants: [{ isPrimary: true, tenant: ann }] }))).toHaveProperty("tenants");
+    expect(await fieldsOf(await post(f, f.res, { tenants: [], newTenants: [] }))).toHaveProperty("tenants");
+    const bad = await fieldsOf(await post(f, f.res, { tenants: [], newTenants: [{ isPrimary: true, tenant: { tenantType: "Business", businessName: "X" } }] }));
+    expect(bad).toHaveProperty(["newTenants.0.tenant.contactPerson"], "Enter a contact person.");
+  });
+
+  it("creates nothing when the lease is refused", async () => {
+    const f = await fixture();
+    await post(f, f.res);
+    const before = await count("select count(*) n from tenant");
+    const res = await post(f, f.res, { tenants: [], newTenants: [{ isPrimary: true, tenant: ann }] });
+    expect(res.status).toBe(409);
+    expect(await count("select count(*) n from tenant")).toBe(before);
+  });
+});
+
 describe("tenant usage", () => {
   it("a tenant on a lease can't be deleted", async () => {
     const f = await fixture();
