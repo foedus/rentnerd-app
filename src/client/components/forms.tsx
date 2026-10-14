@@ -419,7 +419,11 @@ export function MoneyFieldInput({ name, label, required = false }: { name: strin
           onChange={field.onChange}
           // Text that isn't an amount goes on as NaN so the schema can say so, instead of looking like an empty field.
           onTextChange={(text) => {
-            if (text.trim() !== "" && parseMoneyToCents(text) === null) field.onChange(Number.NaN);
+            if (text.trim() === "") return;
+            // A leading minus goes on as a negative amount so the schema can say so; other text that isn't an amount is NaN.
+            const negative = /^\s*-/.test(text) ? parseMoneyToCents(text.replace(/^\s*-\s*/, "")) : null;
+            if (negative !== null) field.onChange(-negative);
+            else if (parseMoneyToCents(text) === null) field.onChange(Number.NaN);
           }}
           error={getFieldState(name, formState).error?.message}
         />

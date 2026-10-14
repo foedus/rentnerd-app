@@ -141,3 +141,29 @@ it("tells the user the session ended and refreshes the signed-in check when savi
   expect(calls.filter((c) => c.url === "/api/me").length).toBeGreaterThan(1);
   await act(async () => root.unmount());
 });
+
+it("shows the amount can't be negative for a negative amount", async () => {
+  const { root } = await mount("admin");
+  await act(async () => (buttonNamed("Add tax year") as HTMLElement).click());
+  await wait();
+  await typeInto("Tax year", "2024");
+  await typeInto("Annual property tax", "-5");
+  await act(async () => (buttonNamed("Save tax year") as HTMLElement).click());
+  await wait();
+  expect((document.querySelector("[role=dialog]") as HTMLElement).textContent).toContain("The amount can't be negative.");
+  await act(async () => root.unmount());
+});
+
+it("keeps the dialog open with the latest values after Reload on a stale edit", async () => {
+  const { root, calls } = await mount("admin", false, 409);
+  await act(async () => (buttonNamed("Edit tax year 2025") as HTMLElement).click());
+  await wait();
+  await act(async () => (buttonNamed("Save tax year") as HTMLElement).click());
+  await wait();
+  const before = calls.filter((c) => c.url.startsWith("/api/properties/p1/taxes")).length;
+  await act(async () => (buttonNamed("Reload") as HTMLElement).click());
+  await wait();
+  expect(calls.filter((c) => c.url.startsWith("/api/properties/p1/taxes")).length).toBeGreaterThan(before);
+  expect(document.querySelector("[role=dialog]")).not.toBeNull();
+  await act(async () => root.unmount());
+});

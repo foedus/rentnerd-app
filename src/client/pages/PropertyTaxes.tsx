@@ -10,7 +10,7 @@ import { ConfirmDialog, DataTable, type Column } from "../components/ui";
 import { useCanWrite } from "../me";
 import { deletePropertyTax, fetchPropertyTaxes, MissingTaxError, savePropertyTax, StaleTaxError, type PropertyRecord, type PropertyTaxRecord } from "../properties-api";
 
-function TaxFields({ propertyId, tax, onDone }: { propertyId: string; tax?: PropertyTaxRecord; onDone: () => void }) {
+function TaxFields({ propertyId, tax, onDone, onReopen }: { propertyId: string; tax?: PropertyTaxRecord; onDone: () => void; onReopen: (t: PropertyTaxRecord) => void }) {
   const queryClient = useQueryClient();
   const form = useAppForm(createPropertyTaxSchema, { taxYear: tax?.taxYear ?? null, amountCents: tax?.amountCents ?? null } as never);
   return (
@@ -24,7 +24,17 @@ function TaxFields({ propertyId, tax, onDone }: { propertyId: string; tax?: Prop
           Cancel
         </Button>
       }
-      onReload={() => void queryClient.invalidateQueries({ queryKey: ["property-taxes", propertyId] }).then(onDone)}
+      onReload={() =>
+        // Show the latest saved values in the same dialog; if the year is gone, close it.
+        void queryClient
+          .fetchQuery({ queryKey: ["property-taxes", propertyId], queryFn: () => fetchPropertyTaxes(propertyId), staleTime: 0 })
+          .then((rows) => {
+            const fresh = tax && rows.find((r) => r.id === tax.id);
+            if (fresh) onReopen(fresh);
+            else onDone();
+          })
+          .catch(onDone)
+      }
       save={async (values) => {
         try {
           await savePropertyTax(values, tax ? { id: tax.id, version: tax.version } : { propertyId });
@@ -111,7 +121,7 @@ export function TaxesTab({ property }: { property: PropertyRecord }) {
             <Heading slot="title" className="text-lg font-semibold">
               {editing === "new" ? "Add tax year" : "Edit tax year"}
             </Heading>
-            {editing && <TaxFields propertyId={property.id} tax={editing === "new" ? undefined : editing} onDone={() => setEditing(null)} />}
+            {editing && <TaxFields key={editing === "new" ? "new" : `${editing.id}-${editing.version}`} propertyId={property.id} tax={editing === "new" ? undefined : editing} onDone={() => setEditing(null)} onReopen={setEditing} />}
           </Dialog>
         </Modal>
       </ModalOverlay>
