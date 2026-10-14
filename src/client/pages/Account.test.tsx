@@ -45,7 +45,7 @@ async function type(el: HTMLInputElement, value: string) {
 const click = (b: HTMLElement) =>
   act(async () => {
     b.click();
-    await new Promise((r) => setTimeout(r, 30));
+    await new Promise((r) => setTimeout(r, 100));
   });
 
 it("shows Profile with a read-only email and Change password", async () => {

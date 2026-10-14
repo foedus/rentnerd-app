@@ -402,6 +402,44 @@ export function CheckboxGroupInput({ name, legend, choices, required = false }: 
   );
 }
 
+interface RadioGroupProps {
+  name: string;
+  legend: string;
+  options: readonly string[];
+  required?: boolean;
+}
+
+/** Group of radio buttons bound to a string value; the error is linked to the group. */
+export function RadioGroupInput({ name, legend, options, required = false }: RadioGroupProps) {
+  const ids = useIds();
+  const { register, getFieldState, formState } = useFormContext();
+  const error = getFieldState(name, formState).error?.message;
+  return (
+    <fieldset
+      id={ids.id(name)}
+      role="radiogroup"
+      tabIndex={-1}
+      aria-required={required || undefined}
+      aria-invalid={error ? true : undefined}
+      aria-describedby={error ? ids.err(name) : undefined}
+      className="space-y-1"
+    >
+      <legend>{fieldLabel(legend, required)}</legend>
+      {error && (
+        <p id={ids.err(name)} className="text-red-700">
+          {error}
+        </p>
+      )}
+      {options.map((o) => (
+        <label key={o} className="flex min-h-6 items-center gap-2">
+          <input type="radio" value={o} {...register(name)} />
+          {o}
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
 /** Money field bound to integer cents (null when empty). */
 export function MoneyFieldInput({ name, label, required = false }: { name: string; label: string; required?: boolean }) {
   const ids = useIds();

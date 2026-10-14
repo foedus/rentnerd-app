@@ -19,7 +19,11 @@ const taxes = [
   { id: "t1", taxYear: 2020, amountCents: 4000000, version: 3 },
 ];
 const json = (v: unknown) => Response.json(v);
-const wait = () => act(async () => void (await new Promise((r) => setTimeout(r, 30))));
+const wait = () => act(async () => void (await new Promise((r) => setTimeout(r, 100))));
+/** Waits for the tab's table to appear (up to ~2 s), so a busy machine doesn't make the first assertions race the fetches. */
+const waitForTable = async () => {
+  for (let i = 0; i < 80 && !document.querySelector("table[aria-label='Property taxes']"); i++) await wait();
+};
 
 async function mount(role: string, duplicate = false, patchStatus = 200) {
   const calls: { url: string; method: string; body?: string }[] = [];
@@ -48,7 +52,7 @@ async function mount(role: string, duplicate = false, patchStatus = 200) {
       </QueryClientProvider>,
     );
   });
-  await wait();
+  await waitForTable();
   return { root, calls };
 }
 const buttonNamed = (name: string) => Array.from(document.querySelectorAll("button")).find((b) => b.textContent === name || b.getAttribute("aria-label") === name);

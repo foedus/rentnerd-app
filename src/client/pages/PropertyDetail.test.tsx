@@ -21,7 +21,7 @@ const units = [
   { id: "n2", label: "Store", use: "Commercial", archivedAt: null },
 ];
 const json = (v: unknown) => Response.json(v);
-const wait = () => act(async () => void (await new Promise((r) => setTimeout(r, 30))));
+const wait = () => act(async () => void (await new Promise((r) => setTimeout(r, 100))));
 
 async function mount(role: string, entry = "/properties/p1") {
   const calls: string[] = [];

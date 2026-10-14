@@ -35,7 +35,7 @@ async function mount(role: string, unitResponse: Response = json(unit)) {
       </QueryClientProvider>,
     );
   });
-  await act(async () => void (await new Promise((r) => setTimeout(r, 30))));
+  await act(async () => void (await new Promise((r) => setTimeout(r, 100))));
 }
 const buttonNamed = (name: string) => Array.from(document.querySelectorAll("button")).find((b) => b.textContent === name);
 

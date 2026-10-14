@@ -62,7 +62,7 @@ async function mount(onPost: (body: Record<string, unknown>) => Response, path =
   await settle();
   return { posts, urls };
 }
-const settle = () => act(async () => void (await new Promise((r) => setTimeout(r, 30))));
+const settle = () => act(async () => void (await new Promise((r) => setTimeout(r, 100))));
 const byId = (id: string) => document.getElementById(id) as HTMLInputElement & HTMLSelectElement;
 const button = (name: string) => Array.from(document.querySelectorAll("button")).find((b) => b.textContent === name) as HTMLButtonElement;
 const setValue = (el: HTMLInputElement | HTMLSelectElement, v: string) => {

@@ -236,11 +236,11 @@ export function tenantRuleIssues(t: {
   const missing = (v?: string | null) => !v || v.trim() === "";
   const out: Record<string, string> = {};
   if (t.tenantType === "Individual") {
-    if (missing(t.firstName)) out.firstName = "Enter the first name.";
-    if (missing(t.lastName)) out.lastName = "Enter the last name.";
+    if (missing(t.firstName)) out.firstName = "Enter a first name.";
+    if (missing(t.lastName)) out.lastName = "Enter a last name.";
   } else {
-    if (missing(t.businessName)) out.businessName = "Enter the business name.";
-    if (missing(t.contactPerson)) out.contactPerson = "Enter the contact person.";
+    if (missing(t.businessName)) out.businessName = "Enter a business name.";
+    if (missing(t.contactPerson)) out.contactPerson = "Enter a contact person.";
   }
   return out;
 }

@@ -133,8 +133,8 @@ describe("tenant schemas", () => {
   });
   it("names the missing fields for each type", () => {
     const fields = (v: unknown) => createTenantSchema.safeParse(v).error?.issues.map((i) => `${String(i.path[0])}: ${i.message}`).sort();
-    expect(fields({ tenantType: "Individual", firstName: " " })).toEqual(["firstName: Enter the first name.", "lastName: Enter the last name."]);
-    expect(fields({ tenantType: "Business" })).toEqual(["businessName: Enter the business name.", "contactPerson: Enter the contact person."]);
+    expect(fields({ tenantType: "Individual", firstName: " " })).toEqual(["firstName: Enter a first name.", "lastName: Enter a last name."]);
+    expect(fields({ tenantType: "Business" })).toEqual(["businessName: Enter a business name.", "contactPerson: Enter a contact person."]);
     expect(fields({})).toEqual(["tenantType: Choose Individual or Business."]);
   });
   it("normalises blank optional text and validates the email", () => {
@@ -145,7 +145,7 @@ describe("tenant schemas", () => {
   it("PATCH needs a version; rules and normalisation are pure helpers", () => {
     expect(updateTenantSchema.safeParse({ phone: "1" }).success).toBe(false);
     expect(updateTenantSchema.safeParse({ phone: "1", version: 1 }).success).toBe(true);
-    expect(tenantRuleIssues({ tenantType: "Business", businessName: "A", contactPerson: null })).toEqual({ contactPerson: "Enter the contact person." });
+    expect(tenantRuleIssues({ tenantType: "Business", businessName: "A", contactPerson: null })).toEqual({ contactPerson: "Enter a contact person." });
     expect(normalizeTenantNames({ tenantType: "Business", firstName: "A", lastName: "B", businessName: "C", contactPerson: "D" })).toMatchObject({ firstName: null, lastName: null, businessName: "C" });
   });
   it("list query defaults and limits", () => {

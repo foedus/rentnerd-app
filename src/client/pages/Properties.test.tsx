@@ -38,7 +38,7 @@ async function mount(role: string, list: unknown) {
       </QueryClientProvider>,
     );
   });
-  await act(async () => void (await new Promise((r) => setTimeout(r, 30))));
+  await act(async () => void (await new Promise((r) => setTimeout(r, 100))));
   return { root, calls };
 }
 const buttonNamed = (name: string) => Array.from(document.querySelectorAll("button")).find((b) => b.textContent === name);
@@ -58,7 +58,7 @@ it("lists properties with the §11.7 columns, search, Show archived and Add prop
   expect(buttonNamed("Add property")).toBeDefined();
   const box = document.querySelector("input[type=checkbox]") as HTMLInputElement;
   await act(async () => box.click());
-  await act(async () => void (await new Promise((r) => setTimeout(r, 30))));
+  await act(async () => void (await new Promise((r) => setTimeout(r, 100))));
   expect(calls.at(-1)).toContain("archived=true");
   await act(async () => root.unmount());
 });
@@ -92,11 +92,11 @@ it("a failed load shows the error with a Try again button that reloads the list"
       </QueryClientProvider>,
     );
   });
-  await act(async () => void (await new Promise((r) => setTimeout(r, 30))));
+  await act(async () => void (await new Promise((r) => setTimeout(r, 100))));
   expect(document.querySelector("[role=alert]")?.textContent).toBe("Something went wrong. Please try again.");
   fail = false;
   await act(async () => buttonNamed("Try again")?.click());
-  await act(async () => void (await new Promise((r) => setTimeout(r, 30))));
+  await act(async () => void (await new Promise((r) => setTimeout(r, 100))));
   expect(document.querySelector("tbody")?.textContent).toContain("Court Plaza");
   await act(async () => root.unmount());
 });

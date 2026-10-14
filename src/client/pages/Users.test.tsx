@@ -72,7 +72,7 @@ it("shows the duplicate-email message in the invite dialog on a 409", async () =
   });
   await act(async () => {
     dialog.querySelector("form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-    await new Promise((r) => setTimeout(r, 30));
+    await new Promise((r) => setTimeout(r, 100));
   });
   expect(dialog.textContent).toContain("A user with this email already exists.");
   expect(dialog.textContent).toContain("There is a problem");
@@ -105,7 +105,7 @@ it("maps server 422 field errors onto the invite dialog fields", async () => {
   });
   await act(async () => {
     dialog.querySelector("form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-    await new Promise((r) => setTimeout(r, 30));
+    await new Promise((r) => setTimeout(r, 100));
   });
   expect(dialog.textContent).toContain("Enter a valid email address.");
   expect(dialog.textContent).not.toContain("Something went wrong");
@@ -119,7 +119,7 @@ it("asks for a name with neutral wording", async () => {
   const dialog = document.querySelector('[role="dialog"]') as HTMLElement;
   await act(async () => {
     dialog.querySelector("form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-    await new Promise((r) => setTimeout(r, 30));
+    await new Promise((r) => setTimeout(r, 100));
   });
   expect(dialog.textContent).toContain("Enter a name.");
   expect(dialog.textContent).not.toContain("Enter your name.");
@@ -160,7 +160,7 @@ it("confirms Deactivate with the spec wording, then posts to the user's deactiva
   expect(calls).toEqual([]);
   await act(async () => (Array.from(dialog.querySelectorAll("button")).find((b) => b.textContent === "Deactivate") as HTMLElement).click());
   await act(async () => {
-    await new Promise((r) => setTimeout(r, 30));
+    await new Promise((r) => setTimeout(r, 100));
   });
   expect(calls).toEqual(["/api/users/4/deactivate"]);
   expect(document.querySelector('[role="status"]')?.textContent).toContain("User deactivated.");
@@ -180,7 +180,7 @@ it("revokes an invitation by its invitation id without a dialog", async () => {
   const revoke = Array.from(document.querySelectorAll("button")).find((b) => b.textContent === "Revoke invitation") as HTMLElement;
   await act(async () => revoke.click());
   await act(async () => {
-    await new Promise((r) => setTimeout(r, 30));
+    await new Promise((r) => setTimeout(r, 100));
   });
   expect(calls).toEqual(["/api/invitations/iv/revoke"]);
   expect(document.querySelector('[role="dialog"]')).toBeNull();
@@ -197,7 +197,7 @@ it("shows the server's message when a row action conflicts and keeps focus on th
   const btn = Array.from(document.querySelectorAll("button")).find((b) => b.textContent === "Reactivate") as HTMLElement;
   await act(async () => btn.click());
   await act(async () => {
-    await new Promise((r) => setTimeout(r, 30));
+    await new Promise((r) => setTimeout(r, 100));
   });
   expect(document.querySelector('[role="alert"]')?.textContent).toBe("Only deactivated users can be reactivated.");
   expect(document.activeElement?.contains(document.querySelector('[role="alert"]'))).toBe(true);

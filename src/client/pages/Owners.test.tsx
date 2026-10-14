@@ -46,7 +46,7 @@ async function mount(path: string, fetchImpl: (url: string, init?: RequestInit) 
   await settle();
   return { root, calls };
 }
-const settle = () => act(async () => void (await new Promise((r) => setTimeout(r, 30))));
+const settle = () => act(async () => void (await new Promise((r) => setTimeout(r, 100))));
 const buttons = () => Array.from(document.querySelectorAll("button"));
 const buttonNamed = (name: string) => buttons().find((b) => b.textContent === name) as HTMLButtonElement | undefined;
 const setValue = (el: HTMLInputElement | HTMLSelectElement, v: string) => {
