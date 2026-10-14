@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { acceptInvitationSchema, extensionFieldsSchema, leaseFieldsSchema, leaseRuleIssues, termRuleIssues, createOwnerSchema, createPropertyTaxSchema, createPropertyValueSchema, ownerListQuerySchema, updateMeSchema, updateOwnerSchema, updatePropertyTaxSchema, updatePropertyValueSchema, versionSchema, createTenantSchema, normalizeTenantNames, tenantListQuerySchema, tenantRuleIssues, updateTenantSchema } from "./schemas";
+import { acceptInvitationSchema, endLeaseSchema, markMonthToMonthSchema, updateLeaseSchema, extensionFieldsSchema, leaseFieldsSchema, leaseRuleIssues, termRuleIssues, createOwnerSchema, createPropertyTaxSchema, createPropertyValueSchema, ownerListQuerySchema, updateMeSchema, updateOwnerSchema, updatePropertyTaxSchema, updatePropertyValueSchema, versionSchema, createTenantSchema, normalizeTenantNames, tenantListQuerySchema, tenantRuleIssues, updateTenantSchema } from "./schemas";
 
 describe("schemas", () => {
   it("enforces the 12–128 character password and a trimmed name", () => {
@@ -207,5 +207,21 @@ describe("lease and extension schemas (§6.9, §6.10)", () => {
     expect(leaseRuleIssues({ ...l, moveOutDate: "2026-05-01" }, "Residential").endReason).toBe("Choose a reason.");
     expect(leaseRuleIssues({ ...l, endReason: "Other" }, "Residential").moveOutDate).toBe("Enter the move-out date.");
     expect(leaseRuleIssues({ ...l, moveOutDate: "2026-05-01", endReason: "Other" }, "Residential")).toEqual({});
+  });
+});
+
+describe("lease change schemas", () => {
+  it("PATCH keeps omitted fields omitted (no defaults are filled in) and needs a version", () => {
+    const ok = updateLeaseSchema.safeParse({ baseRentCents: 220000, version: 1 });
+    expect(ok.success && ok.data).toEqual({ baseRentCents: 220000, version: 1 });
+    expect(updateLeaseSchema.safeParse({ baseRentCents: 220000 }).success).toBe(false);
+    expect(updateLeaseSchema.safeParse({ baseRentCents: 0, version: 1 }).success).toBe(false);
+  });
+  it("month-to-month rent is optional; ending needs a valid date and a reason", () => {
+    expect(markMonthToMonthSchema.safeParse({ version: 2 }).success).toBe(true);
+    expect(markMonthToMonthSchema.safeParse({ version: 2, monthToMonthRentCents: 230000 }).success).toBe(true);
+    expect(endLeaseSchema.safeParse({ version: 2, moveOutDate: "2026-10-20", endReason: "Other" }).success).toBe(true);
+    expect(endLeaseSchema.safeParse({ version: 2, moveOutDate: "2026-02-30", endReason: "Other" }).success).toBe(false);
+    expect(endLeaseSchema.safeParse({ version: 2, moveOutDate: "2026-10-20" }).success).toBe(false);
   });
 });

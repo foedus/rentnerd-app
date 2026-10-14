@@ -1,5 +1,6 @@
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import type { Db } from "../db/client";
+import type { UnitLease } from "../shared/lease";
 import { extensionTenant, lease, leaseExtension, leaseRevision, leaseTenant, rentStep } from "../db/schema";
 
 type Tx = Pick<Db, "select" | "insert" | "update" | "delete">;
@@ -52,4 +53,20 @@ export type LeasePresentation = NonNullable<Awaited<ReturnType<typeof loadLease>
 export async function writeRevision(tx: Tx, leaseId: string, versionNumber: number, changedById: string, summary: string) {
   const snapshot = await loadLease(tx, leaseId);
   await tx.insert(leaseRevision).values({ leaseId, versionNumber, snapshot, changedById, summary });
+}
+
+/** Every non-archived lease on a unit as dates-only terms: all that status and the overlap rule need (rent is a placeholder). */
+export async function unitLeaseTerms(tx: Tx, unitId: string): Promise<(UnitLease & { row: LeaseRow })[]> {
+  const rows = await tx.select().from(lease).where(and(eq(lease.unitId, unitId), isNull(lease.archivedAt)));
+  const extensions = rows.length === 0 ? [] : await tx.select().from(leaseExtension).where(inArray(leaseExtension.leaseId, rows.map((l) => l.id)));
+  const dateTerm = (t: { startDate: string; endDate: string }) => ({ startDate: t.startDate, endDate: t.endDate, rentCents: 1, increaseType: "none" as const });
+  return rows.map((l) => ({
+    id: l.id,
+    row: l,
+    master: dateTerm(l),
+    extensions: extensions.filter((e) => e.leaseId === l.id).map(dateTerm),
+    monthToMonth: l.monthToMonth,
+    monthToMonthRentCents: l.monthToMonthRentCents,
+    moveOutDate: l.moveOutDate,
+  }));
 }

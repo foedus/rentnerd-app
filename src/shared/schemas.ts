@@ -389,6 +389,25 @@ export const createLeaseSchema = leaseFieldsSchema.omit({ unitId: true }).extend
   replaceCurrentLease: z.object({ endReason: z.enum(END_REASONS, "Choose a reason.").default("Replaced by new lease") }).optional(),
 });
 
+/** A field schema without its `.default(...)`, so a PATCH leaves omitted fields alone. */
+const withoutDefault = (schema: z.ZodType): z.ZodType => (schema instanceof z.ZodDefault ? (schema.def.innerType as z.ZodType) : schema);
+const versionField = z.number({ error: "version is required" }).int("version is required").min(1, "version is required");
+
+/** PATCH /leases/{id} (§14.2): any lease field except the unit; omitted fields keep their value, `tenants` and `rentSteps` replace the lists. */
+export const updateLeaseSchema = z
+  .object(Object.fromEntries(Object.entries(leaseFieldsSchema.shape).filter(([k]) => k !== "unitId").map(([k, v]) => [k, withoutDefault(v).optional()])))
+  .extend({ version: versionField }) as unknown as z.ZodType<Partial<Omit<z.infer<typeof leaseFieldsSchema>, "unitId">> & { version: number }>;
+
+/** POST /leases/{id}/month-to-month (§11.13): the rent is optional (then the last term rent applies). */
+export const markMonthToMonthSchema = z.object({ monthToMonthRentCents: optionalNullable(money()).optional(), version: versionField });
+
+/** POST /leases/{id}/end (§11.13): any valid move-out date, with a reason. */
+export const endLeaseSchema = z.object({
+  moveOutDate: ymd,
+  endReason: z.enum(END_REASONS, "Choose a reason."),
+  version: versionField,
+});
+
 export const LEASE_STATUS_CODES = ["ended", "upcoming", "active", "month_to_month", "ended_superseded", "needs_decision"] as const;
 
 /** §14.2 GET /leases: `status` may repeat; status is derived, so it is applied in code after loading (D-32). */
