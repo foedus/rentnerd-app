@@ -249,3 +249,24 @@ export const unit = pgTable(
     index("unit_owner_override_idx").on(t.ownerOverrideId),
   ],
 );
+
+export const propertyValueKind = pgEnum("property_value_kind", ["market_estimate", "assessed"]);
+
+// SPEC §6.5: value history, hard-deleted. Only market estimates feed the current value (D-15).
+export const propertyValue = pgTable(
+  "property_value",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    propertyId: uuid("property_id").notNull().references(() => property.id, { onDelete: "cascade" }),
+    valueDate: date("value_date", { mode: "string" }).notNull(),
+    kind: propertyValueKind("kind").notNull(),
+    amountCents: bigint("amount_cents", { mode: "number" }).notNull(),
+    source: text("source"),
+    version: integer("version").notNull().default(1),
+    createdById: uuid("created_by_id").references(() => user.id, { onDelete: "set null" }),
+    updatedById: uuid("updated_by_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("property_value_property_idx").on(t.propertyId, t.valueDate)],
+);

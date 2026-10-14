@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { OtherIncomeTerms } from "./income";
-import { computeStats, formatOccupancy, formatYield, propertyValue, yieldNote, type StatLease, type StatProperty } from "./stats";
+import { computeStats, currentValue, formatOccupancy, formatYield, propertyValue, yieldNote, type StatLease, type StatProperty } from "./stats";
 
 const today = "2026-06-15";
 const none: OtherIncomeTerms = { parkingChargeCents: null, baseTaxYear: null, taxSharePercent: null };
@@ -94,5 +94,19 @@ describe("computeStats (§7.6)", () => {
     expect(formatOccupancy(null)).toBe("—");
     expect(formatYield(525)).toBe("5.25%");
     expect(formatYield(null)).toBe("—");
+  });
+});
+
+describe("currentValue", () => {
+  const v = (valueDate: string, kind: "market_estimate" | "assessed", amountCents: number) => ({ valueDate, kind, amountCents });
+  it("uses the latest market estimate and names its date", () => {
+    const r = currentValue({ purchasePriceCents: 70_000_000, values: [v("2026-06-01", "market_estimate", 95_000_000), v("2026-01-01", "market_estimate", 90_000_000), v("2026-09-01", "assessed", 30_000_000)] });
+    expect(r).toEqual({ amountCents: 95_000_000, basis: { kind: "market_estimate", date: "2026-06-01" } });
+  });
+  it("falls back to the purchase price, ignoring assessed values", () => {
+    expect(currentValue({ purchasePriceCents: 70_000_000, values: [v("2026-02-01", "assessed", 30_000_000)] })).toEqual({ amountCents: 70_000_000, basis: { kind: "purchase_price" } });
+  });
+  it("is null with neither", () => {
+    expect(currentValue({ purchasePriceCents: null, values: [] })).toBeNull();
   });
 });

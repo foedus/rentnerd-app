@@ -522,3 +522,16 @@ None.
   rather than inherited from the property.
 - One email test (fail-next-email) failed once in the first verify.sh run and passed on re-run and alone; it's a timing flake unrelated to this task.
 - verify.sh passes. Nothing for the owner to do.
+
+### 2026-10-14 — T037: Property values
+- The property page's **Values** tab now works: a current-value line, a table (Date, Value type, Amount, Source / notes) with **Edit** and **Delete** on each
+  row (Delete asks first), and **Add value**, which opens a pop-up with Date, Value type, Amount and Source / notes (**Save value**, **Cancel**). The Smoke user
+  sees the table but no buttons. Behind it are the new value endpoints (list, add, edit, delete) and a new database table; every change is written to the
+  activity log.
+- The property summary now has **Current value**, e.g. "$950,000.00 (Market estimate Jun 1, 2026)" or "(Purchase price)". The latest market estimate wins;
+  without one the purchase price is used; assessed values never count (D-15). One shared calculation (`currentValue`) does this for everyone.
+- Not yet (later tasks): Monthly rent roll, Gross yield and Total invested in the summary; the other tabs.
+- AC-PROP-05 and AC-PROP-06 pass. The reviewer approved. QA found and I fixed: focus is returned to **Add value** after a delete; amounts are capped at $10 billion
+  ("Enter a smaller amount."); two estimates on the same date are listed newest-first, matching which one counts; saving an edit with no changes no longer
+  bumps the version. Not changed (the spec is silent): future-dated estimates count as the current value, and very narrow phone screens wrap the amount in the summary.
+- verify.sh passes. Nothing for the owner to do.

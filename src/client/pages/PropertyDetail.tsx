@@ -9,6 +9,7 @@ import { Page } from "../components/Page";
 import { DataTable, type Column } from "../components/ui";
 import { UnauthenticatedError } from "../api";
 import { useCanWrite } from "../me";
+import { currentValueText, ValuesTab } from "./PropertyValues";
 import { fetchProperty, fetchPropertyUnits, PropertyNotFoundError, type PropertyRecord, type UnitRecord } from "../properties-api";
 
 const TABS = ["Units", "Values", "Property taxes", "Compliance", "Investments"] as const;
@@ -25,6 +26,7 @@ const unitColumns: Column<UnitRecord>[] = [
 ];
 
 function Summary({ property }: { property: PropertyRecord }) {
+  const current = currentValueText(property.currentValue);
   const rows: [string, string][] = [
     ["Address", `${property.street}, ${property.city}, ${property.state} ${property.zip}`],
     ["Type", property.propertyType],
@@ -34,6 +36,7 @@ function Summary({ property }: { property: PropertyRecord }) {
     ["Year built", property.yearBuilt ? String(property.yearBuilt) : "—"],
     ["Purchase price", property.purchasePriceCents == null ? "—" : formatCents(property.purchasePriceCents)],
     ["Purchase date", property.purchaseDate ? formatDate(property.purchaseDate) : "—"],
+    ["Current value", current ? `${current.amount} (${current.basis})` : "—"],
   ];
   return (
     <dl className="mb-6 grid max-w-xl grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-1">
@@ -128,7 +131,10 @@ function PropertyView({ property }: { property: PropertyRecord }) {
         <TabPanel id="Units">
           <UnitsTab property={property} archived={showArchived} setArchived={setShowArchived} />
         </TabPanel>
-        {TABS.slice(1).map((t) => (
+        <TabPanel id="Values">
+          <ValuesTab property={property} />
+        </TabPanel>
+        {TABS.slice(2).map((t) => (
           <TabPanel key={t} id={t}>
             <h2 className="mb-2 text-xl font-semibold">{t}</h2>
             <p>Nothing here yet.</p>

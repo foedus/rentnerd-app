@@ -22,6 +22,7 @@ export interface PropertyRecord {
   propertyType: string;
   unitCount: number;
   occupiedCount: number;
+  currentValue?: CurrentValue | null;
 }
 
 export interface PropertiesPage {
@@ -162,4 +163,57 @@ export async function saveUnit(
   if ((res.status === 409 || res.status === 422) && fields && Object.keys(fields).length > 0) throw new FieldErrorsError(fields);
   if (res.status === 409) throw new StaleUnitError("conflict");
   throw new Error(GENERIC);
+}
+
+export interface CurrentValue {
+  amountCents: number;
+  basis: { kind: "market_estimate"; date: string } | { kind: "purchase_price" };
+}
+
+export interface PropertyValueRecord {
+  id: string;
+  valueDate: string;
+  kind: "market_estimate" | "assessed";
+  amountCents: number;
+  source: string | null;
+  version: number;
+}
+
+/** A property's value history, newest first (first page of up to 200). */
+export async function fetchPropertyValues(propertyId: string): Promise<PropertyValueRecord[]> {
+  const res = await fetch(`/api/properties/${encodeURIComponent(propertyId)}/values?pageSize=200`, { headers: { accept: "application/json" } });
+  if (res.status === 401) throw new UnauthenticatedError("Not signed in");
+  if (res.status === 403) throw new Error(NO_ACCESS);
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  if (!res.ok) throw new Error(GENERIC);
+  return ((await res.json()) as { data: PropertyValueRecord[] }).data;
+}
+
+/** The value changed since it was loaded (409, D-10). */
+export class StaleValueError extends Error {}
+
+/** Adds a value to a property (`target.propertyId`) or edits one (`target.id` and `version`). */
+export async function savePropertyValue(
+  values: Record<string, unknown>,
+  target: { propertyId: string } | { id: string; version: number },
+): Promise<PropertyValueRecord> {
+  const edit = "id" in target;
+  const res = await fetch(edit ? `/api/property-values/${encodeURIComponent(target.id)}` : `/api/properties/${encodeURIComponent(target.propertyId)}/values`, {
+    method: edit ? "PATCH" : "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(edit ? { ...values, version: target.version } : values),
+  });
+  if (res.ok) return (await res.json()) as PropertyValueRecord;
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  const body = (await res.json().catch(() => null)) as { error?: { fields?: Record<string, string> } } | null;
+  const fields = body?.error?.fields;
+  if (res.status === 422 && fields && Object.keys(fields).length > 0) throw new FieldErrorsError(fields);
+  if (res.status === 409) throw new StaleValueError("conflict");
+  throw new Error(GENERIC);
+}
+
+export async function deletePropertyValue(id: string): Promise<void> {
+  const res = await fetch(`/api/property-values/${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  if (!res.ok && res.status !== 404) throw new Error(GENERIC);
 }

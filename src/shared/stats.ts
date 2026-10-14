@@ -40,11 +40,21 @@ export interface Stats {
   properties: number;
 }
 
-/** D-15: latest market estimate (latest date wins), else purchase price, else null. */
-export function propertyValue(property: Pick<StatProperty, "purchasePriceCents" | "values">): number | null {
+/** Where a property's value comes from (D-15): the latest market estimate (with its date) or the purchase price. */
+export type ValueBasis = { kind: "market_estimate"; date: string } | { kind: "purchase_price" };
+
+/** D-15: latest market estimate (latest date wins; on a tie the later entry), else purchase price, else null. */
+export function currentValue(property: Pick<StatProperty, "purchasePriceCents" | "values">): { amountCents: number; basis: ValueBasis } | null {
   const market = property.values.filter((v) => v.kind === "market_estimate");
-  if (market.length > 0) return market.reduce((a, b) => (b.valueDate >= a.valueDate ? b : a)).amountCents;
-  return property.purchasePriceCents;
+  if (market.length > 0) {
+    const latest = market.reduce((a, b) => (b.valueDate >= a.valueDate ? b : a));
+    return { amountCents: latest.amountCents, basis: { kind: "market_estimate", date: latest.valueDate } };
+  }
+  return property.purchasePriceCents == null ? null : { amountCents: property.purchasePriceCents, basis: { kind: "purchase_price" } };
+}
+
+export function propertyValue(property: Pick<StatProperty, "purchasePriceCents" | "values">): number | null {
+  return currentValue(property)?.amountCents ?? null;
 }
 
 function divRound(numerator: number, denominator: number): number {

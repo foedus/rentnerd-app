@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { acceptInvitationSchema, createOwnerSchema, ownerListQuerySchema, updateMeSchema, updateOwnerSchema, versionSchema } from "./schemas";
+import { acceptInvitationSchema, createOwnerSchema, createPropertyValueSchema, ownerListQuerySchema, updateMeSchema, updateOwnerSchema, updatePropertyValueSchema, versionSchema } from "./schemas";
 
 describe("schemas", () => {
   it("enforces the 12–128 character password and a trimmed name", () => {
@@ -84,5 +84,24 @@ describe("unit schemas", () => {
     expect(createUnitSchema.parse({ label: "A", use: "Residential", bedrooms: "", notes: " " })).toMatchObject({ bedrooms: null, notes: null });
     expect(updateUnitSchema.safeParse({ label: "B" }).success).toBe(false);
     expect(updateUnitSchema.safeParse({ label: "B", version: 1 }).success).toBe(true);
+  });
+});
+
+describe("property value schema (§6.5)", () => {
+  const ok = { valueDate: "2026-06-01", kind: "market_estimate", amountCents: 95_000_000 };
+  it("accepts a value with or without a source", () => {
+    expect(createPropertyValueSchema.safeParse(ok).success).toBe(true);
+    expect(createPropertyValueSchema.safeParse({ ...ok, source: "  " }).data?.source).toBeNull();
+  });
+  it("refuses a bad date, type or amount with the field message", () => {
+    const msg = (v: unknown) => createPropertyValueSchema.safeParse(v).error?.issues[0]?.message;
+    expect(msg({ ...ok, valueDate: "2026-02-30" })).toBe("Enter a valid date.");
+    expect(msg({ ...ok, kind: "guess" })).toBe("Choose a value type.");
+    expect(msg({ ...ok, amountCents: 0 })).toBe("Enter an amount above 0.");
+    expect(msg({ ...ok, amountCents: Number.NaN })).toBe("Enter an amount.");
+  });
+  it("requires a version to update", () => {
+    expect(updatePropertyValueSchema.safeParse({ amountCents: 5 }).success).toBe(false);
+    expect(updatePropertyValueSchema.safeParse({ amountCents: 5, version: 1 }).success).toBe(true);
   });
 });

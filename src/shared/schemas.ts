@@ -187,3 +187,17 @@ export const unitListQuerySchema = listQuerySchema.extend({
   order: z.enum(["asc", "desc"]).default("asc"),
   archived: z.enum(["true", "false"]).default("false"),
 });
+
+export const VALUE_KINDS = ["market_estimate", "assessed"] as const;
+export type ValueKind = (typeof VALUE_KINDS)[number];
+export const VALUE_KIND_LABELS: Record<ValueKind, string> = { market_estimate: "Market estimate", assessed: "Assessed value" };
+
+/** §6.5 property value fields; `kind` takes the code (API) and the form maps the label to it. */
+export const propertyValueFieldsSchema = z.object({
+  valueDate: z.string({ error: "Enter a valid date." }).refine(isValidYmd, "Enter a valid date."),
+  kind: z.enum(VALUE_KINDS, "Choose a value type."),
+  amountCents: z.number({ error: "Enter an amount." }).int("Enter an amount in whole cents.").min(1, "Enter an amount above 0.").max(1_000_000_000_000, "Enter a smaller amount."),
+  source: optionalText(),
+});
+export const createPropertyValueSchema = propertyValueFieldsSchema.partial({ source: true });
+export const updatePropertyValueSchema = propertyValueFieldsSchema.partial().extend({ version: z.number().int().min(1, "version is required") });

@@ -1,9 +1,10 @@
 import { and, asc, count, desc, eq, ilike, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import type { Context, Hono } from "hono";
 import type { Db } from "../db/client";
-import { owner, property, propertyResponsible, unit, user } from "../db/schema";
+import { owner, property, propertyResponsible, propertyValue, unit, user } from "../db/schema";
 import { createPropertyWithUnitSchema, propertyListQuerySchema, propertyType, updatePropertySchema } from "../shared/schemas";
 import { formatCents } from "../shared/format";
+import { currentValue } from "../shared/stats";
 import { diffChanges, writeAudit, type AuditChanges } from "./audit";
 import { apiError } from "./api-guard";
 import { validate, validateBody } from "./validation";
@@ -64,15 +65,22 @@ export function mountPropertyRoutes(app: Hono, db: Db) {
     return out;
   };
 
+  /** D-15 current value of each property, from its market estimates or purchase price. */
+  const valuesFor = async (tx: Tx, rows: PropertyRow[]) => {
+    const ids = rows.map((r) => r.id);
+    const entries = ids.length === 0 ? [] : await tx.select({ propertyId: propertyValue.propertyId, valueDate: propertyValue.valueDate, kind: propertyValue.kind, amountCents: propertyValue.amountCents }).from(propertyValue).where(inArray(propertyValue.propertyId, ids)).orderBy(asc(propertyValue.createdAt), asc(propertyValue.id));
+    return new Map(rows.map((r) => [r.id, currentValue({ purchasePriceCents: r.purchasePriceCents, values: entries.filter((e) => e.propertyId === r.id) })]));
+  };
+
   /** Rows plus owner, responsible landlords and the derived type. */
   const present = async (tx: Tx, rows: PropertyRow[]) => {
     const ids = rows.map((r) => r.id);
-    const [people, owners, uses] = await Promise.all([responsibleFor(tx, ids), ownerSummary(tx, [...new Set(rows.map((r) => r.ownerId))]), usesFor(tx, ids)]);
+    const [people, owners, uses, values] = await Promise.all([responsibleFor(tx, ids), ownerSummary(tx, [...new Set(rows.map((r) => r.ownerId))]), usesFor(tx, ids), valuesFor(tx, rows)]);
     return rows.map((r) => {
       const responsible = people.get(r.id) ?? [];
       const unitUses = uses.get(r.id) ?? [];
       // Leases don't exist yet, so no unit is occupied; the lease tasks derive this with unitOccupancy (§7.4).
-      return { ...r, owner: owners.get(r.ownerId) ?? null, responsible, responsibleUserIds: responsible.map((p) => p.id), propertyType: propertyType(unitUses), unitCount: unitUses.length, occupiedCount: 0 };
+      return { ...r, owner: owners.get(r.ownerId) ?? null, responsible, responsibleUserIds: responsible.map((p) => p.id), propertyType: propertyType(unitUses), unitCount: unitUses.length, occupiedCount: 0, currentValue: values.get(r.id) ?? null };
     });
   };
 
