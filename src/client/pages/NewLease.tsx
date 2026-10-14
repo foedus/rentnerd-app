@@ -2,13 +2,15 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState } from "react";
 import { Button, ComboBox, Input, Label, ListBox, ListBoxItem, Popover } from "react-aria-components";
 import { useNavigate, useParams } from "react-router";
-import { tenantStepIssue, type WizardTenantRow } from "../../shared/lease-wizard";
+import { todayNy } from "../../shared/dates";
+import { blankTermStep, tenantStepIssue, termStepIssues, type TermStepDraft, type WizardTenantRow } from "../../shared/lease-wizard";
 import { createTenantSchema, TENANT_TYPES } from "../../shared/schemas";
 import { AppForm, RadioGroupInput, TextFieldInput, useAppForm } from "../components/forms";
 import { Page } from "../components/Page";
 import { ConfirmDialog } from "../components/ui";
 import { fetchUnit, UnitNotFoundError } from "../properties-api";
 import { fetchTenants } from "../tenants-api";
+import { TermStep } from "./NewLeaseTerm";
 import { useWatch } from "react-hook-form";
 
 const STEP_TITLES = ["Tenants", "Term and rent", "Special terms", "Review"] as const;
@@ -261,7 +263,7 @@ function TenantsStep({
   );
 }
 
-/** /units/:id/leases/new: Step X of 4 (SPEC §11.12). Steps 2–4 are added by the following tasks. */
+/** /units/:id/leases/new: Step X of 4 (SPEC §11.12). Steps 3 and 4 are added by the following tasks. */
 export function NewLease() {
   const { id = "" } = useParams();
   const unit = useQuery({ queryKey: ["unit", id], queryFn: () => fetchUnit(id), gcTime: 0 });
@@ -269,18 +271,35 @@ export function NewLease() {
   const [rows, setRows] = useState<Row[]>([]);
   const [primary, setPrimary] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [term, setTerm] = useState<TermStepDraft>(blankTermStep);
+  // Shown after Next was refused, then kept in step with what the person fixes.
+  const [termIssues, setTermIssues] = useState<Record<string, string> | null>(null);
+  const [termRefusals, setTermRefusals] = useState(0);
+  const today = todayNy();
   const guard = useDiscardGuard(rows.length > 0);
 
   // Once a message is showing, keep it in step with what the person fixes.
   useEffect(() => {
     setError((e) => (e === null ? null : tenantStepIssue(rows, primary)));
   }, [rows, primary]);
+  useEffect(() => {
+    setTermIssues((i) => (i === null ? null : termStepIssues(term, todayNy())));
+  }, [term]);
 
   const next = () => {
     if (step === 1) {
       const issue = tenantStepIssue(rows, primary);
       setError(issue);
       if (issue) return;
+    }
+    if (step === 2) {
+      const issues = termStepIssues(term, today);
+      if (Object.keys(issues).length > 0) {
+        setTermIssues(issues);
+        setTermRefusals((n) => n + 1);
+        return;
+      }
+      setTermIssues(null);
     }
     setStep(step + 1);
   };
@@ -303,6 +322,7 @@ export function NewLease() {
         {STEP_TITLES[step - 1]}
       </h2>
       {step === 1 && <TenantsStep rows={rows} setRows={setRows} primary={primary} setPrimary={setPrimary} error={error} />}
+      {step === 2 && <TermStep draft={term} setDraft={setTerm} issues={termIssues ?? {}} today={today} focusSignal={termRefusals} />}
       <div className="mt-6 flex gap-2">
         {step > 1 && (
           <Button onPress={() => setStep(step - 1)} className="min-h-6 rounded border px-4 py-1">

@@ -154,3 +154,94 @@ it("adding, removing and re-adding a tenant keeps a single extra history entry",
   push.mockRestore();
   await act(async () => root.unmount());
 });
+
+const toStep2 = async () => {
+  await addNewTenant();
+  await click(document.querySelector("tbody input[type=radio]"));
+  await click(buttonNamed("Next"));
+};
+const byLabel = (text: string) => {
+  const label = Array.from(document.querySelectorAll("label")).find((l) => l.textContent?.startsWith(text));
+  return document.getElementById((label as HTMLLabelElement).htmlFor) as HTMLInputElement;
+};
+const fill = (text: string, v: string) => act(async () => setValue(byLabel(text), v));
+
+it("step 2 refuses an end date that isn't after the start date and clears the message once fixed", async () => {
+  const root = await mount();
+  await toStep2();
+  expect(document.body.textContent).toContain("Step 2 of 4");
+  await fill("Lease start date", "2026-11-01");
+  await fill("Lease end date", "2026-11-01");
+  await fill("Monthly rent", "2150");
+  await click(buttonNamed("Next"));
+  expect(document.body.textContent).toContain("Step 2 of 4");
+  expect(document.body.textContent).toContain("Lease end date must be after the start date.");
+  await fill("Lease end date", "2027-10-31");
+  expect(document.body.textContent).not.toContain("Lease end date must be after the start date.");
+  await click(buttonNamed("Next"));
+  expect(document.body.textContent).toContain("Step 3 of 4");
+  await act(async () => root.unmount());
+});
+
+it("step 2 shows a live Rent schedule for a fixed percentage and rows for a custom schedule", async () => {
+  const root = await mount();
+  await toStep2();
+  await fill("Lease start date", "2026-01-01");
+  await fill("Lease end date", "2028-12-31");
+  await fill("Monthly rent", "2000");
+  await click(document.querySelector("input[name=increaseType][value=percent]"));
+  await fill("Annual increase (%)", "3");
+  const table = document.querySelector("table[aria-label='Rent schedule']") as HTMLElement;
+  expect(table.textContent).toContain("$2,060.00");
+  expect(table.textContent).toContain("$2,121.80");
+  await click(document.querySelector("input[name=increaseType][value=schedule]"));
+  await click(buttonNamed("Add row"));
+  await fill("Effective date", "2027-06-01");
+  expect(document.body.textContent).not.toContain("Effective date must fall within");
+  await fill("Effective date", "2029-06-01");
+  await click(buttonNamed("Next"));
+  expect(document.body.textContent).toContain("Effective date must fall within the lease term.");
+  expect(document.body.textContent).toContain("There is a problem");
+  await click(buttonNamed("Remove"));
+  expect(document.activeElement).toBe(buttonNamed("Add row"));
+  await act(async () => root.unmount());
+});
+
+it("step 2 offers Move-out date and Reason only when the end date is before today", async () => {
+  const root = await mount();
+  await toStep2();
+  await fill("Lease start date", "2999-01-01");
+  await fill("Lease end date", "2999-12-31");
+  expect(document.body.textContent).not.toContain("Move-out date");
+  await fill("Lease start date", "2020-01-01");
+  await fill("Lease end date", "2020-12-31");
+  expect(document.body.textContent).toContain("Move-out date");
+  expect(document.body.textContent).toContain("Reason");
+  await act(async () => root.unmount());
+});
+
+it("step 2 rows keep unique ids after Back and Next, and a far-future end date doesn't crash", async () => {
+  const root = await mount();
+  await toStep2();
+  await fill("Lease start date", "2026-01-01");
+  await fill("Lease end date", "2027-12-31");
+  await fill("Monthly rent", "1000");
+  await click(document.querySelector("input[name=increaseType][value=schedule]"));
+  await click(buttonNamed("Add row"));
+  expect(document.activeElement?.id).toBe(byLabel("Effective date").id);
+  await fill("Effective date", "2027-03-01");
+  const rentLabels = Array.from(document.querySelectorAll("label")).filter((l) => l.textContent?.startsWith("Monthly rent"));
+  await act(async () => setValue(document.getElementById((rentLabels[1] as HTMLLabelElement).htmlFor) as HTMLInputElement, "1100"));
+  await click(buttonNamed("Next"));
+  await click(buttonNamed("Back"));
+  await click(buttonNamed("Add row"));
+  const ids = Array.from(document.querySelectorAll("input[type=date]")).map((i) => i.id);
+  expect(new Set(ids).size).toBe(ids.length);
+  await click(buttonNamed("Next"));
+  expect(document.body.textContent).toContain("Rent step 2: Enter the effective date.");
+  await click(document.querySelector("input[name=increaseType][value=percent]"));
+  await fill("Annual increase (%)", "50");
+  await fill("Lease end date", "9999-12-31");
+  expect(document.body.textContent).toContain("Lease end date must be within 50 years of the start date.");
+  await act(async () => root.unmount());
+});
