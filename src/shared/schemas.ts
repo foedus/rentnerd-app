@@ -380,3 +380,8 @@ export function leaseRuleIssues(l: LeaseTermInput & { moveOutDate?: string | nul
   if (!l.moveOutDate && l.endReason) out.moveOutDate = "Enter the move-out date.";
   return out;
 }
+
+/** POST /units/{id}/leases (§14.2): the lease fields without the unit, plus the optional "Replace current lease" choice (§6.9). */
+export const createLeaseSchema = leaseFieldsSchema.omit({ unitId: true }).extend({
+  replaceCurrentLease: z.object({ endReason: z.enum(END_REASONS, "Choose a reason.").default("Replaced by new lease") }).optional(),
+});

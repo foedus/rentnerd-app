@@ -1,7 +1,7 @@
 import { and, asc, count, desc, eq, ilike, isNull, or, sql, type SQL } from "drizzle-orm";
 import type { Context, Hono } from "hono";
 import type { Db } from "../db/client";
-import { tenant } from "../db/schema";
+import { extensionTenant, leaseTenant, tenant } from "../db/schema";
 import { normalizeTenantNames, tenantListQuerySchema, tenantRuleIssues, createTenantSchema, updateTenantSchema, versionSchema } from "../shared/schemas";
 import { diffChanges, writeAudit } from "./audit";
 import { apiError } from "./api-guard";
@@ -15,8 +15,14 @@ export interface TenantUsage {
   isOnLease(tx: Tx, tenantId: string): Promise<boolean>;
 }
 
-/** Leases don't exist yet (a later task); until then no tenant is on one. */
-export const dbTenantUsage: TenantUsage = { isOnLease: async () => false };
+export const dbTenantUsage: TenantUsage = {
+  async isOnLease(tx, tenantId) {
+    const [onLease] = await tx.select({ id: leaseTenant.leaseId }).from(leaseTenant).where(eq(leaseTenant.tenantId, tenantId)).limit(1);
+    if (onLease) return true;
+    const [onExtension] = await tx.select({ id: extensionTenant.extensionId }).from(extensionTenant).where(eq(extensionTenant.tenantId, tenantId)).limit(1);
+    return Boolean(onExtension);
+  },
+};
 
 const LABELS = {
   tenantType: "Tenant type", firstName: "First name", lastName: "Last name", businessName: "Business name",

@@ -12,6 +12,7 @@ import { mountPropertyRoutes } from "./property-routes";
 import { mountPropertyTaxRoutes } from "./property-tax-routes";
 import { mountPropertyValueRoutes } from "./property-value-routes";
 import { mountUnitRoutes } from "./unit-routes";
+import { mountLeaseRoutes } from "./lease-routes";
 import { mountMeRoutes } from "./me-routes";
 import { mountUserRoutes } from "./user-routes";
 import type { EnqueueEmail } from "../worker/email";
@@ -58,6 +59,7 @@ export function createApp(
     mountTenantRoutes(app, db);
     mountPropertyRoutes(app, db);
     mountUnitRoutes(app, db);
+    mountLeaseRoutes(app, db);
     mountPropertyValueRoutes(app, db);
     mountPropertyTaxRoutes(app, db);
     if (enqueueEmail) mountUserRoutes(app, db, enqueueEmail, appUrl ?? "");

@@ -145,3 +145,21 @@ export function unitOccupancy(leases: readonly UnitLease[], today: string): Unit
 export function nextExtensionStart(lease: Pick<LeaseTerms, "master" | "extensions">): string {
   return addDays(effectiveEndDate(lease), 1);
 }
+
+export interface OccupiedPeriod {
+  start: string;
+  /** Last occupied day; null when open-ended (month-to-month with no move-out date). */
+  end: string | null;
+}
+
+/** §6.9: from the start to the move-out date if set, else the effective end date, unless month-to-month (open-ended). */
+export function occupiedPeriod(lease: LeaseTerms): OccupiedPeriod {
+  const start = lease.master.startDate;
+  if (lease.moveOutDate !== null) return { start, end: lease.moveOutDate < start ? start : lease.moveOutDate };
+  return { start, end: lease.monthToMonth ? null : effectiveEndDate(lease) };
+}
+
+/** Whether two occupied periods share at least one day (both ends inclusive). */
+export function periodsOverlap(a: OccupiedPeriod, b: OccupiedPeriod): boolean {
+  return (a.end === null || b.start <= a.end) && (b.end === null || a.start <= b.end);
+}

@@ -7,6 +7,8 @@ import {
   leaseStatus,
   leaseStatusLabel,
   nextExtensionStart,
+  occupiedPeriod,
+  periodsOverlap,
   unitOccupancy,
   type LeaseTerms,
   type UnitLease,
@@ -168,5 +170,33 @@ describe("unitOccupancy (§7.4, D-16)", () => {
     const occ = unitOccupancy([archived], "2026-06-01");
     expect(occ).toMatchObject({ occupied: false, potentialRentCents: null });
     expect(occ.statuses.size).toBe(0);
+  });
+});
+
+describe("occupied periods (§6.9 overlap rule)", () => {
+  it("runs to the effective end date, including extensions", () => {
+    expect(occupiedPeriod(lease())).toEqual({ start: "2026-01-01", end: "2026-12-31" });
+    expect(occupiedPeriod(lease({ extensions: [ext] })).end).toBe("2027-12-31");
+  });
+
+  it("ends at the move-out date, whenever it falls", () => {
+    expect(occupiedPeriod(lease({ moveOutDate: "2026-03-15" })).end).toBe("2026-03-15");
+    expect(occupiedPeriod(lease({ moveOutDate: "2027-02-01" })).end).toBe("2027-02-01");
+    expect(occupiedPeriod(lease({ moveOutDate: "2025-12-01" })).end).toBe("2026-01-01");
+  });
+
+  it("is open-ended when month-to-month without a move-out date", () => {
+    expect(occupiedPeriod(lease({ monthToMonth: true })).end).toBeNull();
+    expect(occupiedPeriod(lease({ monthToMonth: true, moveOutDate: "2026-05-01" })).end).toBe("2026-05-01");
+  });
+
+  it("overlaps when they share a day, not when one ends the day before the other starts", () => {
+    const a = { start: "2026-01-01", end: "2026-12-31" };
+    expect(periodsOverlap(a, { start: "2026-12-31", end: "2027-12-30" })).toBe(true);
+    expect(periodsOverlap(a, { start: "2027-01-01", end: "2027-12-31" })).toBe(false);
+    expect(periodsOverlap({ start: "2025-01-01", end: "2025-12-31" }, a)).toBe(false);
+    expect(periodsOverlap({ start: "2027-06-01", end: null }, a)).toBe(false);
+    expect(periodsOverlap({ start: "2026-06-01", end: null }, a)).toBe(true);
+    expect(periodsOverlap({ start: "2020-01-01", end: null }, { start: "2030-01-01", end: null })).toBe(true);
   });
 });
