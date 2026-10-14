@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { acceptInvitationSchema, createOwnerSchema, createPropertyTaxSchema, createPropertyValueSchema, ownerListQuerySchema, updateMeSchema, updateOwnerSchema, updatePropertyTaxSchema, updatePropertyValueSchema, versionSchema } from "./schemas";
+import { acceptInvitationSchema, createOwnerSchema, createPropertyTaxSchema, createPropertyValueSchema, ownerListQuerySchema, updateMeSchema, updateOwnerSchema, updatePropertyTaxSchema, updatePropertyValueSchema, versionSchema, createTenantSchema, normalizeTenantNames, tenantListQuerySchema, tenantRuleIssues, updateTenantSchema } from "./schemas";
 
 describe("schemas", () => {
   it("enforces the 12–128 character password and a trimmed name", () => {
@@ -123,5 +123,33 @@ describe("property tax schema (§6.6)", () => {
   it("requires a version to update", () => {
     expect(updatePropertyTaxSchema.safeParse({ amountCents: 5 }).success).toBe(false);
     expect(updatePropertyTaxSchema.safeParse({ amountCents: 5, version: 1 }).success).toBe(true);
+  });
+});
+
+describe("tenant schemas", () => {
+  it("accepts an Individual with only names and a Business with a contact person", () => {
+    expect(createTenantSchema.safeParse({ tenantType: "Individual", firstName: "Ann", lastName: "Lee" }).success).toBe(true);
+    expect(createTenantSchema.safeParse({ tenantType: "Business", businessName: "Acme", contactPerson: "Bo" }).success).toBe(true);
+  });
+  it("names the missing fields for each type", () => {
+    const fields = (v: unknown) => createTenantSchema.safeParse(v).error?.issues.map((i) => `${String(i.path[0])}: ${i.message}`).sort();
+    expect(fields({ tenantType: "Individual", firstName: " " })).toEqual(["firstName: Enter the first name.", "lastName: Enter the last name."]);
+    expect(fields({ tenantType: "Business" })).toEqual(["businessName: Enter the business name.", "contactPerson: Enter the contact person."]);
+    expect(fields({})).toEqual(["tenantType: Choose Individual or Business."]);
+  });
+  it("normalises blank optional text and validates the email", () => {
+    const ok = createTenantSchema.parse({ tenantType: "Individual", firstName: "A", lastName: "B", email: " X@Y.COM ", phone: "", notes: " " });
+    expect(ok).toMatchObject({ email: "x@y.com", phone: null, notes: null });
+    expect(createTenantSchema.safeParse({ tenantType: "Individual", firstName: "A", lastName: "B", email: "nope" }).success).toBe(false);
+  });
+  it("PATCH needs a version; rules and normalisation are pure helpers", () => {
+    expect(updateTenantSchema.safeParse({ phone: "1" }).success).toBe(false);
+    expect(updateTenantSchema.safeParse({ phone: "1", version: 1 }).success).toBe(true);
+    expect(tenantRuleIssues({ tenantType: "Business", businessName: "A", contactPerson: null })).toEqual({ contactPerson: "Enter the contact person." });
+    expect(normalizeTenantNames({ tenantType: "Business", firstName: "A", lastName: "B", businessName: "C", contactPerson: "D" })).toMatchObject({ firstName: null, lastName: null, businessName: "C" });
+  });
+  it("list query defaults and limits", () => {
+    expect(tenantListQuerySchema.parse({})).toMatchObject({ page: 1, pageSize: 50, sort: "name", order: "asc", archived: "false" });
+    expect(tenantListQuerySchema.safeParse({ pageSize: "201" }).success).toBe(false);
   });
 });

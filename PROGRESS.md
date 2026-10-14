@@ -542,3 +542,9 @@ None.
 - Not yet (later tasks): refusing to delete a tax year that a lease uses as its base tax year — leases don't exist yet, so that check arrives with them (§6.6).
 - AC-PROP-07 passes. The reviewer approved. QA found and I fixed: a lost session while saving/deleting now says "Your session has ended. Sign in again to continue." and returns you to sign-in; editing a year someone else just deleted says so instead of "Something went wrong". Also fixed: a negative amount like -5 now says "The amount can't be negative." (all money fields show their own minimum message instead of "Enter an amount."), and Reload after a stale edit keeps the pop-up open with the latest values.
 - verify.sh passes. Nothing for the owner to do.
+
+### 2026-10-14 — T039: Tenants API
+- New tenant endpoints: list (search by name or email, paging, sorting, "show archived"), add, view, edit, archive, restore and delete. An Individual needs a first and last name; a Business needs a business name and a contact person, and each missing field gets its own message (e.g. "Enter the contact person."). Email, phone and notes are optional. Switching a tenant's type clears the names that no longer apply. Every change is written to the activity log, and editing from a stale page is refused with "changed by someone else".
+- Each tenant comes back with its display name ("Ann Lee" or "Acme Shop (Bo Diaz)"). Page-size limit (200) and the 422 for a larger one work as in the other lists.
+- Not yet (later tasks): refusing to delete a tenant who is on a lease. Leases don't exist yet, so for now no tenant counts as being on one; the check is already plugged in and tested, and only needs the real lease lookup when leases are built. The Tenants screens come later too.
+- AC-API-03 passes. The reviewer approved. No screens changed, so no QA pass. verify.sh passes. Nothing for the owner to do.

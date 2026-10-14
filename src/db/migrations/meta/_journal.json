@@ -71,6 +71,13 @@
       "when": 1791940562536,
       "tag": "0009_faithful_callisto",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791945352252,
+      "tag": "0010_elite_electro",
+      "breakpoints": true
     }
   ]
 }

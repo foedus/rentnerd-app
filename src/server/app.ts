@@ -7,6 +7,7 @@ import { requestContext } from "./request-context";
 import { securityHeaders } from "./security-headers";
 import { mountInvitationRoutes } from "./invitation-routes";
 import { mountOwnerRoutes } from "./owner-routes";
+import { mountTenantRoutes } from "./tenant-routes";
 import { mountPropertyRoutes } from "./property-routes";
 import { mountPropertyTaxRoutes } from "./property-tax-routes";
 import { mountPropertyValueRoutes } from "./property-value-routes";
@@ -54,6 +55,7 @@ export function createApp(
     mountInvitationRoutes(app, db, auth);
     mountMeRoutes(app, db);
     mountOwnerRoutes(app, db);
+    mountTenantRoutes(app, db);
     mountPropertyRoutes(app, db);
     mountUnitRoutes(app, db);
     mountPropertyValueRoutes(app, db);

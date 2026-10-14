@@ -287,3 +287,28 @@ export const propertyTax = pgTable(
   },
   (t) => [unique("property_tax_property_year_unique").on(t.propertyId, t.taxYear)],
 );
+
+export const tenantType = pgEnum("tenant_type", ["Individual", "Business"]);
+
+// SPEC §6.8: archivable; `version` is the optimistic-lock counter (D-10). Name columns that don't apply to the type are null.
+export const tenant = pgTable(
+  "tenant",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantType: tenantType("tenant_type").notNull(),
+    firstName: text("first_name"),
+    lastName: text("last_name"),
+    businessName: text("business_name"),
+    contactPerson: text("contact_person"),
+    email: text("email"),
+    phone: text("phone"),
+    notes: text("notes"),
+    version: integer("version").notNull().default(1),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdById: uuid("created_by_id").references(() => user.id, { onDelete: "set null" }),
+    updatedById: uuid("updated_by_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("tenant_last_name_idx").on(t.lastName)],
+);

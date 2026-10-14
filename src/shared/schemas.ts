@@ -209,3 +209,65 @@ export const propertyTaxFieldsSchema = z.object({
 });
 export const createPropertyTaxSchema = propertyTaxFieldsSchema;
 export const updatePropertyTaxSchema = propertyTaxFieldsSchema.partial().extend({ version: z.number().int().min(1, "version is required") });
+
+export const TENANT_TYPES = ["Individual", "Business"] as const;
+export type TenantType = (typeof TENANT_TYPES)[number];
+
+const tenantNameFields = {
+  firstName: optionalText(),
+  lastName: optionalText(),
+  businessName: optionalText(),
+  contactPerson: optionalText(),
+};
+const tenantOtherFields = {
+  email: ownerFieldsSchema.shape.email,
+  phone: optionalText(50),
+  notes: optionalText(5000),
+};
+
+/** §6.8: Individuals need first and last name; Businesses need a business name and contact person. */
+export function tenantRuleIssues(t: {
+  tenantType: TenantType;
+  firstName?: string | null;
+  lastName?: string | null;
+  businessName?: string | null;
+  contactPerson?: string | null;
+}): Record<string, string> {
+  const missing = (v?: string | null) => !v || v.trim() === "";
+  const out: Record<string, string> = {};
+  if (t.tenantType === "Individual") {
+    if (missing(t.firstName)) out.firstName = "Enter the first name.";
+    if (missing(t.lastName)) out.lastName = "Enter the last name.";
+  } else {
+    if (missing(t.businessName)) out.businessName = "Enter the business name.";
+    if (missing(t.contactPerson)) out.contactPerson = "Enter the contact person.";
+  }
+  return out;
+}
+
+/** Name fields that don't apply to the tenant's type are stored as null. */
+export function normalizeTenantNames<T extends { tenantType: TenantType }>(t: T): T {
+  return t.tenantType === "Individual"
+    ? { ...t, businessName: null, contactPerson: null }
+    : { ...t, firstName: null, lastName: null };
+}
+
+export const createTenantSchema = z
+  .object({ tenantType: z.enum(TENANT_TYPES, "Choose Individual or Business."), ...tenantNameFields, ...tenantOtherFields })
+  .partial({ firstName: true, lastName: true, businessName: true, contactPerson: true, email: true, phone: true, notes: true })
+  .superRefine((t, ctx) => {
+    for (const [path, message] of Object.entries(tenantRuleIssues(t))) ctx.addIssue({ code: "custom", path: [path], message });
+  });
+
+/** PATCH: any subset plus `version`; the merged record is re-checked against the type rules by the route. */
+export const updateTenantSchema = z
+  .object({ tenantType: z.enum(TENANT_TYPES, "Choose Individual or Business."), ...tenantNameFields, ...tenantOtherFields })
+  .partial()
+  .extend({ version: z.number().int().min(1, "version is required") });
+
+export const tenantListQuerySchema = listQuerySchema.extend({
+  sort: z.enum(["name", "email", "createdAt"]).default("name"),
+  order: z.enum(["asc", "desc"]).default("asc"),
+  q: z.string().trim().max(200).optional(),
+  archived: z.enum(["true", "false"]).default("false"),
+});
