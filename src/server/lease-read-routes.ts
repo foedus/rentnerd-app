@@ -1,10 +1,11 @@
 import { and, asc, desc, eq, exists, inArray, isNull, or, type SQL } from "drizzle-orm";
 import type { Context, Hono } from "hono";
 import type { Db } from "../db/client";
-import { extensionTenant, lease, leaseExtension, leaseRevision, leaseTenant, property, tenant, unit, user } from "../db/schema";
+import { extensionTenant, lease, leaseExtension, leaseRevision, leaseTenant, property, propertyTax, tenant, unit, user } from "../db/schema";
 import { todayNy } from "../shared/dates";
 import { leaseStatus, leaseStatusLabel } from "../shared/lease";
 import { currentTermSource, leaseRentSchedule, leaseSummary, leaseTermsOf } from "../shared/lease-view";
+import { taxReimbursement } from "../shared/income";
 import { leaseListQuerySchema } from "../shared/schemas";
 import { apiError } from "./api-guard";
 import { presentLeases } from "./lease-store";
@@ -22,12 +23,12 @@ export function mountLeaseReadRoutes(app: Hono, db: Db) {
     const leases = await presentLeases(db, rows);
     const unitIds = [...new Set(rows.map((r) => r.unitId))];
     const live = unitIds.length === 0 ? [] : await db.select({ id: lease.id, unitId: lease.unitId, startDate: lease.startDate }).from(lease).where(and(inArray(lease.unitId, unitIds), isNull(lease.archivedAt)));
-    const units = unitIds.length === 0 ? [] : await db.select({ id: unit.id, label: unit.label, propertyId: unit.propertyId, propertyName: property.name }).from(unit).innerJoin(property, eq(property.id, unit.propertyId)).where(inArray(unit.id, unitIds));
+    const units = unitIds.length === 0 ? [] : await db.select({ id: unit.id, label: unit.label, use: unit.use, propertyId: unit.propertyId, propertyName: property.name }).from(unit).innerJoin(property, eq(property.id, unit.propertyId)).where(inArray(unit.id, unitIds));
     const tenantIds = [...new Set(leases.flatMap((l) => [...l.tenants, ...l.extensions.flatMap((e) => e.tenants)].map((t) => t.tenantId)))];
     const people = tenantIds.length === 0 ? [] : await db.select().from(tenant).where(inArray(tenant.id, tenantIds));
     const person = new Map(people.map((t) => [t.id, t]));
 
-    return leases.map((l) => {
+    return Promise.all(leases.map(async (l) => {
       const terms = leaseTermsOf(l);
       const later = live.some((o) => o.unitId === l.unitId && o.id !== l.id && o.startDate > l.startDate);
       const result = leaseStatus(terms, today, later);
@@ -45,6 +46,7 @@ export function mountLeaseReadRoutes(app: Hono, db: Db) {
         statusLabel: archived ? `${label} · Archived` : label,
         movingOut: result.movingOut,
         unitLabel: u?.label ?? null,
+        unitUse: u?.use ?? null,
         propertyId: u?.propertyId ?? null,
         propertyName: u?.propertyName ?? null,
         ...leaseSummary(l, today),
@@ -59,8 +61,10 @@ export function mountLeaseReadRoutes(app: Hono, db: Db) {
         childrenReside: source.childrenReside, breakClause: source.breakClause, otherTerms: source.otherTerms,
         baseTaxYear: source.baseTaxYear, taxSharePercent: source.taxSharePercent, tenants: currentTenants,
       };
-      return { ...base, current, rentSchedule: leaseRentSchedule(l) };
-    });
+      const taxes = current.baseTaxYear === null ? [] : await db.select({ taxYear: propertyTax.taxYear, amountCents: propertyTax.amountCents }).from(propertyTax).where(eq(propertyTax.propertyId, u?.propertyId ?? ""));
+      const tax = taxReimbursement(taxes, current.baseTaxYear, current.taxSharePercent === null ? null : String(current.taxSharePercent));
+      return { ...base, current: { ...current, taxReimbursementCents: tax?.cents ?? null, taxReimbursementExplanation: tax?.explanation ?? null }, rentSchedule: leaseRentSchedule(l) };
+    }));
   };
 
   const detail = async (c: Context) => {

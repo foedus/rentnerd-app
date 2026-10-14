@@ -170,6 +170,9 @@ describe("lease and extension schemas (§6.9, §6.10)", () => {
     expect(msgs({ rentDueDay: 29 })).toContain("Enter a whole number from 1 to 28.");
     expect(msgs({ increasePercent: 51 })).toContain("Enter a percentage above 0 and up to 50.");
     expect(msgs({ taxSharePercent: 100.5 })).toContain("Enter a percentage above 0 and up to 100.");
+    expect(msgs({ taxSharePercent: "100.5" })).toContain("Enter a percentage above 0 and up to 100.");
+    expect(msgs({ taxSharePercent: "abc" })).toContain("Enter a percentage above 0 and up to 100.");
+    expect(msgs({ taxSharePercent: "25", increasePercent: "2.5" })).toEqual([]);
     expect(msgs({ lateFeeGraceDays: 32 })).toContain("Enter a whole number from 0 to 31.");
     expect(msgs({ endReason: "Bored" })).toContain("Choose a reason.");
     expect(msgs({ securityDepositCents: -1 })).toContain("The amount can't be negative.");

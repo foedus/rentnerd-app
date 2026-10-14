@@ -28,3 +28,42 @@ export async function createLease(unitId: string, body: Record<string, unknown>)
   if ((res.status === 409 || res.status === 404) && parsed?.error?.message) throw new Error(parsed.error.message);
   throw new Error(GENERIC);
 }
+
+export interface LeaseDetailRecord {
+  id: string;
+  statusLabel: string;
+  propertyName: string | null;
+  unitLabel: string | null;
+  unitUse: "Residential" | "Commercial" | null;
+  startDate: string;
+  endDate: string;
+  effectiveEndDate: string;
+  currentRentCents: number;
+  current: {
+    tenants: { tenantId: string; isPrimary: boolean; displayName: string; email: string | null; phone: string | null }[];
+    securityDepositCents: number | null;
+    rentDueDay: number;
+    lateFeeCents: number | null;
+    lateFeeGraceDays: number | null;
+    pets: string | null;
+    parking: string | null;
+    parkingChargeCents: number | null;
+    childrenReside: boolean | null;
+    breakClause: string | null;
+    otherTerms: string | null;
+    baseTaxYear: number | null;
+    taxSharePercent: number | null;
+    taxReimbursementCents: number | null;
+    taxReimbursementExplanation: string | null;
+  };
+  rentSchedule: { periodStart: string; periodEnd: string; rentCents: number; term: string }[];
+}
+
+export async function fetchLease(id: string): Promise<LeaseDetailRecord> {
+  const res = await fetch(`/api/leases/${encodeURIComponent(id)}`, { headers: { accept: "application/json" } }).catch(() => {
+    throw new Error(GENERIC);
+  });
+  if (res.ok) return (await res.json()) as LeaseDetailRecord;
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  throw new Error(res.status === 404 ? "Lease not found." : GENERIC);
+}

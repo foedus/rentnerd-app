@@ -368,6 +368,20 @@ describe("lease reads", () => {
     expect(schedule.data).toEqual(d.rentSchedule);
   });
 
+  it("works out the Commercial tax reimbursement and its explanation for the current term", async () => {
+    const f = await fixture();
+    for (const [year, cents] of [[2020, 4000000], [2025, 5200000]]) {
+      await pool.query("insert into property_tax (property_id, tax_year, amount_cents) values ($1,$2,$3)", [f.propertyId, year, cents]);
+    }
+    const l = await make(f, f.com, { startDate: "2026-01-01", endDate: "2030-12-31", childrenReside: undefined, baseTaxYear: 2020, taxSharePercent: 25 });
+    const d = await json<{ current: { taxReimbursementCents: number | null; taxReimbursementExplanation: string | null } }>(await call(f.cookie, "GET", `/api/leases/${l.id}`));
+    expect(d.current.taxReimbursementCents).toBe(25000);
+    expect(d.current.taxReimbursementExplanation).toBe("25% × (2025 tax $52,000.00 − 2020 tax $40,000.00) ÷ 12");
+    const plain = await make(f, f.res, { startDate: "2026-01-01", endDate: "2030-12-31" });
+    const p = await json<{ current: { taxReimbursementCents: number | null; taxReimbursementExplanation: string | null } }>(await call(f.cookie, "GET", `/api/leases/${plain.id}`));
+    expect(p.current).toMatchObject({ taxReimbursementCents: null, taxReimbursementExplanation: null });
+  });
+
   it("lists lease versions newest first and returns one snapshot", async () => {
     const f = await fixture();
     const l = await make(f, f.res, { startDate: "2020-01-01", endDate: "2020-12-31" });

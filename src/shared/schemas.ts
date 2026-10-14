@@ -284,12 +284,16 @@ const money = (message = "Enter an amount.") =>
 const optionalMoney = optionalNullable(
   z.number({ error: "Enter an amount." }).int("Enter an amount in whole cents.").min(0, "The amount can't be negative.").max(MAX_CENTS, "Enter a smaller amount."),
 );
+/** A percentage as a number or as decimal text such as "25" or "2.5" (the API returns them as text). */
 const percent = (max: number, message: string) =>
-  z
-    .number({ error: message })
-    .gt(0, message)
-    .max(max, message)
-    .refine((n) => Math.abs(n * 10_000 - Math.round(n * 10_000)) < 1e-6, "Use at most 4 decimal places.");
+  z.preprocess(
+    (v) => (typeof v === "string" && /^\d+(\.\d+)?$/.test(v.trim()) ? Number(v) : v),
+    z
+      .number({ error: message })
+      .gt(0, message)
+      .max(max, message)
+      .refine((n) => Math.abs(n * 10_000 - Math.round(n * 10_000)) < 1e-6, "Use at most 4 decimal places."),
+  );
 
 export const rentStepSchema = z.object({ effectiveDate: ymd, amountCents: money() });
 export const tenantRefSchema = z.object({ tenantId: z.string({ error: "Choose a tenant." }).uuid("Choose a tenant."), isPrimary: z.boolean({ error: "Choose the primary tenant." }) });

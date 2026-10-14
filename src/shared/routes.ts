@@ -30,6 +30,7 @@ export const pages: readonly PageDef[] = [
   { path: "/owners/:id", title: "Owner details", access: "any" },
   { path: "/owners/:id/edit", title: "Edit owner", access: "write" },
   { path: "/leases", title: "Leases", access: "any", nav: true },
+  { path: "/leases/:id", title: "Lease details", access: "any" },
   { path: "/compliance", title: "Compliance", access: "any", nav: true },
   { path: "/investments", title: "Investments", access: "any", nav: true },
   { path: "/templates", title: "Templates", access: "any", nav: true },
