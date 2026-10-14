@@ -8,7 +8,10 @@ import { queryClient } from "../App";
 import { NewLease } from "./NewLease";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  sessionStorage.clear();
+});
 
 const unit = { id: "u1", label: "2R", use: "Residential", archivedAt: null, property: { id: "p1", name: "Elm House" } };
 const ann = {
@@ -42,6 +45,7 @@ async function mount({ use = "Residential", taxes = [], post }: MountOptions = {
           <Routes>
             <Route path="/units/:id/leases/new" element={<NewLease />} />
             <Route path="/home" element={<h1>Home</h1>} />
+            <Route path="/units/:id" element={<h1>Unit page</h1>} />
             <Route path="/leases/:leaseId" element={<h1>Lease page</h1>} />
           </Routes>
         </MemoryRouter>
@@ -382,4 +386,81 @@ it("the Review step shows the computed Tax reimbursement for a Commercial unit",
   const dl = document.querySelector("dl")?.textContent ?? "";
   expect(dl).toContain("Tax reimbursement (monthly)$250.00");
   await act(async () => root.unmount());
+});
+
+it("a clash offers Replace current lease with a reason, and confirming sends it", async () => {
+  const bodies: Record<string, unknown>[] = [];
+  const post = (b: Record<string, unknown>) => {
+    bodies.push(b);
+    return b.replaceCurrentLease ? json({ id: "l1" }, 201) : json({ error: { code: "CONFLICT", message: "This unit already has a lease for those dates.", fields: { startDate: "x", replaceCurrentLease: "available" } } }, 409);
+  };
+  const root = await toStep3({ post });
+  await click(document.querySelector("input[name=childrenReside][value=No]"));
+  await click(buttonNamed("Next"));
+  expect(buttonNamed("Replace current lease")).toBeUndefined();
+  await click(buttonNamed("Save lease"));
+  await settle();
+  expect(document.querySelector("[role=alert]")?.textContent).toContain("This unit already has a lease for those dates.");
+  await click(buttonNamed("Replace current lease"));
+  expect(document.body.textContent).toContain("End the current lease on Oct 31, 2026 and start this one?");
+  expect((document.getElementById("replace-reason") as HTMLSelectElement).value).toBe("Replaced by new lease");
+  await click(Array.from(document.querySelectorAll("[role=dialog] button")).find((b) => b.textContent === "Replace current lease"));
+  await settle();
+  expect(bodies[1]).toMatchObject({ replaceCurrentLease: { endReason: "Replaced by new lease" } });
+  expect(document.querySelector("h1")?.textContent).toBe("Lease page");
+  await act(async () => root.unmount());
+});
+
+it("coming back to the wizard entry that saved a lease goes to the unit instead of an empty form", async () => {
+  window.history.replaceState({ ...(window.history.state ?? {}), newLeaseToken: "t1" }, "");
+  sessionStorage.setItem("newLeaseSavedEntry", "t1");
+  const root = await mount();
+  expect(document.querySelector("h1")?.textContent).toBe("Unit page");
+  expect(sessionStorage.getItem("newLeaseSavedEntry")).toBeNull();
+  await act(async () => root.unmount());
+});
+
+it("a later wizard entry (even with the same router key) is not redirected", async () => {
+  window.history.replaceState({ ...(window.history.state ?? {}), newLeaseToken: undefined }, "");
+  sessionStorage.setItem("newLeaseSavedEntry", "an-older-entry");
+  const root = await mount();
+  expect(document.querySelector("h1")?.textContent).toBe("New lease");
+  await act(async () => root.unmount());
+});
+
+it("saving remembers the wizard entry", async () => {
+  const root = await toStep3();
+  await click(document.querySelector("input[name=childrenReside][value=No]"));
+  await click(buttonNamed("Next"));
+  await click(buttonNamed("Save lease"));
+  await settle();
+  expect(sessionStorage.getItem("newLeaseSavedEntry")).toBe(window.history.state.newLeaseToken);
+  expect(window.history.state.newLeaseToken).toBeTruthy();
+  await act(async () => root.unmount());
+});
+
+it("a clash where Replace can't work shows only the message, and an offer goes away when the dates change", async () => {
+  const clash = (fields: Record<string, string>) => json({ error: { code: "CONFLICT", message: "This unit already has a lease for those dates.", fields } }, 409);
+  const root = await toStep3({ post: () => clash({ startDate: "x" }) });
+  await click(document.querySelector("input[name=childrenReside][value=No]"));
+  await click(buttonNamed("Next"));
+  await click(buttonNamed("Save lease"));
+  await settle();
+  expect(document.querySelector("[role=alert]")?.textContent).toContain("This unit already has a lease for those dates.");
+  expect(buttonNamed("Replace current lease")).toBeUndefined();
+  await act(async () => root.unmount());
+
+  const root2 = await toStep3({ post: () => clash({ startDate: "x", replaceCurrentLease: "available" }) });
+  await click(document.querySelector("input[name=childrenReside][value=No]"));
+  await click(buttonNamed("Next"));
+  await click(buttonNamed("Save lease"));
+  await settle();
+  expect(buttonNamed("Replace current lease")).toBeDefined();
+  await click(buttonNamed("Back"));
+  await click(buttonNamed("Back"));
+  await fill("Lease start date", "2026-12-01");
+  await click(buttonNamed("Next"));
+  await click(buttonNamed("Next"));
+  expect(buttonNamed("Replace current lease")).toBeUndefined();
+  await act(async () => root2.unmount());
 });

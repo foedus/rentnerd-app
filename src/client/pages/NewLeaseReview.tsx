@@ -15,9 +15,9 @@ export const ReviewStep = forwardRef<
   HTMLDivElement,
   {
     rows: readonly WizardTenantRow[]; primary: string | null; term: TermStepDraft; special: SpecialStepDraft; use: string; today: string;
-    taxLine: string | null; problems: string[]; saving: boolean; onSave: () => void;
+    taxLine: string | null; onReplace: (() => void) | null; problems: string[]; saving: boolean; onSave: () => void;
   }
->(function ReviewStep({ rows, primary, term, special, use, today, taxLine, problems, saving, onSave }, summary) {
+>(function ReviewStep({ rows, primary, term, special, use, today, taxLine, onReplace, problems, saving, onSave }, summary) {
   const items: [string, string][] = [
     ["Tenants", rows.map((r) => (r.key === primary ? `${r.name} (Primary contact)` : r.name)).join(", ")],
     ["Lease start date", formatDate(term.startDate)],
@@ -72,6 +72,11 @@ export const ReviewStep = forwardRef<
         <Button onPress={onSave} isDisabled={saving} className="min-h-6 rounded bg-slate-900 px-4 py-1 text-white">
           Save lease
         </Button>
+        {onReplace && (
+          <Button onPress={onReplace} isDisabled={saving} className="min-h-6 rounded border px-4 py-1">
+            Replace current lease
+          </Button>
+        )}
         <Button isDisabled className="min-h-6 rounded border px-4 py-1">
           Save and generate PDF
         </Button>

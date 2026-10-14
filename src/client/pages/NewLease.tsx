@@ -2,17 +2,17 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState } from "react";
 import { Button, ComboBox, Input, Label, ListBox, ListBoxItem, Popover } from "react-aria-components";
 import { useNavigate, useParams } from "react-router";
-import { todayNy } from "../../shared/dates";
-import { formatCents } from "../../shared/format";
+import { addDays, isValidYmd, todayNy } from "../../shared/dates";
+import { formatCents, formatDate } from "../../shared/format";
 import { blankSpecialStep, blankTermStep, leaseRequestBody, specialStepIssues, tenantStepIssue, termStepIssues, type SpecialStepDraft, type TermStepDraft, type WizardTenantRow } from "../../shared/lease-wizard";
-import { createTenantSchema, TENANT_TYPES } from "../../shared/schemas";
+import { createTenantSchema, END_REASONS, TENANT_TYPES } from "../../shared/schemas";
 import { AppForm, RadioGroupInput, TextFieldInput, useAppForm } from "../components/forms";
 import { Page } from "../components/Page";
 import { ConfirmDialog } from "../components/ui";
 import { fetchUnit, UnitNotFoundError } from "../properties-api";
 import { fetchTenants } from "../tenants-api";
 import { FieldErrorsError } from "../api";
-import { createLease } from "../leases-api";
+import { createLease, OverlapError } from "../leases-api";
 import { ReviewStep } from "./NewLeaseReview";
 import { draftTaxReimbursement, SpecialStep, usePropertyTaxYears } from "./NewLeaseSpecial";
 import { TermStep } from "./NewLeaseTerm";
@@ -31,6 +31,17 @@ const fieldProblem = (field: string, message: string) => {
   const name = FIELD_NAMES[field.split(".")[0] ?? ""];
   return name ? `${name}: ${message}` : message;
 };
+/** Remembers (for this browser tab) which wizard history entry saved a lease, so Back doesn't land on an empty form. */
+const SAVED_ENTRY_KEY = "newLeaseSavedEntry";
+
+/** A random token kept in this history entry's own state, so only this exact entry (not any entry with the same router key) is recognised later. */
+function entryToken(): string {
+  const state = (window.history.state ?? {}) as Record<string, unknown>;
+  if (typeof state.newLeaseToken === "string") return state.newLeaseToken;
+  const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  window.history.replaceState({ ...state, newLeaseToken: token }, "");
+  return token;
+}
 const blankTenant = { tenantType: "", firstName: "", lastName: "", businessName: "", contactPerson: "", email: "", phone: "", notes: "" };
 
 /** Asks before the person leaves the wizard (a link, a reload or closing the tab) with data they entered. */
@@ -300,6 +311,9 @@ export function NewLease() {
   const [saveRefusals, setSaveRefusals] = useState(0);
   const reviewSummary = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const [canReplace, setCanReplace] = useState(false);
+  const [replacing, setReplacing] = useState(false);
+  const [replaceReason, setReplaceReason] = useState("Replaced by new lease");
   const today = todayNy();
   const use = unit.data?.use === "Commercial" ? "Commercial" : "Residential";
   const taxYears = usePropertyTaxYears(unit.data?.propertyId, use === "Commercial");
@@ -316,6 +330,17 @@ export function NewLease() {
   useEffect(() => {
     setSpecialIssues((i) => (i === null ? null : specialStepIssues(special, use)));
   }, [special, use]);
+  // An offer to replace the current lease belongs to the dates it was refused for.
+  useEffect(() => {
+    setCanReplace(false);
+  }, [rows, primary, term]);
+  // Back from a lease this wizard saved lands here again: go to the unit instead of showing an empty form.
+  useEffect(() => {
+    if (sessionStorage.getItem(SAVED_ENTRY_KEY) === entryToken()) {
+      sessionStorage.removeItem(SAVED_ENTRY_KEY);
+      navigate(`/units/${id}`, { replace: true });
+    }
+  }, [id, navigate]);
   // Moving between steps puts focus on the step heading, so keyboard and screen reader users start at the new step.
   const firstStep = useRef(true);
   useEffect(() => {
@@ -356,13 +381,16 @@ export function NewLease() {
     setStep(step + 1);
   };
 
-  const save = async () => {
+  const save = async (replaceReason?: string) => {
     setSaving(true);
     setSaveProblems([]);
     try {
-      const saved = await createLease(id, leaseRequestBody(rows, primary, term, special, use, today));
+      const body = leaseRequestBody(rows, primary, term, special, use, today);
+      const saved = await createLease(id, replaceReason ? { ...body, replaceCurrentLease: { endReason: replaceReason } } : body);
+      sessionStorage.setItem(SAVED_ENTRY_KEY, entryToken());
       navigate(`/leases/${saved.id}`, { replace: true });
     } catch (e) {
+      setCanReplace(e instanceof OverlapError && e.canReplace);
       setSaveProblems(e instanceof FieldErrorsError ? Object.entries(e.fields).map(([f, m]) => fieldProblem(f, m)) : [e instanceof Error ? e.message : "Something went wrong. Please try again."]);
       setSaveRefusals((n) => n + 1);
       setSaving(false);
@@ -389,7 +417,7 @@ export function NewLease() {
       {step === 1 && <TenantsStep rows={rows} setRows={setRows} primary={primary} setPrimary={setPrimary} error={error} />}
       {step === 2 && <TermStep draft={term} setDraft={setTerm} issues={termIssues ?? {}} today={today} focusSignal={termRefusals} />}
       {step === 3 && <SpecialStep draft={special} setDraft={setSpecial} issues={specialIssues ?? {}} use={use} propertyId={unit.data.propertyId} focusSignal={specialRefusals} />}
-      {step === 4 && <ReviewStep ref={reviewSummary} rows={rows} primary={primary} term={term} special={special} use={use} today={today} taxLine={taxResult ? formatCents(taxResult.cents) : null} problems={saveProblems} saving={saving} onSave={save} />}
+      {step === 4 && <ReviewStep ref={reviewSummary} rows={rows} primary={primary} term={term} special={special} use={use} today={today} taxLine={taxResult ? formatCents(taxResult.cents) : null} problems={saveProblems} saving={saving} onSave={() => save()} onReplace={canReplace ? () => setReplacing(true) : null} />}
       <div className="mt-6 flex gap-2">
         {step > 1 && (
           <Button onPress={() => setStep(step - 1)} className="min-h-6 rounded border px-4 py-1">
@@ -402,6 +430,27 @@ export function NewLease() {
           </Button>
         )}
       </div>
+      <ConfirmDialog
+        isOpen={replacing}
+        onOpenChange={(o) => !o && setReplacing(false)}
+        title={`End the current lease on ${isValidYmd(term.startDate) ? formatDate(addDays(term.startDate, -1)) : "the day before the new lease starts"} and start this one?`}
+        confirmLabel="Replace current lease"
+        onConfirm={() => {
+          setReplacing(false);
+          void save(replaceReason);
+        }}
+      >
+        <label htmlFor="replace-reason" className="block">
+          Reason
+        </label>
+        <select id="replace-reason" value={replaceReason} onChange={(e) => setReplaceReason(e.target.value)} className="mt-1 block min-h-6 w-full rounded border px-3 py-1">
+          {END_REASONS.map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
+        </select>
+      </ConfirmDialog>
       <ConfirmDialog
         isOpen={guard.open}
         onOpenChange={(o) => !o && guard.close()}

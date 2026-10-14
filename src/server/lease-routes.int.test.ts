@@ -149,7 +149,7 @@ describe("POST /api/units/{id}/leases", () => {
     expect((await post(f, f.res)).status).toBe(201);
     const clash = await post(f, f.res, { startDate: "2026-12-31", endDate: "2027-12-30" });
     expect(clash.status).toBe(409);
-    expect(await fieldsOf(clash)).toEqual({ startDate: OVERLAP });
+    expect(await fieldsOf(clash)).toMatchObject({ startDate: OVERLAP });
     expect((await post(f, f.res, { startDate: "2027-01-01", endDate: "2027-12-31" })).status).toBe(201);
     expect((await post(f, f.res, { startDate: "2024-01-01", endDate: "2024-12-31" })).status).toBe(201);
     expect((await post(f, f.res, { startDate: "2025-06-01", endDate: "2026-02-01" })).status).toBe(409);
@@ -196,7 +196,11 @@ describe("POST /api/units/{id}/leases", () => {
     it("still refuses without the option, when the new lease starts on or before the current start, or when it is not the current lease", async () => {
       const f = await fixture();
       await post(f, f.res, { startDate: shift(-100), endDate: shift(200) });
-      expect((await post(f, f.res, { startDate: shift(10), endDate: shift(400) })).status).toBe(409);
+      const offered = await post(f, f.res, { startDate: shift(10), endDate: shift(400) });
+      expect(offered.status).toBe(409);
+      expect(await fieldsOf(offered)).toEqual({ startDate: OVERLAP, replaceCurrentLease: "available" });
+      const notOffered = await post(f, f.res, { startDate: shift(-100), endDate: shift(400) });
+      expect(await fieldsOf(notOffered)).toEqual({ startDate: OVERLAP });
       const replace = { replaceCurrentLease: { endReason: "Other" } };
       expect((await post(f, f.res, { startDate: shift(-100), endDate: shift(400), ...replace })).status).toBe(409);
       expect((await post(f, f.res, { startDate: shift(-200), endDate: shift(-50), ...replace })).status).toBe(409);

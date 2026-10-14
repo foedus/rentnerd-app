@@ -70,8 +70,9 @@ export function mountLeaseRoutes(app: Hono, db: Db) {
         const clash = clashes[0]!;
         const status = unitLeaseStatuses(unitLeases, todayNy()).get(clash.id)?.status;
         const isCurrent = status === "active" || status === "month_to_month" || status === "needs_decision";
-        const canReplace = replaceCurrentLease && clashes.length === 1 && isCurrent && fields.startDate > clash.master.startDate;
-        if (!canReplace) return apiError(c, "CONFLICT", OVERLAP, { startDate: OVERLAP });
+        const replaceApplies = clashes.length === 1 && isCurrent && fields.startDate > clash.master.startDate;
+        // The refusal says when "Replace current lease" would work, so the wizard offers it only then (§6.9).
+        if (!replaceApplies || !replaceCurrentLease) return apiError(c, "CONFLICT", OVERLAP, { startDate: OVERLAP, ...(replaceApplies ? { replaceCurrentLease: "available" } : {}) });
         replaced = existing.find((l) => l.id === clash.id)!;
       }
 
