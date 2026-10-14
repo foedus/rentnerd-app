@@ -6,6 +6,7 @@ import { fetchMe, type Me, TooManyRequestsError, UnauthenticatedError } from "./
 import { Layout } from "./components/Layout";
 import { NoAccess, NotFound } from "./components/Notices";
 import { Page } from "./components/Page";
+import { Dashboard } from "./pages/Dashboard";
 import { Account } from "./pages/Account";
 import { AcceptInvite } from "./pages/AcceptInvite";
 import { ForgotPassword } from "./pages/ForgotPassword";
@@ -31,6 +32,7 @@ export const queryClient = new QueryClient({
 });
 
 function pageElement(path: string, title: string, me: Me) {
+  if (path === "/") return <Dashboard />;
   if (path === "/users") return <Users />;
   if (path === "/owners") return <Owners />;
   if (path === "/owners/new") return <OwnerForm />;
