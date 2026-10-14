@@ -19,15 +19,29 @@ function useDiscardGuard(dirty: boolean) {
   const navigate = useNavigate();
   // A link address to go to, or "back" for the browser's Back button.
   const [target, setTarget] = useState<string | null>(null);
+  // The browser Back button can't be cancelled, so one extra history entry is kept on top (at most one) and put back after a Back.
+  const guardEntry = useRef(false);
+  const dirtyNow = useRef(dirty);
+  dirtyNow.current = dirty;
   useEffect(() => {
-    if (!dirty) return;
-    // The browser Back button can't be cancelled, so keep one extra history entry on top and put it back after a Back.
-    window.history.pushState(window.history.state, "");
     const onPop = () => {
+      if (!guardEntry.current) return;
+      if (!dirtyNow.current) {
+        guardEntry.current = false; // Back used up the extra entry while nothing was entered
+        return;
+      }
       window.history.pushState(window.history.state, "");
       setTarget("back");
     };
     window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  useEffect(() => {
+    if (!dirty) return;
+    if (!guardEntry.current) {
+      window.history.pushState(window.history.state, "");
+      guardEntry.current = true;
+    }
     const onClick = (e: MouseEvent) => {
       const link = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
       if (!link || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -43,7 +57,6 @@ function useDiscardGuard(dirty: boolean) {
     document.addEventListener("click", onClick, true);
     window.addEventListener("beforeunload", onUnload);
     return () => {
-      window.removeEventListener("popstate", onPop);
       document.removeEventListener("click", onClick, true);
       window.removeEventListener("beforeunload", onUnload);
     };
@@ -62,7 +75,7 @@ function useDiscardGuard(dirty: boolean) {
   };
 }
 
-function ExistingTenantPicker({ taken, onPick }: { taken: ReadonlySet<string>; onPick: (id: string, name: string) => void }) {
+function ExistingTenantPicker({ taken, onPick }: { taken: ReadonlySet<string>; onPick: (id: string, name: string, detail?: string) => void }) {
   const [text, setText] = useState("");
   // Picking a tenant remounts the box (new key), which closes its pop-up; focus is put back on the input.
   const [generation, setGeneration] = useState(0);
@@ -88,7 +101,7 @@ function ExistingTenantPicker({ taken, onPick }: { taken: ReadonlySet<string>; o
       onSelectionChange={(key) => {
         const picked = items.find((t) => t.id === key);
         if (!picked) return;
-        onPick(picked.id, picked.displayName);
+        onPick(picked.id, picked.displayName, picked.email ?? undefined);
         setText("");
         setGeneration((g) => g + 1);
       }}
@@ -157,6 +170,8 @@ function NewTenantForm({ onAdd, onCancel }: { onAdd: (name: string, values: Reco
 }
 
 interface Row extends WizardTenantRow {
+  /** The email, shown so two tenants with the same name can be told apart. */
+  detail?: string;
   /** Only for tenants created with the lease. */
   newTenant?: Record<string, unknown>;
 }
@@ -172,11 +187,11 @@ function TenantsStep({
   const taken = new Set(rows.flatMap((r) => (r.tenantId ? [r.tenantId] : [])));
   return (
     <section aria-labelledby="step-heading" className="space-y-4">
-      <ExistingTenantPicker taken={taken} onPick={(tenantId, name) => add({ tenantId, name })} />
+      <ExistingTenantPicker taken={taken} onPick={(tenantId, name, detail) => add({ tenantId, name, detail })} />
       {adding ? (
         <NewTenantForm
           onAdd={(name, newTenant) => {
-            add({ name, newTenant });
+            add({ name, newTenant, detail: typeof newTenant.email === "string" ? newTenant.email : undefined });
             setAdding(false);
             queueMicrotask(() => addButton.current?.focus());
           }}
@@ -204,6 +219,7 @@ function TenantsStep({
               <tr key={r.key} className="border-t">
                 <td id={`${r.key}-name`} className="py-1">
                   {r.name}
+                  {r.detail ? <span className="ml-2 text-slate-700">{r.detail}</span> : null}
                   {r.newTenant ? <span className="ml-2 text-slate-700">(new)</span> : null}
                 </td>
                 <td className="py-1">

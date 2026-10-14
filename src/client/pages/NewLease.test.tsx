@@ -131,3 +131,26 @@ it("the browser's Back button asks to discard too", async () => {
   expect(document.querySelector("h1")?.textContent).toBe("New lease");
   await act(async () => root.unmount());
 });
+
+it("shows the email next to a tenant so same-named tenants can be told apart", async () => {
+  const root = await mount();
+  const box = document.querySelector("input[role=combobox]") as HTMLInputElement;
+  await act(async () => box.focus());
+  await act(async () => setValue(box, "Lee"));
+  await settle();
+  await click(document.querySelector("[role=option]"));
+  expect(document.querySelector("tbody td")?.textContent).toContain("Ann Lee");
+  expect(document.querySelector("tbody td")?.textContent).toContain("ann@x.com");
+  await act(async () => root.unmount());
+});
+
+it("adding, removing and re-adding a tenant keeps a single extra history entry", async () => {
+  const root = await mount();
+  const push = vi.spyOn(window.history, "pushState");
+  await addNewTenant();
+  await click(buttonNamed("Remove"));
+  await addNewTenant();
+  expect(push).toHaveBeenCalledTimes(1);
+  push.mockRestore();
+  await act(async () => root.unmount());
+});
