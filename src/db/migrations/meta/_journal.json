@@ -78,6 +78,13 @@
       "when": 1791945352252,
       "tag": "0010_elite_electro",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791958733239,
+      "tag": "0011_cool_snowbird",
+      "breakpoints": true
     }
   ]
 }

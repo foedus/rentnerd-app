@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigint, boolean, date, index, integer, jsonb, numeric, pgEnum, primaryKey, unique, uniqueIndex, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, check, date, index, integer, jsonb, numeric, pgEnum, primaryKey, unique, uniqueIndex, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const userRole = pgEnum("user_role", ["admin", "landlord", "smoke"]);
 export const emailStatus = pgEnum("email_status", ["queued", "sent", "failed"]);
@@ -311,4 +311,159 @@ export const tenant = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("tenant_last_name_idx").on(t.lastName)],
+);
+
+export const increaseType = pgEnum("increase_type", ["none", "percent", "schedule"]);
+export const leaseEndReason = pgEnum("lease_end_reason", [
+  "Tenant moved out",
+  "Not renewed",
+  "Terminated",
+  "Tenant broke lease",
+  "Replaced by new lease",
+  "Other",
+]);
+
+// SPEC §6.9: archivable only together with its unit or property (archiveBatchId); `version` is the lease-wide
+// optimistic-lock counter (D-10) and equals the latest LeaseRevision number (D-31). Tenants, rent steps and
+// extensions share it. Tax fields are Commercial only and `childrenReside` Residential only (checked by the API).
+export const lease = pgTable(
+  "lease",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    unitId: uuid("unit_id").notNull().references(() => unit.id),
+    startDate: date("start_date", { mode: "string" }).notNull(),
+    endDate: date("end_date", { mode: "string" }).notNull(),
+    baseRentCents: bigint("base_rent_cents", { mode: "number" }).notNull(),
+    increaseType: increaseType("increase_type").notNull().default("none"),
+    increasePercent: numeric("increase_percent", { precision: 7, scale: 4 }),
+    securityDepositCents: bigint("security_deposit_cents", { mode: "number" }),
+    rentDueDay: integer("rent_due_day").notNull().default(1),
+    lateFeeCents: bigint("late_fee_cents", { mode: "number" }),
+    lateFeeGraceDays: integer("late_fee_grace_days"),
+    pets: text("pets"),
+    parking: text("parking"),
+    parkingChargeCents: bigint("parking_charge_cents", { mode: "number" }),
+    childrenReside: boolean("children_reside"),
+    breakClause: text("break_clause"),
+    otherTerms: text("other_terms"),
+    baseTaxYear: integer("base_tax_year"),
+    taxSharePercent: numeric("tax_share_percent", { precision: 7, scale: 4 }),
+    monthToMonth: boolean("month_to_month").notNull().default(false),
+    monthToMonthRentCents: bigint("month_to_month_rent_cents", { mode: "number" }),
+    moveOutDate: date("move_out_date", { mode: "string" }),
+    endReason: leaseEndReason("end_reason"),
+    version: integer("version").notNull().default(1),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    archiveBatchId: uuid("archive_batch_id"),
+    createdById: uuid("created_by_id").references(() => user.id, { onDelete: "set null" }),
+    updatedById: uuid("updated_by_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("lease_unit_idx").on(t.unitId, t.startDate),
+    check("lease_dates_check", sql`${t.endDate} > ${t.startDate}`),
+    check("lease_rent_check", sql`${t.baseRentCents} > 0`),
+    check("lease_due_day_check", sql`${t.rentDueDay} between 1 and 28`),
+    check("lease_end_reason_check", sql`(${t.moveOutDate} is null) = (${t.endReason} is null)`),
+  ],
+);
+
+// §6.9 LeaseTenant: at least one tenant per lease and exactly one primary (the second is enforced here, the first by the API).
+export const leaseTenant = pgTable(
+  "lease_tenant",
+  {
+    leaseId: uuid("lease_id").notNull().references(() => lease.id, { onDelete: "cascade" }),
+    tenantId: uuid("tenant_id").notNull().references(() => tenant.id),
+    isPrimary: boolean("is_primary").notNull().default(false),
+  },
+  (t) => [
+    primaryKey({ columns: [t.leaseId, t.tenantId] }),
+    index("lease_tenant_tenant_idx").on(t.tenantId),
+    uniqueIndex("lease_tenant_one_primary_idx").on(t.leaseId).where(sql`${t.isPrimary}`),
+  ],
+);
+
+// SPEC §6.10: a full copy of the terms; only the latest extension is editable (API rule).
+export const leaseExtension = pgTable(
+  "lease_extension",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leaseId: uuid("lease_id").notNull().references(() => lease.id, { onDelete: "cascade" }),
+    startDate: date("start_date", { mode: "string" }).notNull(),
+    endDate: date("end_date", { mode: "string" }).notNull(),
+    baseRentCents: bigint("base_rent_cents", { mode: "number" }).notNull(),
+    increaseType: increaseType("increase_type").notNull().default("none"),
+    increasePercent: numeric("increase_percent", { precision: 7, scale: 4 }),
+    securityDepositCents: bigint("security_deposit_cents", { mode: "number" }),
+    rentDueDay: integer("rent_due_day").notNull().default(1),
+    lateFeeCents: bigint("late_fee_cents", { mode: "number" }),
+    lateFeeGraceDays: integer("late_fee_grace_days"),
+    pets: text("pets"),
+    parking: text("parking"),
+    parkingChargeCents: bigint("parking_charge_cents", { mode: "number" }),
+    childrenReside: boolean("children_reside"),
+    breakClause: text("break_clause"),
+    otherTerms: text("other_terms"),
+    baseTaxYear: integer("base_tax_year"),
+    taxSharePercent: numeric("tax_share_percent", { precision: 7, scale: 4 }),
+    notes: text("notes"),
+    createdById: uuid("created_by_id").references(() => user.id, { onDelete: "set null" }),
+    updatedById: uuid("updated_by_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("lease_extension_lease_idx").on(t.leaseId, t.startDate),
+    check("lease_extension_dates_check", sql`${t.endDate} > ${t.startDate}`),
+    check("lease_extension_rent_check", sql`${t.baseRentCents} > 0`),
+    check("lease_extension_due_day_check", sql`${t.rentDueDay} between 1 and 28`),
+  ],
+);
+
+export const extensionTenant = pgTable(
+  "extension_tenant",
+  {
+    extensionId: uuid("extension_id").notNull().references(() => leaseExtension.id, { onDelete: "cascade" }),
+    tenantId: uuid("tenant_id").notNull().references(() => tenant.id),
+    isPrimary: boolean("is_primary").notNull().default(false),
+  },
+  (t) => [
+    primaryKey({ columns: [t.extensionId, t.tenantId] }),
+    index("extension_tenant_tenant_idx").on(t.tenantId),
+    uniqueIndex("extension_tenant_one_primary_idx").on(t.extensionId).where(sql`${t.isPrimary}`),
+  ],
+);
+
+// §6.9 RentStep: belongs to exactly one of a lease or an extension; dates strictly increase within a term (API rule).
+export const rentStep = pgTable(
+  "rent_step",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leaseId: uuid("lease_id").references(() => lease.id, { onDelete: "cascade" }),
+    extensionId: uuid("extension_id").references(() => leaseExtension.id, { onDelete: "cascade" }),
+    effectiveDate: date("effective_date", { mode: "string" }).notNull(),
+    amountCents: bigint("amount_cents", { mode: "number" }).notNull(),
+  },
+  (t) => [
+    index("rent_step_lease_idx").on(t.leaseId, t.effectiveDate),
+    index("rent_step_extension_idx").on(t.extensionId, t.effectiveDate),
+    check("rent_step_owner_check", sql`(${t.leaseId} is null) <> (${t.extensionId} is null)`),
+    check("rent_step_amount_check", sql`${t.amountCents} > 0`),
+  ],
+);
+
+// SPEC §6.9 / D-31: read-only snapshot of every saved lease version; deleted only with the lease.
+export const leaseRevision = pgTable(
+  "lease_revision",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leaseId: uuid("lease_id").notNull().references(() => lease.id, { onDelete: "cascade" }),
+    versionNumber: integer("version_number").notNull(),
+    snapshot: jsonb("snapshot").notNull(),
+    changedById: uuid("changed_by_id").references(() => user.id, { onDelete: "set null" }),
+    changedAt: timestamp("changed_at", { withTimezone: true }).notNull().defaultNow(),
+    summary: text("summary").notNull(),
+  },
+  (t) => [unique("lease_revision_lease_version_unique").on(t.leaseId, t.versionNumber)],
 );

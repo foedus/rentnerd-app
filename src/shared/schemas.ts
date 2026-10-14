@@ -271,3 +271,112 @@ export const tenantListQuerySchema = listQuerySchema.extend({
   q: z.string().trim().max(200).optional(),
   archived: z.enum(["true", "false"]).default("false"),
 });
+
+export const INCREASE_TYPES = ["none", "percent", "schedule"] as const;
+export type IncreaseType = (typeof INCREASE_TYPES)[number];
+export const END_REASONS = ["Tenant moved out", "Not renewed", "Terminated", "Tenant broke lease", "Replaced by new lease", "Other"] as const;
+export type EndReason = (typeof END_REASONS)[number];
+
+const ymd = z.string({ error: "Enter a valid date." }).refine(isValidYmd, "Enter a valid date.");
+const MAX_CENTS = 1_000_000_000_000;
+const money = (message = "Enter an amount.") =>
+  z.number({ error: message }).int("Enter an amount in whole cents.").min(1, "Enter an amount above 0.").max(MAX_CENTS, "Enter a smaller amount.");
+const optionalMoney = optionalNullable(
+  z.number({ error: "Enter an amount." }).int("Enter an amount in whole cents.").min(0, "The amount can't be negative.").max(MAX_CENTS, "Enter a smaller amount."),
+);
+const percent = (max: number, message: string) =>
+  z
+    .number({ error: message })
+    .gt(0, message)
+    .max(max, message)
+    .refine((n) => Math.abs(n * 10_000 - Math.round(n * 10_000)) < 1e-6, "Use at most 4 decimal places.");
+
+export const rentStepSchema = z.object({ effectiveDate: ymd, amountCents: money() });
+export const tenantRefSchema = z.object({ tenantId: z.string({ error: "Choose a tenant." }).uuid("Choose a tenant."), isPrimary: z.boolean({ error: "Choose the primary tenant." }) });
+
+/** Terms an extension may change as well as the master lease (§6.9, §6.10); pre-filled from the previous term. */
+const termFields = {
+  securityDepositCents: optionalMoney.optional(),
+  rentDueDay: z.number({ error: "Enter a whole number from 1 to 28." }).int("Enter a whole number from 1 to 28.").min(1, "Enter a whole number from 1 to 28.").max(28, "Enter a whole number from 1 to 28.").default(1),
+  lateFeeCents: optionalMoney.optional(),
+  lateFeeGraceDays: optionalNullable(z.number({ error: "Enter a whole number from 0 to 31." }).int("Enter a whole number from 0 to 31.").min(0, "Enter a whole number from 0 to 31.").max(31, "Enter a whole number from 0 to 31.")).optional(),
+  pets: optionalText().optional(),
+  parking: optionalText().optional(),
+  parkingChargeCents: optionalMoney.optional(),
+  childrenReside: optionalNullable(z.boolean({ error: "Choose Yes or No." })).optional(),
+  breakClause: optionalText(5000).optional(),
+  otherTerms: optionalText(5000).optional(),
+  baseTaxYear: optionalNullable(z.number({ error: "Enter a tax year from 1990 to 2100." }).int("Enter a tax year from 1990 to 2100.").min(1990, "Enter a tax year from 1990 to 2100.").max(2100, "Enter a tax year from 1990 to 2100.")).optional(),
+  taxSharePercent: optionalNullable(percent(100, "Enter a percentage above 0 and up to 100.")).optional(),
+};
+const rentFields = {
+  startDate: ymd,
+  endDate: ymd,
+  baseRentCents: money("Enter the monthly rent."),
+  increaseType: z.enum(INCREASE_TYPES, "Choose how rent increases.").default("none"),
+  increasePercent: optionalNullable(percent(50, "Enter a percentage above 0 and up to 50.")).optional(),
+  rentSteps: z.array(rentStepSchema).max(100, "Use 100 rent steps or fewer.").default([]),
+};
+
+export const leaseFieldsSchema = z.object({
+  unitId: z.string({ error: "Choose a unit." }).uuid("Choose a unit."),
+  tenants: z.array(tenantRefSchema, { error: "Add at least one tenant." }).max(20, "Use 20 tenants or fewer."),
+  ...rentFields,
+  ...termFields,
+  monthToMonth: z.boolean().default(false),
+  monthToMonthRentCents: optionalNullable(money()).optional(),
+  moveOutDate: optionalNullable(ymd).optional(),
+  endReason: optionalNullable(z.enum(END_REASONS, "Choose a reason.")).optional(),
+});
+
+export const extensionFieldsSchema = z.object({
+  tenants: z.array(tenantRefSchema, { error: "Add at least one tenant." }).max(20, "Use 20 tenants or fewer."),
+  ...rentFields,
+  ...termFields,
+  notes: optionalText(5000).optional(),
+});
+
+export interface LeaseTermInput {
+  startDate: string;
+  endDate: string;
+  increaseType: IncreaseType;
+  increasePercent?: number | null;
+  rentSteps: readonly { effectiveDate: string; amountCents: number }[];
+  tenants: readonly { tenantId: string; isPrimary: boolean }[];
+  baseTaxYear?: number | null;
+  taxSharePercent?: number | null;
+  childrenReside?: boolean | null;
+}
+
+/** Field-level cross rules shared by leases and extensions (§6.9, §6.10); `use` is the unit's use. */
+export function termRuleIssues(t: LeaseTermInput, use: "Residential" | "Commercial"): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (t.endDate <= t.startDate) out.endDate = "The end date must be after the start date.";
+  if (t.increaseType === "percent" && t.increasePercent == null) out.increasePercent = "Enter the annual increase.";
+  if (t.increaseType === "schedule") {
+    const dates = t.rentSteps.map((s) => s.effectiveDate);
+    if (dates.length === 0) out.rentSteps = "Add at least one rent step.";
+    else if (dates.some((d) => d <= t.startDate || d >= t.endDate)) out.rentSteps = "Rent step dates must fall within the term, after its start.";
+    else if (dates.some((d, i) => i > 0 && d <= dates[i - 1]!)) out.rentSteps = "Rent step dates must be in increasing order.";
+  }
+  if (t.tenants.length === 0) out.tenants = "Add at least one tenant.";
+  else if (t.tenants.filter((x) => x.isPrimary).length !== 1) out.tenants = "Choose exactly one primary tenant.";
+  else if (new Set(t.tenants.map((x) => x.tenantId)).size !== t.tenants.length) out.tenants = "Each tenant can be added once.";
+  if (use === "Residential") {
+    if (t.childrenReside == null) out.childrenReside = "Choose Yes or No.";
+    if (t.baseTaxYear != null || t.taxSharePercent != null) out.baseTaxYear = "Tax terms apply to commercial units only.";
+  } else {
+    if (t.childrenReside != null) out.childrenReside = "This applies to residential units only.";
+    if (t.baseTaxYear != null && t.taxSharePercent == null) out.taxSharePercent = "Enter the tenant's share of the tax increase.";
+    if (t.baseTaxYear == null && t.taxSharePercent != null) out.baseTaxYear = "Choose a base tax year.";
+  }
+  return out;
+}
+
+/** Lease-only rules: a move-out date needs a reason (the database enforces the pair). */
+export function leaseRuleIssues(l: LeaseTermInput & { moveOutDate?: string | null; endReason?: string | null }, use: "Residential" | "Commercial"): Record<string, string> {
+  const out = termRuleIssues(l, use);
+  if (l.moveOutDate && !l.endReason) out.endReason = "Choose a reason.";
+  if (!l.moveOutDate && l.endReason) out.moveOutDate = "Enter the move-out date.";
+  return out;
+}

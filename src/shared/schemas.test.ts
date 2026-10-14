@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { acceptInvitationSchema, createOwnerSchema, createPropertyTaxSchema, createPropertyValueSchema, ownerListQuerySchema, updateMeSchema, updateOwnerSchema, updatePropertyTaxSchema, updatePropertyValueSchema, versionSchema, createTenantSchema, normalizeTenantNames, tenantListQuerySchema, tenantRuleIssues, updateTenantSchema } from "./schemas";
+import { acceptInvitationSchema, extensionFieldsSchema, leaseFieldsSchema, leaseRuleIssues, termRuleIssues, createOwnerSchema, createPropertyTaxSchema, createPropertyValueSchema, ownerListQuerySchema, updateMeSchema, updateOwnerSchema, updatePropertyTaxSchema, updatePropertyValueSchema, versionSchema, createTenantSchema, normalizeTenantNames, tenantListQuerySchema, tenantRuleIssues, updateTenantSchema } from "./schemas";
 
 describe("schemas", () => {
   it("enforces the 12–128 character password and a trimmed name", () => {
@@ -151,5 +151,61 @@ describe("tenant schemas", () => {
   it("list query defaults and limits", () => {
     expect(tenantListQuerySchema.parse({})).toMatchObject({ page: 1, pageSize: 50, sort: "name", order: "asc", archived: "false" });
     expect(tenantListQuerySchema.safeParse({ pageSize: "201" }).success).toBe(false);
+  });
+});
+
+describe("lease and extension schemas (§6.9, §6.10)", () => {
+  const T1 = "11111111-1111-4111-8111-111111111111";
+  const T2 = "22222222-2222-4222-8222-222222222222";
+  const base = { startDate: "2026-01-01", endDate: "2026-12-31", baseRentCents: 250000, tenants: [{ tenantId: T1, isPrimary: true }] };
+  const term = { ...base, increaseType: "none" as const, rentSteps: [] };
+
+  it("applies defaults: no increases, due day 1, not month-to-month", () => {
+    const r = leaseFieldsSchema.parse({ unitId: T2, ...base });
+    expect(r).toMatchObject({ increaseType: "none", rentDueDay: 1, monthToMonth: false, rentSteps: [] });
+  });
+  it("rejects bad money, due day and percentages with the field message", () => {
+    const msgs = (v: object) => leaseFieldsSchema.safeParse({ unitId: T2, ...base, ...v }).error?.issues.map((i) => i.message) ?? [];
+    expect(msgs({ baseRentCents: 0 })).toContain("Enter an amount above 0.");
+    expect(msgs({ rentDueDay: 29 })).toContain("Enter a whole number from 1 to 28.");
+    expect(msgs({ increasePercent: 51 })).toContain("Enter a percentage above 0 and up to 50.");
+    expect(msgs({ taxSharePercent: 100.5 })).toContain("Enter a percentage above 0 and up to 100.");
+    expect(msgs({ lateFeeGraceDays: 32 })).toContain("Enter a whole number from 0 to 31.");
+    expect(msgs({ endReason: "Bored" })).toContain("Choose a reason.");
+    expect(msgs({ securityDepositCents: -1 })).toContain("The amount can't be negative.");
+  });
+  it("accepts the extension fields with notes", () => {
+    expect(extensionFieldsSchema.parse({ ...base, notes: "  hi " }).notes).toBe("hi");
+  });
+  it("termRuleIssues: dates, percent, schedule and tenants", () => {
+    expect(termRuleIssues({ ...term, endDate: "2026-01-01" }, "Residential" as const).endDate).toBeDefined();
+    const ok = { ...term, childrenReside: false };
+    expect(termRuleIssues(ok, "Residential")).toEqual({});
+    expect(termRuleIssues({ ...ok, increaseType: "percent" }, "Residential").increasePercent).toBe("Enter the annual increase.");
+    const step = (effectiveDate: string) => ({ effectiveDate, amountCents: 1 });
+    const sched = (steps: string[]) => termRuleIssues({ ...ok, increaseType: "schedule", rentSteps: steps.map(step) }, "Residential").rentSteps;
+    expect(sched([])).toBeDefined();
+    expect(sched(["2026-01-01"])).toBeDefined();
+    expect(sched(["2026-12-31"])).toBeDefined();
+    expect(sched(["2026-06-01", "2026-06-01"])).toBeDefined();
+    expect(sched(["2026-04-01", "2026-06-01"])).toBeUndefined();
+    expect(termRuleIssues({ ...ok, tenants: [] }, "Residential").tenants).toBeDefined();
+    expect(termRuleIssues({ ...ok, tenants: [{ tenantId: T1, isPrimary: false }] }, "Residential").tenants).toBe("Choose exactly one primary tenant.");
+    expect(termRuleIssues({ ...ok, tenants: [{ tenantId: T1, isPrimary: true }, { tenantId: T1, isPrimary: false }] }, "Residential").tenants).toBe("Each tenant can be added once.");
+  });
+  it("termRuleIssues: children is Residential only, tax terms Commercial only", () => {
+    expect(termRuleIssues(term, "Residential").childrenReside).toBe("Choose Yes or No.");
+    expect(termRuleIssues({ ...term, childrenReside: true, baseTaxYear: 2024 }, "Residential").baseTaxYear).toBeDefined();
+    expect(termRuleIssues({ ...term, childrenReside: true }, "Commercial").childrenReside).toBeDefined();
+    expect(termRuleIssues({ ...term, baseTaxYear: 2024 }, "Commercial").taxSharePercent).toBeDefined();
+    expect(termRuleIssues({ ...term, taxSharePercent: 10 }, "Commercial").baseTaxYear).toBeDefined();
+    expect(termRuleIssues({ ...term, baseTaxYear: 2024, taxSharePercent: 10 }, "Commercial")).toEqual({});
+    expect(termRuleIssues(term, "Commercial")).toEqual({});
+  });
+  it("leaseRuleIssues: move-out date and reason go together", () => {
+    const l = { ...term, childrenReside: false };
+    expect(leaseRuleIssues({ ...l, moveOutDate: "2026-05-01" }, "Residential").endReason).toBe("Choose a reason.");
+    expect(leaseRuleIssues({ ...l, endReason: "Other" }, "Residential").moveOutDate).toBe("Enter the move-out date.");
+    expect(leaseRuleIssues({ ...l, moveOutDate: "2026-05-01", endReason: "Other" }, "Residential")).toEqual({});
   });
 });
