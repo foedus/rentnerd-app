@@ -3,6 +3,8 @@ import type { Context, Hono } from "hono";
 import type { Db } from "../db/client";
 import { owner, property, unit } from "../db/schema";
 import { createUnitSchema, unitListQuerySchema, updateUnitSchema } from "../shared/schemas";
+import { todayNy } from "../shared/dates";
+import { unitLeaseInfo } from "./unit-lease-info";
 import { diffChanges, writeAudit } from "./audit";
 import { apiError } from "./api-guard";
 import { validate, validateBody } from "./validation";
@@ -36,11 +38,13 @@ export function mountUnitRoutes(app: Hono, db: Db) {
     const ownerIds = [...new Set(rows.map((r) => r.ownerOverrideId ?? propertyById.get(r.propertyId)?.ownerId).filter((id): id is string => Boolean(id)))];
     const owners = ownerIds.length === 0 ? [] : await tx.select({ id: owner.id, name: owner.name }).from(owner).where(inArray(owner.id, ownerIds));
     const ownerById = new Map(owners.map((o) => [o.id, o]));
+    const info = await unitLeaseInfo(tx, rows.map((r) => r.id), todayNy());
     return rows.map((r) => {
       const p = propertyById.get(r.propertyId);
       const effectiveOwnerId = r.ownerOverrideId ?? p?.ownerId ?? null;
       return {
         ...r,
+        lease: info.get(r.id),
         bathrooms: r.bathrooms === null ? null : Number(r.bathrooms),
         property: p ? { id: p.id, name: p.name } : null,
         owner: effectiveOwnerId ? (ownerById.get(effectiveOwnerId) ?? null) : null,

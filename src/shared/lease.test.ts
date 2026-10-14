@@ -10,6 +10,7 @@ import {
   occupiedPeriod,
   periodsOverlap,
   unitOccupancy,
+  unitStatusText,
   type LeaseTerms,
   type UnitLease,
 } from "./lease";
@@ -198,5 +199,13 @@ describe("occupied periods (§6.9 overlap rule)", () => {
     expect(periodsOverlap({ start: "2027-06-01", end: null }, a)).toBe(false);
     expect(periodsOverlap({ start: "2026-06-01", end: null }, a)).toBe(true);
     expect(periodsOverlap({ start: "2020-01-01", end: null }, { start: "2030-01-01", end: null })).toBe(true);
+  });
+});
+
+describe("unitStatusText", () => {
+  it("reads Occupied, Vacant · leased from {date} and Vacant", () => {
+    expect(unitStatusText({ occupied: true, leasedFrom: null })).toBe("Occupied");
+    expect(unitStatusText({ occupied: false, leasedFrom: "2027-12-01" })).toBe("Vacant · leased from Dec 1, 2027");
+    expect(unitStatusText({ occupied: false, leasedFrom: null })).toBe("Vacant");
   });
 });

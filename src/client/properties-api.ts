@@ -102,7 +102,19 @@ export async function fetchOwnerChoices(): Promise<{ id: string; name: string }[
   }
 }
 
+export interface UnitLeaseInfo {
+  statusText: string;
+  occupied: boolean;
+  currentRentCents: number | null;
+  potentialRentCents: number | null;
+  tenants: string[];
+  leaseEndDate: string | null;
+  currentLease: { id: string; startDate: string; endDate: string; statusLabel: string; tenants: string[] } | null;
+  history: { id: string; startDate: string; endDate: string; tenants: string[]; statusLabel: string; rentAtEndCents: number }[];
+}
+
 export interface UnitRecord {
+  lease?: UnitLeaseInfo;
   id: string;
   label: string;
   use: string;

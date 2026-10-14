@@ -16,14 +16,14 @@ import { fetchProperty, fetchPropertyUnits, PropertyNotFoundError, type Property
 const TABS = ["Units", "Values", "Property taxes", "Compliance", "Investments"] as const;
 const tabClass = "min-h-6 cursor-pointer border-b-2 border-transparent px-4 py-1 aria-selected:border-slate-900 aria-selected:font-semibold";
 
-/** Every active unit is Vacant until leases exist (later tasks); tenants, rent and lease end fill in then. */
+const dash = "–";
 const unitColumns: Column<UnitRecord>[] = [
   { key: "label", header: "Unit", cell: (u) => <Link to={`/units/${u.id}`} className="underline">{u.archivedAt ? `${u.label} (archived)` : u.label}</Link> },
   { key: "use", header: "Use", cell: (u) => u.use },
-  { key: "status", header: "Status", cell: (u) => (u.archivedAt ? "Archived" : "Vacant") },
-  { key: "tenants", header: "Tenants", cell: () => "—" },
-  { key: "rent", header: "Current rent", cell: () => "—" },
-  { key: "end", header: "Lease end", cell: () => "—" },
+  { key: "status", header: "Status", cell: (u) => (u.archivedAt ? "Archived" : (u.lease?.statusText ?? "Vacant")) },
+  { key: "tenants", header: "Tenants", cell: (u) => (u.lease?.tenants.length ? u.lease.tenants.join(", ") : dash) },
+  { key: "rent", header: "Current rent", cell: (u) => (u.lease?.currentRentCents == null ? dash : formatCents(u.lease.currentRentCents)) },
+  { key: "end", header: "Lease end", cell: (u) => (u.lease?.leaseEndDate ? formatDate(u.lease.leaseEndDate) : dash) },
 ];
 
 function Summary({ property }: { property: PropertyRecord }) {

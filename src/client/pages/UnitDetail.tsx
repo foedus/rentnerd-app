@@ -1,14 +1,51 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { Button } from "react-aria-components";
+import { formatCents, formatDate } from "../../shared/format";
+import { DataTable, type Column } from "../components/ui";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { NotFound } from "../components/Notices";
 import { Page } from "../components/Page";
 import { UnauthenticatedError } from "../api";
 import { useCanWrite } from "../me";
-import { fetchUnit, UnitNotFoundError, type UnitRecord } from "../properties-api";
+import { fetchUnit, UnitNotFoundError, type UnitLeaseInfo, type UnitRecord } from "../properties-api";
 
 const orDash = (v: number | null | undefined) => (v == null ? "—" : String(v));
+
+type HistoryRow = UnitLeaseInfo["history"][number];
+
+const historyColumns: Column<HistoryRow>[] = [
+  { key: "start", header: "Start", cell: (l) => <Link to={`/leases/${l.id}`} className="underline">{formatDate(l.startDate)}</Link> },
+  { key: "end", header: "End", cell: (l) => formatDate(l.endDate) },
+  { key: "tenants", header: "Tenants", cell: (l) => l.tenants.join(", ") || "–" },
+  { key: "status", header: "Status", cell: (l) => l.statusLabel },
+  { key: "rent", header: "Rent at end", cell: (l) => formatCents(l.rentAtEndCents) },
+];
+
+function LeaseCards({ info }: { info: UnitLeaseInfo }) {
+  const current = info.currentLease;
+  return (
+    <>
+      <section aria-labelledby="unit-current-lease" className="mb-6">
+        <h2 id="unit-current-lease" className="mb-2 text-xl font-semibold">Current lease</h2>
+        {current ? (
+          <div className="break-words">
+            <p>{current.tenants.join(", ") || "–"}</p>
+            <p>{formatDate(current.startDate)} to {formatDate(current.endDate)}</p>
+            <p>{current.statusLabel}</p>
+            <Link to={`/leases/${current.id}`} className="inline-block min-h-6 underline">View lease</Link>
+          </div>
+        ) : (
+          <p>No current lease.</p>
+        )}
+      </section>
+      <section aria-labelledby="unit-lease-history" className="mb-6">
+        <h2 id="unit-lease-history" className="mb-2 text-xl font-semibold">Lease history</h2>
+        <DataTable name="Lease history" columns={historyColumns} rows={info.history} rowKey={(l) => l.id} emptyMessage="No leases yet." />
+      </section>
+    </>
+  );
+}
 
 function UnitView({ unit }: { unit: UnitRecord }) {
   const navigate = useNavigate();
@@ -20,8 +57,10 @@ function UnitView({ unit }: { unit: UnitRecord }) {
     ["Bathrooms", orDash(unit.bathrooms)],
     ["Square feet", orDash(unit.squareFeet)],
     ["Owner", unit.owner ? (unit.ownerOverrideId ? `${unit.owner.name} (set for this unit, not the property's owner)` : unit.owner.name) : "—"],
-    ["Status", unit.archivedAt ? "Archived" : "Vacant"],
+    ["Status", unit.archivedAt ? "Archived" : (unit.lease?.statusText ?? "Vacant")],
   ];
+  if (unit.lease?.occupied) rows.push(["Current rent", formatCents(unit.lease.currentRentCents ?? 0)]);
+  else if (unit.lease?.potentialRentCents != null) rows.push(["Potential rent", formatCents(unit.lease.potentialRentCents)]);
   return (
     <Page title={`${unit.property?.name ?? "Property"} – Unit ${unit.label}`}>
       {flash && <p role="status">{flash}</p>}
@@ -40,6 +79,7 @@ function UnitView({ unit }: { unit: UnitRecord }) {
           </div>
         ))}
       </dl>
+      {unit.lease && <LeaseCards info={unit.lease} />}
       {canWrite && (
         <Button onPress={() => navigate(`/units/${unit.id}/edit`)} className="min-h-6 rounded border px-4 py-1">
           Edit unit

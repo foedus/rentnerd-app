@@ -611,3 +611,9 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 - Not yet (later tasks): Extensions, Versions and Documents sections and the action buttons (Edit lease, Mark month-to-month, End lease, Delete lease, Generate PDF); the Leases list page.
 - AC-LEASE-01, 06, 07, 14, 15 and 24 pass. verify.sh passes. The reviewer approved. QA found and I fixed: values were squeezed into a sliver on a phone screen (labels now stack above values), "1 days" now reads "1 day", and line breaks in special terms are kept. Left as is: wide tables scroll sideways on narrow screens (they are keyboard reachable).
 - Nothing for the owner to do.
+
+### 2026-10-14 — T054: Lease information on units
+- The unit page now shows **Status** as Occupied, Vacant, or "Vacant · leased from {date}", plus **Current rent** (occupied) or **Potential rent** (vacant units that have had a lease: the last rent). A **Current lease** card shows tenants, term, status and **View lease** (or "No current lease."), and a **Lease history** table lists Start, End, Tenants, Status and Rent at end, newest first. On the property's Units tab, Status, Tenants, Current rent and Lease end now fill in. Primary contact is listed first among tenants.
+- A lease past its end with no move-out date and no later lease ("Needs decision") still counts as Occupied, as the spec says.
+- AC-LEASE-05 passes. verify.sh passes. The reviewer approved. QA found and I fixed: long unbroken tenant names pushed the unit page sideways on a phone; tenant order looked random. Left as is: Lease end / History "End" show the lease's end date, not a move-out date (the spec doesn't say which); the unit page's New lease / Archive / Delete buttons belong to later tasks.
+- Nothing for the owner to do.

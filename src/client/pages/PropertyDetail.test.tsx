@@ -17,8 +17,8 @@ const property = {
   purchasePriceCents: 125000000, purchaseDate: "2020-03-05",
 };
 const units = [
-  { id: "n1", label: "2R", use: "Residential", archivedAt: null },
-  { id: "n2", label: "Store", use: "Commercial", archivedAt: null },
+  { id: "n1", label: "2R", use: "Residential", archivedAt: null, lease: { statusText: "Occupied", occupied: true, currentRentCents: 215000, potentialRentCents: null, tenants: ["Ann Lee", "Bo Lee"], leaseEndDate: "2027-10-31", currentLease: null, history: [] } },
+  { id: "n2", label: "Store", use: "Commercial", archivedAt: null, lease: { statusText: "Vacant · leased from Dec 1, 2027", occupied: false, currentRentCents: null, potentialRentCents: 300000, tenants: [], leaseEndDate: null, currentLease: null, history: [] } },
 ];
 const json = (v: unknown) => Response.json(v);
 const wait = () => act(async () => void (await new Promise((r) => setTimeout(r, 100))));
@@ -203,10 +203,11 @@ it("a refused property load says the user has no access", async () => {
   await act(async () => root.unmount());
 });
 
-it("lists each active unit as Vacant, linked to its page", async () => {
+it("lists each active unit with its status, tenants, current rent and lease end, linked to its page", async () => {
   await mount("landlord");
   const rows = Array.from(document.querySelectorAll("table tbody tr"));
-  expect(rows[0]?.textContent).toContain("2R");
-  expect(rows[0]?.textContent).toContain("Vacant");
+  const cells = (i: number) => Array.from(rows[i]?.querySelectorAll("td") ?? []).map((td) => td.textContent);
+  expect(cells(0)).toEqual(["2R", "Residential", "Occupied", "Ann Lee, Bo Lee", "$2,150.00", "Oct 31, 2027"]);
+  expect(cells(1)).toEqual(["Store", "Commercial", "Vacant · leased from Dec 1, 2027", "–", "–", "–"]);
   expect(rows[0]?.querySelector("a")?.getAttribute("href")).toBe("/units/n1");
 });

@@ -141,6 +141,12 @@ export function unitOccupancy(leases: readonly UnitLease[], today: string): Unit
   };
 }
 
+/** §7.4 unit status text: "Occupied", "Vacant · leased from {date}" or "Vacant". */
+export function unitStatusText(occupancy: Pick<UnitOccupancy, "occupied" | "leasedFrom">): string {
+  if (occupancy.occupied) return "Occupied";
+  return occupancy.leasedFrom ? `Vacant · leased from ${formatDate(occupancy.leasedFrom)}` : "Vacant";
+}
+
 /** Day after the effective end: where a following extension defaults to start (§6.10). */
 export function nextExtensionStart(lease: Pick<LeaseTerms, "master" | "extensions">): string {
   return addDays(effectiveEndDate(lease), 1);

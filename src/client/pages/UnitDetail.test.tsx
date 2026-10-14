@@ -74,3 +74,39 @@ it("shows the plain owner name when there is no override", async () => {
   expect(text).toContain("OwnerAcme LLC");
   expect(text).not.toContain("set for this unit");
 });
+
+const lease = {
+  statusText: "Occupied", occupied: true, currentRentCents: 215000, potentialRentCents: null, tenants: ["Ann Lee"], leaseEndDate: "2027-10-31",
+  currentLease: { id: "l1", startDate: "2026-11-01", endDate: "2027-10-31", statusLabel: "Active", tenants: ["Ann Lee"] },
+  history: [
+    { id: "l1", startDate: "2026-11-01", endDate: "2027-10-31", tenants: ["Ann Lee"], statusLabel: "Active", rentAtEndCents: 215000 },
+    { id: "l0", startDate: "2024-11-01", endDate: "2025-10-31", tenants: ["Cy Doe"], statusLabel: "Ended", rentAtEndCents: 200000 },
+  ],
+};
+
+it("an occupied unit shows Occupied, Current rent, the Current lease card and the Lease history table", async () => {
+  await mount("landlord", json({ ...unit, lease }));
+  const text = document.querySelector("dl")?.textContent ?? "";
+  expect(text).toContain("StatusOccupied");
+  expect(text).toContain("Current rent$2,150.00");
+  expect(text).not.toContain("Potential rent");
+  const card = document.querySelector("section[aria-labelledby=unit-current-lease]");
+  expect(card?.textContent).toContain("Ann Lee");
+  expect(card?.textContent).toContain("Nov 1, 2026 to Oct 31, 2027");
+  expect(card?.querySelector("a")?.getAttribute("href")).toBe("/leases/l1");
+  expect(card?.querySelector("a")?.textContent).toBe("View lease");
+  const rows = Array.from(document.querySelectorAll("table[aria-label='Lease history'] tbody tr")).map((r) => Array.from(r.querySelectorAll("td")).map((c) => c.textContent));
+  expect(rows).toEqual([
+    ["Nov 1, 2026", "Oct 31, 2027", "Ann Lee", "Active", "$2,150.00"],
+    ["Nov 1, 2024", "Oct 31, 2025", "Cy Doe", "Ended", "$2,000.00"],
+  ]);
+});
+
+it("a vacant unit shows Potential rent and 'No current lease.'", async () => {
+  await mount("landlord", json({ ...unit, lease: { ...lease, statusText: "Vacant · leased from Dec 1, 2027", occupied: false, currentRentCents: null, potentialRentCents: 200000, currentLease: null, history: [] } }));
+  const text = document.querySelector("dl")?.textContent ?? "";
+  expect(text).toContain("StatusVacant · leased from Dec 1, 2027");
+  expect(text).toContain("Potential rent$2,000.00");
+  expect(text).not.toContain("Current rent");
+  expect(document.body.textContent).toContain("No current lease.");
+});
