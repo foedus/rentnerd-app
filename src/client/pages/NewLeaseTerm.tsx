@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { forwardRef, useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "react-aria-components";
 import { fieldLabel, PROBLEM_TITLE } from "../../shared/form-messages";
 import { formatCents, formatDate, parseMoneyToCents } from "../../shared/format";
@@ -16,8 +16,8 @@ const INCREASES = [
 /** Row keys stay unique across Back and Next, which remount the step. */
 let nextStepKey = 0;
 
-const fieldId = (name: string) => `term-${name.replace(/[^A-Za-z0-9_-]/g, "-")}`;
-const errorId = (name: string) => `${fieldId(name)}-error`;
+export const fieldId = (name: string) => `term-${name.replace(/[^A-Za-z0-9_-]/g, "-")}`;
+export const errorId = (name: string) => `${fieldId(name)}-error`;
 
 /** Money typed into a field: cents, null when empty, NaN when it isn't an amount (so the check can say so). */
 const centsOf = (text: string): number | null => {
@@ -34,7 +34,7 @@ function stepLabel(name: string, draft: TermStepDraft): string {
   return index >= 0 ? `Rent step ${index + 1}: ` : "";
 }
 
-function Field({ name, label, required = false, error, children }: { name: string; label: string; required?: boolean; error?: string; children: (props: Record<string, unknown>) => ReactNode }) {
+export function Field({ name, label, required = false, error, children }: { name: string; label: string; required?: boolean; error?: string; children: (props: Record<string, unknown>) => ReactNode }) {
   return (
     <div>
       <label htmlFor={fieldId(name)} className="block">
@@ -56,7 +56,7 @@ function Field({ name, label, required = false, error, children }: { name: strin
   );
 }
 
-function Money({ name, label, required, value, onChange, error }: { name: string; label: string; required?: boolean; value: number | null; onChange: (v: number | null) => void; error?: string }) {
+export function Money({ name, label, required, value, onChange, error }: { name: string; label: string; required?: boolean; value: number | null; onChange: (v: number | null) => void; error?: string }) {
   return (
     <MoneyInput id={fieldId(name)} label={label} required={required} value={Number.isNaN(value) ? null : value} error={error} onChange={onChange} onTextChange={(t) => t.trim() !== "" && onChange(centsOf(t))} />
   );
@@ -105,6 +105,32 @@ function RentSchedule({ draft }: { draft: TermStepDraft }) {
   );
 }
 
+/** The "There is a problem" list shown after Next was refused; each message links to its field. */
+export const ProblemSummary = forwardRef<HTMLDivElement, { items: { name: string; text: string }[]; targetId: (name: string) => string }>(function ProblemSummary({ items, targetId }, ref) {
+  if (items.length === 0) return null;
+  return (
+    <div ref={ref} tabIndex={-1} role="alert" className="rounded border border-red-700 p-3 text-red-700">
+      <h3 className="font-semibold">{PROBLEM_TITLE}</h3>
+      <ul>
+        {items.map(({ name, text }) => (
+          <li key={name}>
+            <a
+              href={`#${targetId(name)}`}
+              className="underline"
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById(targetId(name))?.focus();
+              }}
+            >
+              {text}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+});
+
 /** Step 2 of the New lease wizard (SPEC §11.12): term and rent. `issues` are shown after Next was refused. */
 export function TermStep({ draft, setDraft, issues, today, focusSignal }: { draft: TermStepDraft; setDraft: (d: TermStepDraft) => void; issues: Record<string, string>; today: string; focusSignal: number }) {
   const set = (patch: Partial<TermStepDraft>) => setDraft({ ...draft, ...patch });
@@ -125,28 +151,11 @@ export function TermStep({ draft, setDraft, issues, today, focusSignal }: { draf
   const updateStep = (key: string, patch: Partial<TermStepDraft["steps"][number]>) => set({ steps: draft.steps.map((s) => (s.key === key ? { ...s, ...patch } : s)) });
   return (
     <section aria-labelledby="step-heading" className="max-w-xl space-y-4">
-      {messages.length > 0 && (
-        <div ref={summary} tabIndex={-1} role="alert" className="rounded border border-red-700 p-3 text-red-700">
-          <h3 className="font-semibold">{PROBLEM_TITLE}</h3>
-          <ul>
-            {messages.map(([name, message]) => (
-              <li key={name}>
-                <a
-                  href={`#${fieldId(name)}`}
-                  className="underline"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    document.getElementById(name === "increaseType" || name === "steps" ? fieldId("increaseType") : fieldId(name))?.focus();
-                  }}
-                >
-                  {stepLabel(name, draft)}
-                  {message}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <ProblemSummary
+        ref={summary}
+        items={messages.map(([name, message]) => ({ name, text: `${stepLabel(name, draft)}${message}` }))}
+        targetId={(name) => (name === "increaseType" || name === "steps" ? fieldId("increaseType") : fieldId(name))}
+      />
       <Field name="startDate" label="Lease start date" required error={issues.startDate}>
         {(p) => <input {...p} type="date" value={draft.startDate} onChange={(e) => set({ startDate: e.target.value })} />}
       </Field>

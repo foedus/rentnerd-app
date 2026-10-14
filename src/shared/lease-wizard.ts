@@ -129,3 +129,83 @@ export function draftRentTerm(d: TermStepDraft): RentTerm | null {
   }
   return { ...base, increaseType: "none" };
 }
+
+/** Step 3 of the wizard (SPEC §11.12): special terms, held as the person typed it. */
+export interface SpecialStepDraft {
+  pets: string;
+  parking: string;
+  parkingChargeCents: number | null;
+  /** Residential units only. */
+  childrenReside: "" | "Yes" | "No";
+  breakClause: string;
+  otherTerms: string;
+  /** Commercial units only: a tax year as text ("" for none). */
+  baseTaxYear: string;
+  taxSharePercent: string;
+}
+
+export const blankSpecialStep: SpecialStepDraft = {
+  pets: "", parking: "", parkingChargeCents: null, childrenReside: "", breakClause: "", otherTerms: "", baseTaxYear: "", taxSharePercent: "",
+};
+
+export const SHORT_TEXT_MAX = 200;
+export const LONG_TEXT_MAX = 5000;
+const SHARE_MESSAGE = "Enter a percentage above 0 and up to 100.";
+
+/** Field messages for step 3 (keyed by field name); empty when it can move on. `use` is the unit's use. */
+export function specialStepIssues(d: SpecialStepDraft, use: "Residential" | "Commercial"): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [name, value, max] of [["pets", d.pets, SHORT_TEXT_MAX], ["parking", d.parking, SHORT_TEXT_MAX], ["breakClause", d.breakClause, LONG_TEXT_MAX], ["otherTerms", d.otherTerms, LONG_TEXT_MAX]] as const) {
+    if (value.trim().length > max) out[name] = `Use ${max} characters or fewer.`;
+  }
+  const charge = optionalMoneyIssue(d.parkingChargeCents);
+  if (charge) out.parkingChargeCents = charge;
+  if (use === "Residential") {
+    if (d.childrenReside === "") out.childrenReside = "Choose Yes or No.";
+    return out;
+  }
+  const share = d.taxSharePercent.trim();
+  if (share !== "" && (!PERCENT.test(share) || Number(share) <= 0 || Number(share) > 100)) out.taxSharePercent = SHARE_MESSAGE;
+  else if (d.baseTaxYear !== "" && share === "") out.taxSharePercent = "Enter the tenant's share of the tax increase.";
+  if (d.baseTaxYear === "" && share !== "" && !out.taxSharePercent) out.baseTaxYear = "Choose a base tax year.";
+  return out;
+}
+
+const textOrNull = (s: string): string | null => (s.trim() === "" ? null : s.trim());
+
+/** The POST /units/{id}/leases body (§14.2) from the three steps' values. Move-out values hidden by a future end date are dropped. */
+export function leaseRequestBody(
+  rows: readonly (WizardTenantRow & { newTenant?: Record<string, unknown> })[],
+  primaryKey: string | null,
+  term: TermStepDraft,
+  special: SpecialStepDraft,
+  use: "Residential" | "Commercial",
+  today: string,
+): Record<string, unknown> {
+  const grace = term.lateFeeGraceDays.trim();
+  const moveOut = showsMoveOut(term, today);
+  return {
+    tenants: rows.filter((r) => r.tenantId).map((r) => ({ tenantId: r.tenantId, isPrimary: r.key === primaryKey })),
+    newTenants: rows.filter((r) => !r.tenantId && r.newTenant).map((r) => ({ isPrimary: r.key === primaryKey, tenant: r.newTenant })),
+    startDate: term.startDate,
+    endDate: term.endDate,
+    baseRentCents: term.baseRentCents,
+    securityDepositCents: term.securityDepositCents,
+    rentDueDay: Number(term.rentDueDay.trim()),
+    lateFeeCents: term.lateFeeCents,
+    lateFeeGraceDays: grace === "" ? null : Number(grace),
+    increaseType: term.increaseType,
+    increasePercent: term.increaseType === "percent" ? Number(term.increasePercent.trim()) : null,
+    rentSteps: term.increaseType === "schedule" ? term.steps.map((s) => ({ effectiveDate: s.effectiveDate, amountCents: s.amountCents })) : [],
+    moveOutDate: moveOut ? textOrNull(term.moveOutDate) : null,
+    endReason: moveOut ? textOrNull(term.endReason) : null,
+    pets: textOrNull(special.pets),
+    parking: textOrNull(special.parking),
+    parkingChargeCents: special.parkingChargeCents,
+    childrenReside: use === "Residential" ? special.childrenReside === "Yes" : null,
+    breakClause: textOrNull(special.breakClause),
+    otherTerms: textOrNull(special.otherTerms),
+    baseTaxYear: use === "Commercial" && special.baseTaxYear !== "" ? Number(special.baseTaxYear) : null,
+    taxSharePercent: use === "Commercial" && special.taxSharePercent.trim() !== "" ? Number(special.taxSharePercent.trim()) : null,
+  };
+}

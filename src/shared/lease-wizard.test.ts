@@ -84,3 +84,57 @@ describe("draftRentTerm", () => {
     expect(outside).toMatchObject({ steps: [] });
   });
 });
+
+import { blankSpecialStep, leaseRequestBody, specialStepIssues } from "./lease-wizard";
+
+describe("specialStepIssues", () => {
+  it("requires Children reside in unit for a Residential unit only", () => {
+    expect(specialStepIssues(blankSpecialStep, "Residential")).toEqual({ childrenReside: "Choose Yes or No." });
+    expect(specialStepIssues({ ...blankSpecialStep, childrenReside: "No" }, "Residential")).toEqual({});
+    expect(specialStepIssues(blankSpecialStep, "Commercial")).toEqual({});
+  });
+  it("needs a base year and a share together for a Commercial unit", () => {
+    expect(specialStepIssues({ ...blankSpecialStep, baseTaxYear: "2020" }, "Commercial")).toEqual({ taxSharePercent: "Enter the tenant's share of the tax increase." });
+    expect(specialStepIssues({ ...blankSpecialStep, taxSharePercent: "25" }, "Commercial")).toEqual({ baseTaxYear: "Choose a base tax year." });
+    expect(specialStepIssues({ ...blankSpecialStep, baseTaxYear: "2020", taxSharePercent: "25" }, "Commercial")).toEqual({});
+  });
+  it("limits the share to above 0 and up to 100", () => {
+    for (const bad of ["0", "101", "abc", "-5"]) {
+      expect(specialStepIssues({ ...blankSpecialStep, baseTaxYear: "2020", taxSharePercent: bad }, "Commercial").taxSharePercent).toBe("Enter a percentage above 0 and up to 100.");
+    }
+    expect(specialStepIssues({ ...blankSpecialStep, baseTaxYear: "2020", taxSharePercent: "100" }, "Commercial")).toEqual({});
+  });
+  it("checks text lengths and the parking charge", () => {
+    expect(specialStepIssues({ ...blankSpecialStep, childrenReside: "No", pets: "x".repeat(201), breakClause: "y".repeat(5001), parkingChargeCents: -1 }, "Residential")).toEqual({
+      pets: "Use 200 characters or fewer.", breakClause: "Use 5000 characters or fewer.", parkingChargeCents: "The amount can't be negative.",
+    });
+  });
+});
+
+describe("leaseRequestBody", () => {
+  const tenantRows = [{ key: "a", tenantId: "t1", name: "Ann" }, { key: "b", name: "Bo", newTenant: { tenantType: "Individual", firstName: "Bo", lastName: "Diaz" } }];
+  const term = { ...ok, rentDueDay: "5", lateFeeGraceDays: "3", increaseType: "percent" as const, increasePercent: "3" };
+  it("maps tenants, the term and the residential answer", () => {
+    expect(leaseRequestBody(tenantRows, "b", term, { ...blankSpecialStep, childrenReside: "Yes", pets: " cat " }, "Residential", TODAY)).toMatchObject({
+      tenants: [{ tenantId: "t1", isPrimary: false }],
+      newTenants: [{ isPrimary: true, tenant: { firstName: "Bo" } }],
+      startDate: "2026-11-01", baseRentCents: 215000, rentDueDay: 5, lateFeeGraceDays: 3, increaseType: "percent", increasePercent: 3, rentSteps: [],
+      childrenReside: true, pets: "cat", baseTaxYear: null, taxSharePercent: null, moveOutDate: null, endReason: null,
+    });
+  });
+  it("sends tax terms for Commercial and never the children answer", () => {
+    expect(leaseRequestBody(tenantRows, "a", ok, { ...blankSpecialStep, childrenReside: "Yes", baseTaxYear: "2020", taxSharePercent: "25" }, "Commercial", TODAY)).toMatchObject({
+      childrenReside: null, baseTaxYear: 2020, taxSharePercent: 25, lateFeeGraceDays: null,
+    });
+  });
+  it("drops move-out values that the end date hides, and keeps them for a past lease", () => {
+    const typed = { ...ok, moveOutDate: "2027-01-01", endReason: "Other" };
+    expect(leaseRequestBody(tenantRows, "a", typed, blankSpecialStep, "Commercial", TODAY)).toMatchObject({ moveOutDate: null, endReason: null });
+    const past = { ...typed, startDate: "2025-01-01", endDate: "2025-12-31", moveOutDate: "2025-12-01" };
+    expect(leaseRequestBody(tenantRows, "a", past, blankSpecialStep, "Commercial", TODAY)).toMatchObject({ moveOutDate: "2025-12-01", endReason: "Other" });
+  });
+  it("sends the custom schedule rows only for a custom schedule", () => {
+    const sched = { ...ok, increaseType: "schedule" as const, steps: [{ key: "s", effectiveDate: "2027-01-01", amountCents: 220000 }] };
+    expect(leaseRequestBody(tenantRows, "a", sched, blankSpecialStep, "Commercial", TODAY)).toMatchObject({ rentSteps: [{ effectiveDate: "2027-01-01", amountCents: 220000 }], increasePercent: null });
+  });
+});

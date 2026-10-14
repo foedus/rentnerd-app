@@ -17,9 +17,17 @@ const ann = {
 };
 const json = (v: unknown, status = 200) => Response.json(v, { status });
 
-async function mount() {
-  vi.stubGlobal("fetch", async (url: string) => {
-    if (url.startsWith("/api/units/")) return json(unit);
+interface MountOptions {
+  use?: string;
+  taxes?: { id: string; taxYear: number; amountCents: number; version: number }[];
+  /** Answers POST /api/units/:id/leases; the default saves as lease "l1". */
+  post?: (body: Record<string, unknown>) => Response;
+}
+async function mount({ use = "Residential", taxes = [], post }: MountOptions = {}) {
+  vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+    if (init?.method === "POST" && url === "/api/units/u1/leases") return (post ?? (() => json({ id: "l1" }, 201)))(JSON.parse(init.body as string));
+    if (url.startsWith("/api/properties/p1/taxes")) return json({ data: taxes, page: 1, pageSize: 200, total: taxes.length });
+    if (url.startsWith("/api/units/")) return json({ ...unit, use, propertyId: "p1" });
     if (url.startsWith("/api/tenants")) return json({ data: [ann], page: 1, pageSize: 50, total: 1 });
     return json({}, 404);
   });
@@ -34,6 +42,7 @@ async function mount() {
           <Routes>
             <Route path="/units/:id/leases/new" element={<NewLease />} />
             <Route path="/home" element={<h1>Home</h1>} />
+            <Route path="/leases/:leaseId" element={<h1>Lease page</h1>} />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>,
@@ -243,5 +252,106 @@ it("step 2 rows keep unique ids after Back and Next, and a far-future end date d
   await fill("Annual increase (%)", "50");
   await fill("Lease end date", "9999-12-31");
   expect(document.body.textContent).toContain("Lease end date must be within 50 years of the start date.");
+  await act(async () => root.unmount());
+});
+
+const toStep3 = async (options?: MountOptions) => {
+  const root = await mount(options);
+  await toStep2();
+  await fill("Lease start date", "2026-11-01");
+  await fill("Lease end date", "2027-10-31");
+  await fill("Monthly rent", "2150");
+  await click(buttonNamed("Next"));
+  expect(document.body.textContent).toContain("Step 3 of 4");
+  return root;
+};
+const labelled = (text: string) => Array.from(document.querySelectorAll("label, legend")).some((l) => l.textContent?.startsWith(text));
+
+it("step 3 for a Residential unit requires Children reside in unit and hides the tax fields", async () => {
+  const root = await toStep3();
+  expect(labelled("Children reside in unit (required)")).toBe(true);
+  expect(labelled("Base tax year")).toBe(false);
+  await click(buttonNamed("Next"));
+  expect(document.body.textContent).toContain("Step 3 of 4");
+  expect(document.body.textContent).toContain("There is a problem");
+  expect(document.body.textContent).toContain("Choose Yes or No.");
+  await click(document.querySelector("input[name=childrenReside][value=No]"));
+  expect(document.body.textContent).not.toContain("Choose Yes or No.");
+  await click(buttonNamed("Next"));
+  expect(document.body.textContent).toContain("Step 4 of 4");
+  await act(async () => root.unmount());
+});
+
+it("step 3 for a Commercial unit shows the tax fields with the computed Tax reimbursement and no children field", async () => {
+  const taxes = [
+    { id: "a", taxYear: 2020, amountCents: 4_000_000, version: 1 },
+    { id: "b", taxYear: 2025, amountCents: 5_200_000, version: 1 },
+  ];
+  const root = await toStep3({ use: "Commercial", taxes });
+  await settle();
+  expect(labelled("Children reside in unit")).toBe(false);
+  expect(labelled("Tenant's share of tax increase (%)")).toBe(true);
+  expect(Array.from(byLabel("Base tax year").querySelectorAll("option")).map((o) => o.textContent)).toEqual(["Select…", "2020", "2025"]);
+  expect(document.body.textContent).toContain("Tax reimbursement (monthly): –");
+  await act(async () => {
+    const select = byLabel("Base tax year") as unknown as HTMLSelectElement;
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(select, "2020");
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await fill("Tenant's share of tax increase (%)", "25");
+  expect(document.body.textContent).toContain("$250.00");
+  expect(document.body.textContent).toContain("25% × (2025 tax $52,000.00 − 2020 tax $40,000.00) ÷ 12");
+  await act(async () => root.unmount());
+});
+
+it("step 3 for a Commercial unit with no tax years shows the hint", async () => {
+  const root = await toStep3({ use: "Commercial" });
+  await settle();
+  expect(document.body.textContent).toContain("Add tax years on the property's Property taxes tab to calculate tax reimbursement.");
+  await act(async () => root.unmount());
+});
+
+it("Save lease on the Review step sends the lease and opens the lease page", async () => {
+  const bodies: Record<string, unknown>[] = [];
+  const root = await toStep3({ post: (b) => (bodies.push(b), json({ id: "l1" }, 201)) });
+  await click(document.querySelector("input[name=childrenReside][value=No]"));
+  await click(buttonNamed("Next"));
+  expect(document.querySelector("dl")?.textContent).toContain("$2,150.00");
+  expect(document.querySelector("dl")?.textContent).toContain("Bo Diaz (Primary contact)");
+  expect((buttonNamed("Save and generate PDF") as HTMLButtonElement).disabled).toBe(true);
+  expect(buttonNamed("Next")).toBeUndefined();
+  await click(buttonNamed("Save lease"));
+  await settle();
+  expect(bodies).toHaveLength(1);
+  expect(bodies[0]).toMatchObject({ startDate: "2026-11-01", endDate: "2027-10-31", baseRentCents: 215000, childrenReside: false, newTenants: [{ isPrimary: true }] });
+  expect(document.querySelector("h1")?.textContent).toBe("Lease page");
+  await act(async () => root.unmount());
+});
+
+it("a refused save shows the server's message on the Review step and keeps the data", async () => {
+  const root = await toStep3({ post: () => json({ error: { code: "CONFLICT", message: "This unit already has a lease for those dates." } }, 409) });
+  await click(document.querySelector("input[name=childrenReside][value=No]"));
+  await click(buttonNamed("Next"));
+  await click(buttonNamed("Save lease"));
+  await settle();
+  expect(document.querySelector("[role=alert]")?.textContent).toContain("This unit already has a lease for those dates.");
+  expect(document.body.textContent).toContain("Step 4 of 4");
+  expect((buttonNamed("Save lease") as HTMLButtonElement).disabled).toBe(false);
+  await act(async () => root.unmount());
+});
+
+it("moving to the next step puts focus on the step heading", async () => {
+  const root = await toStep3();
+  expect(document.activeElement?.id).toBe("step-heading");
+  await act(async () => root.unmount());
+});
+
+it("a network failure on save shows the plain message", async () => {
+  const root = await toStep3({ post: () => { throw new TypeError("Failed to fetch"); } });
+  await click(document.querySelector("input[name=childrenReside][value=No]"));
+  await click(buttonNamed("Next"));
+  await click(buttonNamed("Save lease"));
+  await settle();
+  expect(document.querySelector("[role=alert]")?.textContent).toContain("Something went wrong. Please try again.");
   await act(async () => root.unmount());
 });

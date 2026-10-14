@@ -3,13 +3,17 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Button, ComboBox, Input, Label, ListBox, ListBoxItem, Popover } from "react-aria-components";
 import { useNavigate, useParams } from "react-router";
 import { todayNy } from "../../shared/dates";
-import { blankTermStep, tenantStepIssue, termStepIssues, type TermStepDraft, type WizardTenantRow } from "../../shared/lease-wizard";
+import { blankSpecialStep, blankTermStep, leaseRequestBody, specialStepIssues, tenantStepIssue, termStepIssues, type SpecialStepDraft, type TermStepDraft, type WizardTenantRow } from "../../shared/lease-wizard";
 import { createTenantSchema, TENANT_TYPES } from "../../shared/schemas";
 import { AppForm, RadioGroupInput, TextFieldInput, useAppForm } from "../components/forms";
 import { Page } from "../components/Page";
 import { ConfirmDialog } from "../components/ui";
 import { fetchUnit, UnitNotFoundError } from "../properties-api";
 import { fetchTenants } from "../tenants-api";
+import { FieldErrorsError } from "../api";
+import { createLease } from "../leases-api";
+import { ReviewStep } from "./NewLeaseReview";
+import { SpecialStep } from "./NewLeaseSpecial";
 import { TermStep } from "./NewLeaseTerm";
 import { useWatch } from "react-hook-form";
 
@@ -263,7 +267,7 @@ function TenantsStep({
   );
 }
 
-/** /units/:id/leases/new: Step X of 4 (SPEC §11.12). Steps 3 and 4 are added by the following tasks. */
+/** /units/:id/leases/new: Step X of 4 (SPEC §11.12). */
 export function NewLease() {
   const { id = "" } = useParams();
   const unit = useQuery({ queryKey: ["unit", id], queryFn: () => fetchUnit(id), gcTime: 0 });
@@ -275,7 +279,16 @@ export function NewLease() {
   // Shown after Next was refused, then kept in step with what the person fixes.
   const [termIssues, setTermIssues] = useState<Record<string, string> | null>(null);
   const [termRefusals, setTermRefusals] = useState(0);
+  const [special, setSpecial] = useState<SpecialStepDraft>(blankSpecialStep);
+  const [specialIssues, setSpecialIssues] = useState<Record<string, string> | null>(null);
+  const [specialRefusals, setSpecialRefusals] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [saveProblems, setSaveProblems] = useState<string[]>([]);
+  const [saveRefusals, setSaveRefusals] = useState(0);
+  const reviewSummary = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
   const today = todayNy();
+  const use = unit.data?.use === "Commercial" ? "Commercial" : "Residential";
   const guard = useDiscardGuard(rows.length > 0);
 
   // Once a message is showing, keep it in step with what the person fixes.
@@ -285,6 +298,21 @@ export function NewLease() {
   useEffect(() => {
     setTermIssues((i) => (i === null ? null : termStepIssues(term, todayNy())));
   }, [term]);
+  useEffect(() => {
+    setSpecialIssues((i) => (i === null ? null : specialStepIssues(special, use)));
+  }, [special, use]);
+  // Moving between steps puts focus on the step heading, so keyboard and screen reader users start at the new step.
+  const firstStep = useRef(true);
+  useEffect(() => {
+    if (firstStep.current) {
+      firstStep.current = false;
+      return;
+    }
+    document.getElementById("step-heading")?.focus();
+  }, [step]);
+  useEffect(() => {
+    if (saveRefusals > 0) reviewSummary.current?.focus();
+  }, [saveRefusals]);
 
   const next = () => {
     if (step === 1) {
@@ -301,7 +329,29 @@ export function NewLease() {
       }
       setTermIssues(null);
     }
+    if (step === 3) {
+      const issues = specialStepIssues(special, use);
+      if (Object.keys(issues).length > 0) {
+        setSpecialIssues(issues);
+        setSpecialRefusals((n) => n + 1);
+        return;
+      }
+      setSpecialIssues(null);
+    }
     setStep(step + 1);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    setSaveProblems([]);
+    try {
+      const saved = await createLease(id, leaseRequestBody(rows, primary, term, special, use, today));
+      navigate(`/leases/${saved.id}`, { replace: true });
+    } catch (e) {
+      setSaveProblems(e instanceof FieldErrorsError ? Object.values(e.fields) : [e instanceof Error ? e.message : "Something went wrong. Please try again."]);
+      setSaveRefusals((n) => n + 1);
+      setSaving(false);
+    }
   };
 
   if (unit.isPending) return <Page title="New lease"><p role="status">Loading…</p></Page>;
@@ -318,11 +368,13 @@ export function NewLease() {
         {unit.data.property?.name} Unit {unit.data.label}
       </p>
       <p className="mb-4 font-medium">Step {step} of 4</p>
-      <h2 id="step-heading" className="mb-3 text-xl font-semibold">
+      <h2 id="step-heading" tabIndex={-1} className="mb-3 text-xl font-semibold outline-offset-2 focus:outline focus:outline-2">
         {STEP_TITLES[step - 1]}
       </h2>
       {step === 1 && <TenantsStep rows={rows} setRows={setRows} primary={primary} setPrimary={setPrimary} error={error} />}
       {step === 2 && <TermStep draft={term} setDraft={setTerm} issues={termIssues ?? {}} today={today} focusSignal={termRefusals} />}
+      {step === 3 && <SpecialStep draft={special} setDraft={setSpecial} issues={specialIssues ?? {}} use={use} propertyId={unit.data.propertyId} focusSignal={specialRefusals} />}
+      {step === 4 && <ReviewStep ref={reviewSummary} rows={rows} primary={primary} term={term} special={special} use={use} today={today} problems={saveProblems} saving={saving} onSave={save} />}
       <div className="mt-6 flex gap-2">
         {step > 1 && (
           <Button onPress={() => setStep(step - 1)} className="min-h-6 rounded border px-4 py-1">
