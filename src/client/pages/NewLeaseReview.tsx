@@ -15,9 +15,9 @@ export const ReviewStep = forwardRef<
   HTMLDivElement,
   {
     rows: readonly WizardTenantRow[]; primary: string | null; term: TermStepDraft; special: SpecialStepDraft; use: string; today: string;
-    problems: string[]; saving: boolean; onSave: () => void;
+    taxLine: string | null; problems: string[]; saving: boolean; onSave: () => void;
   }
->(function ReviewStep({ rows, primary, term, special, use, today, problems, saving, onSave }, summary) {
+>(function ReviewStep({ rows, primary, term, special, use, today, taxLine, problems, saving, onSave }, summary) {
   const items: [string, string][] = [
     ["Tenants", rows.map((r) => (r.key === primary ? `${r.name} (Primary contact)` : r.name)).join(", ")],
     ["Lease start date", formatDate(term.startDate)],
@@ -36,6 +36,7 @@ export const ReviewStep = forwardRef<
     ...(use === "Commercial"
       ? ([["Base tax year", text(special.baseTaxYear)], ["Tenant's share of tax increase (%)", text(special.taxSharePercent)]] as [string, string][])
       : ([["Children reside in unit", text(special.childrenReside)]] as [string, string][])),
+    ...(use === "Commercial" ? ([["Tax reimbursement (monthly)", taxLine ?? "–"]] as [string, string][]) : []),
     ["Break clause", text(special.breakClause)],
     ["Other special terms", text(special.otherTerms)],
   ];

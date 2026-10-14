@@ -8,6 +8,19 @@ import { Field, fieldId, Money, ProblemSummary } from "./NewLeaseTerm";
 
 const NO_TAX_YEARS_HINT = "Add tax years on the property's Property taxes tab to calculate tax reimbursement.";
 
+const SHARE = /^\d+(\.\d{1,4})?$/;
+
+/** The property's tax years (Commercial units only). */
+export function usePropertyTaxYears(propertyId: string | undefined, commercial: boolean) {
+  return useQuery({ queryKey: ["property-taxes", propertyId], queryFn: () => fetchPropertyTaxes(propertyId as string), enabled: commercial && !!propertyId });
+}
+
+/** The computed Tax reimbursement (monthly) for the typed base year and share, or null while either is missing or invalid. */
+export function draftTaxReimbursement(years: readonly { taxYear: number; amountCents: number }[], draft: SpecialStepDraft) {
+  const share = draft.taxSharePercent.trim();
+  return taxReimbursement(years, draft.baseTaxYear === "" ? null : Number(draft.baseTaxYear), SHARE.test(share) && Number(share) > 0 && Number(share) <= 100 ? share : null);
+}
+
 /** Step 3 of the New lease wizard (SPEC §11.12): special terms. `issues` are shown after Next was refused. */
 export function SpecialStep({
   draft, setDraft, issues, use, propertyId, focusSignal,
@@ -18,18 +31,9 @@ export function SpecialStep({
   useEffect(() => {
     if (focusSignal > 0) summary.current?.focus();
   }, [focusSignal]);
-  const taxes = useQuery({
-    queryKey: ["property-taxes", propertyId],
-    queryFn: () => fetchPropertyTaxes(propertyId as string),
-    enabled: commercial && !!propertyId,
-  });
+  const taxes = usePropertyTaxYears(propertyId, commercial);
   const years = taxes.data ?? [];
-  const share = draft.taxSharePercent.trim();
-  const reimbursement = taxReimbursement(
-    years,
-    draft.baseTaxYear === "" ? null : Number(draft.baseTaxYear),
-    /^\d+(\.\d{1,4})?$/.test(share) && Number(share) > 0 && Number(share) <= 100 ? share : null,
-  );
+  const reimbursement = draftTaxReimbursement(years, draft);
   return (
     <section aria-labelledby="step-heading" className="max-w-xl space-y-4">
       <ProblemSummary ref={summary} items={Object.entries(issues).map(([name, text]) => ({ name, text }))} targetId={fieldId} />

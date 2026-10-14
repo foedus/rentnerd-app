@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { formatCents, formatDate, formatDateTime, pageCount, parseMoneyToCents } from "./format";
 
+describe("parseMoneyToCents leading and trailing points", () => {
+  it.each([[".50", 50], ["$.5", 50], ["5.", 500], ["1,000.", 100000]] as const)("accepts %s", (text, cents) => expect(parseMoneyToCents(text)).toBe(cents));
+  it.each([".", "$.", "", "..5", ".123"])("refuses %j", (text) => expect(parseMoneyToCents(text)).toBeNull());
+});
+
 describe("parseMoneyToCents", () => {
   it.each([
     ["2150", 215000],

@@ -355,3 +355,31 @@ it("a network failure on save shows the plain message", async () => {
   expect(document.querySelector("[role=alert]")?.textContent).toContain("Something went wrong. Please try again.");
   await act(async () => root.unmount());
 });
+
+it("a refused field on save is named on the Review step", async () => {
+  const root = await toStep3({ post: () => json({ error: { code: "VALIDATION_ERROR", message: "Please check the highlighted fields.", fields: { baseTaxYear: "Choose a tax year that has been entered for this property.", "newTenants.0.tenant.email": "Enter a valid email address." } } }, 422) });
+  await click(document.querySelector("input[name=childrenReside][value=No]"));
+  await click(buttonNamed("Next"));
+  await click(buttonNamed("Save lease"));
+  await settle();
+  const alert = document.querySelector("[role=alert]")?.textContent ?? "";
+  expect(alert).toContain("Base tax year: Choose a tax year that has been entered for this property.");
+  expect(alert).toContain("Tenants: Enter a valid email address.");
+  await act(async () => root.unmount());
+});
+
+it("the Review step shows the computed Tax reimbursement for a Commercial unit", async () => {
+  const taxes = [{ id: "a", taxYear: 2020, amountCents: 4_000_000, version: 1 }, { id: "b", taxYear: 2025, amountCents: 5_200_000, version: 1 }];
+  const root = await toStep3({ use: "Commercial", taxes });
+  await settle();
+  await act(async () => {
+    const select = byLabel("Base tax year") as unknown as HTMLSelectElement;
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(select, "2020");
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await fill("Tenant's share of tax increase (%)", "25");
+  await click(buttonNamed("Next"));
+  const dl = document.querySelector("dl")?.textContent ?? "";
+  expect(dl).toContain("Tax reimbursement (monthly)$250.00");
+  await act(async () => root.unmount());
+});

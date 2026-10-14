@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Button, ComboBox, Input, Label, ListBox, ListBoxItem, Popover } from "react-aria-components";
 import { useNavigate, useParams } from "react-router";
 import { todayNy } from "../../shared/dates";
+import { formatCents } from "../../shared/format";
 import { blankSpecialStep, blankTermStep, leaseRequestBody, specialStepIssues, tenantStepIssue, termStepIssues, type SpecialStepDraft, type TermStepDraft, type WizardTenantRow } from "../../shared/lease-wizard";
 import { createTenantSchema, TENANT_TYPES } from "../../shared/schemas";
 import { AppForm, RadioGroupInput, TextFieldInput, useAppForm } from "../components/forms";
@@ -13,11 +14,23 @@ import { fetchTenants } from "../tenants-api";
 import { FieldErrorsError } from "../api";
 import { createLease } from "../leases-api";
 import { ReviewStep } from "./NewLeaseReview";
-import { SpecialStep } from "./NewLeaseSpecial";
+import { draftTaxReimbursement, SpecialStep, usePropertyTaxYears } from "./NewLeaseSpecial";
 import { TermStep } from "./NewLeaseTerm";
 import { useWatch } from "react-hook-form";
 
 const STEP_TITLES = ["Tenants", "Term and rent", "Special terms", "Review"] as const;
+/** Names for the fields the server may refuse, so a message on the Review step says what it is about. */
+const FIELD_NAMES: Record<string, string> = {
+  tenants: "Tenants", newTenants: "Tenants", startDate: "Lease start date", endDate: "Lease end date", baseRentCents: "Monthly rent",
+  securityDepositCents: "Security deposit", rentDueDay: "Rent due day", lateFeeCents: "Late fee", lateFeeGraceDays: "Late fee grace period (days)",
+  increasePercent: "Annual increase (%)", rentSteps: "Rent increases", moveOutDate: "Move-out date", endReason: "Reason", pets: "Pets", parking: "Parking",
+  parkingChargeCents: "Parking charge (monthly)", childrenReside: "Children reside in unit", breakClause: "Break clause", otherTerms: "Other special terms",
+  baseTaxYear: "Base tax year", taxSharePercent: "Tenant's share of tax increase (%)",
+};
+const fieldProblem = (field: string, message: string) => {
+  const name = FIELD_NAMES[field.split(".")[0] ?? ""];
+  return name ? `${name}: ${message}` : message;
+};
 const blankTenant = { tenantType: "", firstName: "", lastName: "", businessName: "", contactPerson: "", email: "", phone: "", notes: "" };
 
 /** Asks before the person leaves the wizard (a link, a reload or closing the tab) with data they entered. */
@@ -289,6 +302,8 @@ export function NewLease() {
   const navigate = useNavigate();
   const today = todayNy();
   const use = unit.data?.use === "Commercial" ? "Commercial" : "Residential";
+  const taxYears = usePropertyTaxYears(unit.data?.propertyId, use === "Commercial");
+  const taxResult = draftTaxReimbursement(taxYears.data ?? [], special);
   const guard = useDiscardGuard(rows.length > 0);
 
   // Once a message is showing, keep it in step with what the person fixes.
@@ -348,7 +363,7 @@ export function NewLease() {
       const saved = await createLease(id, leaseRequestBody(rows, primary, term, special, use, today));
       navigate(`/leases/${saved.id}`, { replace: true });
     } catch (e) {
-      setSaveProblems(e instanceof FieldErrorsError ? Object.values(e.fields) : [e instanceof Error ? e.message : "Something went wrong. Please try again."]);
+      setSaveProblems(e instanceof FieldErrorsError ? Object.entries(e.fields).map(([f, m]) => fieldProblem(f, m)) : [e instanceof Error ? e.message : "Something went wrong. Please try again."]);
       setSaveRefusals((n) => n + 1);
       setSaving(false);
     }
@@ -374,7 +389,7 @@ export function NewLease() {
       {step === 1 && <TenantsStep rows={rows} setRows={setRows} primary={primary} setPrimary={setPrimary} error={error} />}
       {step === 2 && <TermStep draft={term} setDraft={setTerm} issues={termIssues ?? {}} today={today} focusSignal={termRefusals} />}
       {step === 3 && <SpecialStep draft={special} setDraft={setSpecial} issues={specialIssues ?? {}} use={use} propertyId={unit.data.propertyId} focusSignal={specialRefusals} />}
-      {step === 4 && <ReviewStep ref={reviewSummary} rows={rows} primary={primary} term={term} special={special} use={use} today={today} problems={saveProblems} saving={saving} onSave={save} />}
+      {step === 4 && <ReviewStep ref={reviewSummary} rows={rows} primary={primary} term={term} special={special} use={use} today={today} taxLine={taxResult ? formatCents(taxResult.cents) : null} problems={saveProblems} saving={saving} onSave={save} />}
       <div className="mt-6 flex gap-2">
         {step > 1 && (
           <Button onPress={() => setStep(step - 1)} className="min-h-6 rounded border px-4 py-1">

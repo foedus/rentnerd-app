@@ -1,13 +1,13 @@
 /** Display and input helpers for money and dates (SPEC §11, D-30). Pure; money is integer cents. */
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const MONEY_INPUT = /^\$?(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d{1,2}))?$/;
+const MONEY_INPUT = /^\$?(?:(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d{0,2}))?|\.(\d{1,2}))$/;
 const YMD = /^(\d{4})-(\d{2})-(\d{2})$/;
 
-/** "2150", "2,150", "$2,150.00", "2150.5" -> cents; null when the text is not a money amount. */
+/** "2150", "2,150", "$2,150.00", "2150.5", ".50", "5." -> cents; null when the text is not a money amount. */
 export function parseMoneyToCents(input: string): number | null {
   const m = MONEY_INPUT.exec(input.trim());
   if (!m) return null;
-  const cents = Number(m[1]!.replace(/,/g, "")) * 100 + Number((m[2] ?? "").padEnd(2, "0") || "0");
+  const cents = Number((m[1] ?? "0").replace(/,/g, "")) * 100 + Number((m[2] ?? m[3] ?? "").padEnd(2, "0") || "0");
   return Number.isSafeInteger(cents) ? cents : null;
 }
 
