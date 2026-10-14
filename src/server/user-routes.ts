@@ -1,7 +1,7 @@
-import { and, asc, count, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Context, Hono, MiddlewareHandler } from "hono";
 import type { Db } from "../db/client";
-import { invitation, session, user } from "../db/schema";
+import { invitation, property, propertyResponsible, session, user } from "../db/schema";
 import { inviteLandlordSchema, listQuerySchema } from "../shared/schemas";
 import type { EnqueueEmail } from "../worker/email";
 import { writeAudit } from "./audit";
@@ -175,7 +175,7 @@ export function mountUserRoutes(app: Hono, db: Db, enqueue: EnqueueInvitationEma
     if (!target) return apiError(c, "NOT_FOUND", "User not found.");
     if (target.role !== "landlord") return apiError(c, "FORBIDDEN", "This account can't be deactivated.");
     if (target.status !== "active") return apiError(c, "CONFLICT", "Only active landlords can be deactivated.");
-    // Sessions are revoked in the same transaction (D-06). Responsible-landlord reassignment arrives with properties.
+    // Sessions are revoked and the landlord leaves every property in the same transaction; a property left with none gets the Admin (D-06).
     const updated = await db.transaction(async (tx) => {
       const [row] = await tx
         .update(user)
@@ -184,6 +184,25 @@ export function mountUserRoutes(app: Hono, db: Db, enqueue: EnqueueInvitationEma
         .returning(publicUser);
       if (row) {
         await tx.delete(session).where(eq(session.userId, target.id));
+        const actorUserId = c.get("user").id;
+        const removed = await tx.delete(propertyResponsible).where(eq(propertyResponsible.userId, target.id)).returning({ propertyId: propertyResponsible.propertyId });
+        const touched = removed.map((r) => r.propertyId);
+        if (touched.length > 0) {
+          const remaining = await tx.select({ propertyId: propertyResponsible.propertyId }).from(propertyResponsible).where(inArray(propertyResponsible.propertyId, touched));
+          const kept = new Set(remaining.map((r) => r.propertyId));
+          const orphaned = touched.filter((id) => !kept.has(id));
+          if (orphaned.length > 0) await tx.insert(propertyResponsible).values(orphaned.map((propertyId) => ({ propertyId, userId: actorUserId })));
+          const props = await tx
+            .update(property)
+            .set({ version: sql`${property.version} + 1`, updatedById: actorUserId, updatedAt: new Date() })
+            .where(inArray(property.id, touched))
+            .returning({ id: property.id, name: property.name });
+          for (const p of props)
+            await writeAudit(tx, {
+              actorUserId, action: "update", entityType: "property", entityId: p.id,
+              summary: `${row.name} was deactivated and removed from the responsible landlords of ${p.name}${kept.has(p.id) ? "" : "; the Admin was assigned"}`,
+            });
+        }
         await writeAudit(tx, { actorUserId: c.get("user").id, action: "deactivate", entityType: "user", entityId: row.id, summary: `Deactivated ${row.name} (${row.email})` });
       }
       return row;

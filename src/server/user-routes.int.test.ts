@@ -214,6 +214,32 @@ describe("deactivate and reactivate", () => {
     expect((await call(adminCookie, "POST", `/api/users/${id}/reactivate`, {})).status).toBe(409);
   });
 
+  it("removes the landlord from every property and gives the Admin any property left with none (D-06)", async () => {
+    const { adminId, adminCookie } = await setup();
+    const lou = await makeUser("lou@example.com", "landlord");
+    const mia = await makeUser("mia@example.com", "landlord");
+    const [{ id: ownerId }] = (await pool.query(`insert into owner (name, owner_type, address_line1, city, state, zip) values ('Acme','LLC','1 A St','Brooklyn','NY','11201') returning id`)).rows;
+    const addProperty = async (name: string, ids: string[]) => {
+      const [{ id }] = (await pool.query(`insert into property (name, street, city, state, zip, owner_id) values ($1,'1 A St','Brooklyn','NY','11201',$2) returning id`, [name, ownerId])).rows;
+      for (const u of ids) await pool.query("insert into property_responsible (property_id, user_id) values ($1,$2)", [id, u]);
+      return id as string;
+    };
+    const p = await addProperty("P", [lou]);
+    const q = await addProperty("Q", [lou, mia]);
+    const r = await addProperty("R", [mia]);
+    const responsible = async (id: string) => (await pool.query("select user_id from property_responsible where property_id = $1 order by user_id", [id])).rows.map((x) => x.user_id);
+
+    expect((await call(adminCookie, "POST", `/api/users/${lou}/deactivate`, {})).status).toBe(200);
+    expect(await responsible(p)).toEqual([adminId]);
+    expect(await responsible(q)).toEqual([mia]);
+    expect(await responsible(r)).toEqual([mia]);
+    const versions = (await pool.query("select name, version from property order by name")).rows;
+    expect(versions).toEqual([{ name: "P", version: 2 }, { name: "Q", version: 2 }, { name: "R", version: 1 }]);
+    const audits = (await pool.query(`select entity_id, summary from audit_log where entity_type = 'property' order by summary`)).rows;
+    expect(audits.map((a) => a.entity_id).sort()).toEqual([p, q].sort());
+    expect(audits.find((a) => a.entity_id === p).summary).toContain("the Admin was assigned");
+  });
+
   it("never deactivates the admin (403) and 404s unknown users", async () => {
     const { adminId, adminCookie } = await setup();
     expect((await call(adminCookie, "POST", `/api/users/${adminId}/deactivate`, {})).status).toBe(403);

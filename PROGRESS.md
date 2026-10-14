@@ -556,3 +556,7 @@ None.
 - AC-TEN-01, AC-TEN-02 and AC-TEN-03 pass. The reviewer approved. QA found and I fixed: long emails/names no longer push the details page sideways on a phone screen; saving an edit for a tenant someone else deleted now says "Tenant not found.". Not changed: search text isn't kept in the web address.
 - verify.sh passes. Nothing for the owner to do.
 - Also: several older screen tests waited a fixed 30 ms for data and sometimes failed on a busy machine (not a bug in the app). They now wait 100 ms, and the Values and Property taxes tests wait until their table appears. No assertion was changed.
+
+### 2026-10-14 — T041: Deactivating a landlord updates properties
+- Deactivating a landlord now also takes them off every property's responsible landlords, in the same step as signing them out. A property that would be left with nobody gets the Admin instead; a property that still has other landlords just loses that one. Reactivating does not put them back (as the spec says). Each affected property is recorded in the activity log and counts as edited, so an open edit page for it will ask to reload.
+- AC-USR-08 passes. The reviewer approved. No screens changed, so no QA pass. verify.sh passes. Nothing for the owner to do.
