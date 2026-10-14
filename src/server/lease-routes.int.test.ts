@@ -269,3 +269,114 @@ describe("tenant usage", () => {
     expect((await call(f.cookie, "DELETE", `/api/tenants/${f.t1}?version=${t.version}`)).status).toBe(409);
   });
 });
+
+describe("lease reads", () => {
+  type Detail = Lease & {
+    status: string; statusLabel: string; effectiveEndDate: string; currentRentCents: number; unitLabel: string; propertyId: string;
+    current: { tenants: { tenantId: string; displayName: string }[]; baseRentCents: number };
+    rentSchedule: { periodStart: string; rentCents: number; term: string }[];
+  };
+  const make = async (f: Fx, unitId: string, over: Record<string, unknown>) => json<Detail>(await post(f, unitId, over));
+  const list = async (f: Fx, query = "") => json<{ data: Detail[]; page: number; pageSize: number; total: number }>(await call(f.cookie, "GET", `/api/leases${query}`));
+
+  it("needs a session and answers 404 for unknown leases", async () => {
+    const f = await fixture();
+    expect((await app.request("/api/leases")).status).toBe(401);
+    for (const path of [`/api/leases/${UUID}`, "/api/leases/nope", `/api/leases/${UUID}/rent-schedule`, `/api/leases/${UUID}/versions`, `/api/leases/${UUID}/versions/1`]) {
+      expect((await call(f.cookie, "GET", path)).status, path).toBe(404);
+    }
+    const smoke = await makeUser("smoke@example.com", "smoke");
+    expect((await call(smoke.cookie, "GET", "/api/leases")).status).toBe(200);
+  });
+
+  it("lists leases with derived status, filters (status repeatable, property, unit, tenant, archived) and paging", async () => {
+    const f = await fixture();
+    const ended = await make(f, f.res, { startDate: "2020-01-01", endDate: "2020-12-31" });
+    const needs = await make(f, f.com, { startDate: "2021-01-01", endDate: "2021-12-31", childrenReside: null, tenants: [{ tenantId: f.t2, isPrimary: true }] });
+    const upcoming = await make(f, f.res, { startDate: "2090-01-01", endDate: "2090-12-31" });
+    expect(upcoming.id).toBeTruthy();
+
+    const all = await list(f);
+    expect(all.total).toBe(3);
+    expect(all.data.map((l) => l.id)).toEqual([upcoming.id, needs.id, ended.id]); // newest start first
+    const byId = new Map(all.data.map((l) => [l.id, l]));
+    expect(byId.get(ended.id)).toMatchObject({ status: "ended_superseded", unitLabel: "2R" });
+    expect(byId.get(needs.id)?.status).toBe("needs_decision");
+    expect(byId.get(upcoming.id)?.status).toBe("upcoming");
+
+    expect((await list(f, "?status=upcoming&status=needs_decision")).data.map((l) => l.id).sort()).toEqual([needs.id, upcoming.id].sort());
+    expect((await list(f, `?unitId=${f.res}`)).total).toBe(2);
+    expect((await list(f, `?propertyId=${f.propertyId}&status=needs_decision`)).total).toBe(1);
+    expect((await list(f, `?propertyId=${UUID}`)).total).toBe(0);
+    expect((await list(f, `?tenantId=${f.t2}`)).data.map((l) => l.id)).toEqual([needs.id]);
+    const paged = await list(f, "?pageSize=2&page=2&status=upcoming&status=needs_decision&status=ended_superseded");
+    expect(paged).toMatchObject({ page: 2, pageSize: 2, total: 3 });
+    expect(paged.data).toHaveLength(1);
+    expect((await list(f, "?sort=startDate&order=asc")).data[0]?.id).toBe(ended.id);
+
+    for (const bad of ["?status=bogus", "?pageSize=201", "?unitId=x", "?sort=rent"]) expect((await call(f.cookie, "GET", `/api/leases${bad}`)).status, bad).toBe(422);
+  });
+
+  it("hides archived leases unless asked and marks their status", async () => {
+    const f = await fixture();
+    const l = await make(f, f.res, { startDate: "2020-01-01", endDate: "2020-12-31" });
+    await pool.query("update lease set archived_at = now() where id = $1", [l.id]);
+    expect((await list(f)).total).toBe(0);
+    const withArchived = await list(f, "?archived=true");
+    expect(withArchived.data[0]).toMatchObject({ id: l.id, statusLabel: "Needs decision · Archived" });
+  });
+
+  it("finds a tenant who is only on an extension", async () => {
+    const f = await fixture();
+    const l = await make(f, f.res, { startDate: "2020-01-01", endDate: "2020-12-31" });
+    const { rows } = await pool.query(
+      `insert into lease_extension (lease_id, start_date, end_date, base_rent_cents) values ($1,'2021-01-01','2021-12-31',260000) returning id`, [l.id]);
+    await pool.query("insert into extension_tenant (extension_id, tenant_id, is_primary) values ($1,$2,true), ($1,$3,false)", [rows[0].id, f.t1, f.t2]);
+    expect((await list(f, `?tenantId=${f.t2}`)).data.map((x) => x.id)).toEqual([l.id]);
+  });
+
+  it("returns the lease with tenants, steps, extensions, status and current-term values", async () => {
+    const f = await fixture();
+    const l = await make(f, f.res, {
+      startDate: "2020-01-01", endDate: "2020-12-31", increaseType: "schedule", increasePercent: null,
+      rentSteps: [{ effectiveDate: "2020-07-01", amountCents: 260000 }],
+      tenants: [{ tenantId: f.t1, isPrimary: true }, { tenantId: f.t2, isPrimary: false }], pets: "One cat",
+    });
+    const { rows } = await pool.query(
+      `insert into lease_extension (lease_id, start_date, end_date, base_rent_cents, pets) values ($1,'2021-01-01','2021-12-31',275000,'No pets') returning id`, [l.id]);
+    await pool.query("insert into extension_tenant (extension_id, tenant_id, is_primary) values ($1,$2,true)", [rows[0].id, f.t2]);
+
+    const res = await call(f.cookie, "GET", `/api/leases/${l.id}`);
+    expect(res.status).toBe(200);
+    const d = (await res.json()) as Detail & { pets: string; extensions: { id: string; tenants: unknown[] }[]; current: { extensionId: string; pets: string } };
+    expect(d).toMatchObject({ id: l.id, status: "needs_decision", statusLabel: "Needs decision", effectiveEndDate: "2021-12-31", currentRentCents: 275000, pets: "One cat", unitLabel: "2R" });
+    expect(d.tenants).toHaveLength(2);
+    expect(d.rentSteps).toEqual([{ effectiveDate: "2020-07-01", amountCents: 260000 }]);
+    expect(d.extensions).toHaveLength(1);
+    expect(d.current).toMatchObject({ extensionId: rows[0].id, pets: "No pets", baseRentCents: 275000 });
+    expect(d.current.tenants).toEqual([expect.objectContaining({ tenantId: f.t2, displayName: "Bo Lee", isPrimary: true })]);
+    expect(d.rentSchedule.map((r) => [r.periodStart, r.rentCents, r.term])).toEqual([
+      ["2020-01-01", 250000, "Master lease"], ["2020-07-01", 260000, "Master lease"], ["2021-01-01", 275000, "Extension"],
+    ]);
+
+    const schedule = await json<{ data: unknown[]; total: number }>(await call(f.cookie, "GET", `/api/leases/${l.id}/rent-schedule`));
+    expect(schedule.total).toBe(3);
+    expect(schedule.data).toEqual(d.rentSchedule);
+  });
+
+  it("lists lease versions newest first and returns one snapshot", async () => {
+    const f = await fixture();
+    const l = await make(f, f.res, { startDate: "2020-01-01", endDate: "2020-12-31" });
+    await pool.query("update lease set version = 2 where id = $1", [l.id]);
+    await pool.query("insert into lease_revision (lease_id, version_number, snapshot, summary) values ($1, 2, '{\"x\":1}', 'Changed rent')", [l.id]);
+
+    const versions = await json<{ data: { versionNumber: number; summary: string; changedByName: string | null; snapshot?: unknown }[]; total: number }>(await call(f.cookie, "GET", `/api/leases/${l.id}/versions`));
+    expect(versions.data.map((v) => [v.versionNumber, v.summary])).toEqual([[2, "Changed rent"], [1, "Lease created"]]);
+    expect(versions.data[1]?.changedByName).toBe("Name of admin@example.com");
+    expect(versions.data[0]).not.toHaveProperty("snapshot");
+
+    const one = await json<{ versionNumber: number; snapshot: { id: string; baseRentCents: number } }>(await call(f.cookie, "GET", `/api/leases/${l.id}/versions/1`));
+    expect(one).toMatchObject({ versionNumber: 1, summary: "Lease created", snapshot: { id: l.id, baseRentCents: 250000 } });
+    for (const n of ["3", "0", "x"]) expect((await call(f.cookie, "GET", `/api/leases/${l.id}/versions/${n}`)).status, n).toBe(404);
+  });
+});

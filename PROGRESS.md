@@ -573,3 +573,7 @@ None.
 - The request can also carry `newTenants` (each with `isPrimary` and the usual tenant fields). They are created in the same step as the lease, so if the lease is refused no tenant is left behind; they count toward the "exactly one primary tenant" rule and each is written to the activity log.
 - Not done here: the error for a clash doesn't yet say whether "Replace current lease" is offered; the New lease screen task can add that.
 - No screens changed, so no QA pass. The reviewer approved. verify.sh passes. Nothing for the owner to do.
+
+### 2026-10-14 — T047: Lease read API
+- New read-only endpoints for leases: a list (filter by status — can be given several times — property, unit, tenant, and "archived"; sort and page like the other lists), one lease with its tenants, rent steps, extensions, status, and the values of its current term (tenants, rent, deposit, pets, tax terms and so on), the rent schedule (master term then each extension), the list of versions, and one version's saved copy. Status is worked out by the shared lease rules, so the list shows the same status as everywhere else; archived leases show "· Archived" after their status. A tenant who is only on an extension still shows up when filtering by that tenant. Unknown lease or version numbers give "not found".
+- Not yet (later tasks): the Leases and lease detail screens. No screens changed, so no QA pass. The reviewer approved. verify.sh passes. Nothing for the owner to do.

@@ -388,3 +388,16 @@ export const createLeaseSchema = leaseFieldsSchema.omit({ unitId: true }).extend
   newTenants: z.array(z.object({ isPrimary: z.boolean({ error: "Choose the primary tenant." }), tenant: createTenantSchema })).max(20, "Use 20 tenants or fewer.").default([]),
   replaceCurrentLease: z.object({ endReason: z.enum(END_REASONS, "Choose a reason.").default("Replaced by new lease") }).optional(),
 });
+
+export const LEASE_STATUS_CODES = ["ended", "upcoming", "active", "month_to_month", "ended_superseded", "needs_decision"] as const;
+
+/** §14.2 GET /leases: `status` may repeat; status is derived, so it is applied in code after loading (D-32). */
+export const leaseListQuerySchema = listQuerySchema.extend({
+  status: z.array(z.enum(LEASE_STATUS_CODES, "Unknown lease status.")).default([]),
+  propertyId: z.uuid("Invalid property id.").optional(),
+  unitId: z.uuid("Invalid unit id.").optional(),
+  tenantId: z.uuid("Invalid tenant id.").optional(),
+  sort: z.enum(["startDate", "endDate", "createdAt"]).default("startDate"),
+  order: z.enum(["asc", "desc"]).default("desc"),
+  archived: z.enum(["true", "false"]).default("false"),
+});
