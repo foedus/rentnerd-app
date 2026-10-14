@@ -15,6 +15,7 @@ import { mountUnitRoutes } from "./unit-routes";
 import { mountLeaseReadRoutes } from "./lease-read-routes";
 import { mountLeaseChangeRoutes } from "./lease-change-routes";
 import { mountLeaseRoutes } from "./lease-routes";
+import { mountDashboardRoutes } from "./dashboard-routes";
 import { mountMeRoutes } from "./me-routes";
 import { mountUserRoutes } from "./user-routes";
 import type { EnqueueEmail } from "../worker/email";
@@ -64,6 +65,7 @@ export function createApp(
     mountLeaseRoutes(app, db);
     mountLeaseReadRoutes(app, db);
     mountLeaseChangeRoutes(app, db);
+    mountDashboardRoutes(app, db);
     mountPropertyValueRoutes(app, db);
     mountPropertyTaxRoutes(app, db);
     if (enqueueEmail) mountUserRoutes(app, db, enqueueEmail, appUrl ?? "");

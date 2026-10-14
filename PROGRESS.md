@@ -617,3 +617,9 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 - A lease past its end with no move-out date and no later lease ("Needs decision") still counts as Occupied, as the spec says.
 - AC-LEASE-05 passes. verify.sh passes. The reviewer approved. QA found and I fixed: long unbroken tenant names pushed the unit page sideways on a phone; tenant order looked random. Also fixed: Lease end (and the history's End) now show the move-out date when one is set, and a month-to-month lease shows no Lease end. Left for later tasks: the unit page's New lease / Archive / Delete buttons belong to later tasks.
 - Nothing for the owner to do.
+
+### 2026-10-14 — T062: Dashboard API
+- New read-only endpoint `GET /api/dashboard` (any signed-in user, including the Smoke user). It returns the Portfolio summary (units, occupied, vacant, occupancy, rent rolls, other income, vacancy loss, portfolio value, gross yield and the note "Based on 1 of 2 properties with a value."), one row per property for the By property table, the leases needing a decision (ended on, current rent) and the leases ending in the next 90 days (end date, days left, current rent). Everything comes from the shared calculations, so it agrees with the unit and lease pages. Archived properties, units and leases are left out.
+- "Ending in the next 90 days" counts only Active leases, using the move-out date if there is one and otherwise the effective end; month-to-month, upcoming and needs-decision leases are excluded.
+- Not yet (later tasks): the Dashboard screen, and the two compliance tables (they need the compliance tasks first). The Properties list still shows 0 for Occupied; the dashboard computes it itself.
+- No screens changed, so no QA pass. The reviewer approved. verify.sh passes. Nothing for the owner to do.
