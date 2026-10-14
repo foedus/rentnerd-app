@@ -217,3 +217,55 @@ export async function deletePropertyValue(id: string): Promise<void> {
   if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
   if (!res.ok && res.status !== 404) throw new Error(GENERIC);
 }
+
+export interface PropertyTaxRecord {
+  id: string;
+  taxYear: number;
+  amountCents: number;
+  version: number;
+}
+
+/** A property's tax years, newest first (first page of up to 200). */
+export async function fetchPropertyTaxes(propertyId: string): Promise<PropertyTaxRecord[]> {
+  const res = await fetch(`/api/properties/${encodeURIComponent(propertyId)}/taxes?pageSize=200`, { headers: { accept: "application/json" } });
+  if (res.status === 401) throw new UnauthenticatedError("Not signed in");
+  if (res.status === 403) throw new Error(NO_ACCESS);
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  if (!res.ok) throw new Error(GENERIC);
+  return ((await res.json()) as { data: PropertyTaxRecord[] }).data;
+}
+
+/** The tax year changed since it was loaded (409, D-10). */
+export class StaleTaxError extends Error {}
+
+/** The tax year was deleted by someone else (404). */
+export class MissingTaxError extends Error {}
+
+/** Adds a tax year to a property (`target.propertyId`) or edits one (`target.id` and `version`). A taken year arrives as a field error. */
+export async function savePropertyTax(
+  values: Record<string, unknown>,
+  target: { propertyId: string } | { id: string; version: number },
+): Promise<PropertyTaxRecord> {
+  const edit = "id" in target;
+  const res = await fetch(edit ? `/api/property-taxes/${encodeURIComponent(target.id)}` : `/api/properties/${encodeURIComponent(target.propertyId)}/taxes`, {
+    method: edit ? "PATCH" : "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(edit ? { ...values, version: target.version } : values),
+  });
+  if (res.ok) return (await res.json()) as PropertyTaxRecord;
+  if (res.status === 401) throw new UnauthenticatedError("Not signed in");
+  if (res.status === 404 && edit) throw new MissingTaxError("gone");
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  const body = (await res.json().catch(() => null)) as { error?: { code?: string; fields?: Record<string, string> } } | null;
+  const fields = body?.error?.fields;
+  if ((res.status === 422 || res.status === 409) && fields && Object.keys(fields).length > 0) throw new FieldErrorsError(fields);
+  if (res.status === 409) throw new StaleTaxError("conflict");
+  throw new Error(GENERIC);
+}
+
+export async function deletePropertyTax(id: string): Promise<void> {
+  const res = await fetch(`/api/property-taxes/${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (res.status === 401) throw new UnauthenticatedError("Not signed in");
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  if (!res.ok && res.status !== 404) throw new Error(GENERIC);
+}

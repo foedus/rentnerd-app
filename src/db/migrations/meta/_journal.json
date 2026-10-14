@@ -64,6 +64,13 @@
       "when": 1791937039544,
       "tag": "0008_hard_cable",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791940562536,
+      "tag": "0009_faithful_callisto",
+      "breakpoints": true
     }
   ]
 }

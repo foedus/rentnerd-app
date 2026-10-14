@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigint, boolean, date, index, integer, jsonb, numeric, pgEnum, primaryKey, uniqueIndex, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, date, index, integer, jsonb, numeric, pgEnum, primaryKey, unique, uniqueIndex, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const userRole = pgEnum("user_role", ["admin", "landlord", "smoke"]);
 export const emailStatus = pgEnum("email_status", ["queued", "sent", "failed"]);
@@ -269,4 +269,21 @@ export const propertyValue = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("property_value_property_idx").on(t.propertyId, t.valueDate)],
+);
+
+// SPEC §6.6: annual property tax per tax year, unique per property, hard-deleted.
+export const propertyTax = pgTable(
+  "property_tax",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    propertyId: uuid("property_id").notNull().references(() => property.id, { onDelete: "cascade" }),
+    taxYear: integer("tax_year").notNull(),
+    amountCents: bigint("amount_cents", { mode: "number" }).notNull(),
+    version: integer("version").notNull().default(1),
+    createdById: uuid("created_by_id").references(() => user.id, { onDelete: "set null" }),
+    updatedById: uuid("updated_by_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique("property_tax_property_year_unique").on(t.propertyId, t.taxYear)],
 );

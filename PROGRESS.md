@@ -535,3 +535,10 @@ None.
   ("Enter a smaller amount."); two estimates on the same date are listed newest-first, matching which one counts; saving an edit with no changes no longer
   bumps the version. Not changed (the spec is silent): future-dated estimates count as the current value, and very narrow phone screens wrap the amount in the summary.
 - verify.sh passes. Nothing for the owner to do.
+
+### 2026-10-14 — T038: Property taxes
+- The property page's **Property taxes** tab now works: a table (Tax year, Annual property tax) with **Edit** and **Delete** on each row (Delete asks first), and **Add tax year**, which opens a pop-up with Tax year and Annual property tax (**Save tax year**, **Cancel**). The Smoke user sees the table but no buttons. Behind it are the new tax-year endpoints (list, add, edit, delete) and a new database table; every change is written to the activity log.
+- Tax years must be between 1990 and 2100 and each year can be entered once per property: a second 2025 shows "This tax year already exists for this property." next to the Tax year field (also when editing a year into one that exists).
+- Not yet (later tasks): refusing to delete a tax year that a lease uses as its base tax year — leases don't exist yet, so that check arrives with them (§6.6).
+- AC-PROP-07 passes. The reviewer approved. QA found and I fixed: a lost session while saving/deleting now says "Your session has ended. Sign in again to continue." and returns you to sign-in; editing a year someone else just deleted says so instead of "Something went wrong". Not changed: typing a negative amount like -5 shows the shared money field's "Enter an amount." rather than "The amount can't be negative." (the shared money input rejects it first; affects all money fields), and Reload after a stale edit closes the pop-up and refreshes the table.
+- verify.sh passes. Nothing for the owner to do.

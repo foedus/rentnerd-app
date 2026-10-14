@@ -201,3 +201,11 @@ export const propertyValueFieldsSchema = z.object({
 });
 export const createPropertyValueSchema = propertyValueFieldsSchema.partial({ source: true });
 export const updatePropertyValueSchema = propertyValueFieldsSchema.partial().extend({ version: z.number().int().min(1, "version is required") });
+
+/** §6.6 property tax fields: one annual amount per tax year. */
+export const propertyTaxFieldsSchema = z.object({
+  taxYear: z.number({ error: "Enter a tax year from 1990 to 2100." }).int("Enter a tax year from 1990 to 2100.").min(1990, "Enter a tax year from 1990 to 2100.").max(2100, "Enter a tax year from 1990 to 2100."),
+  amountCents: z.number({ error: "Enter an amount." }).int("Enter an amount in whole cents.").min(0, "The amount can't be negative.").max(1_000_000_000_000, "Enter a smaller amount."),
+});
+export const createPropertyTaxSchema = propertyTaxFieldsSchema;
+export const updatePropertyTaxSchema = propertyTaxFieldsSchema.partial().extend({ version: z.number().int().min(1, "version is required") });

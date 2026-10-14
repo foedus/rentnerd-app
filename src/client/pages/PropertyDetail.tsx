@@ -9,6 +9,7 @@ import { Page } from "../components/Page";
 import { DataTable, type Column } from "../components/ui";
 import { UnauthenticatedError } from "../api";
 import { useCanWrite } from "../me";
+import { TaxesTab } from "./PropertyTaxes";
 import { currentValueText, ValuesTab } from "./PropertyValues";
 import { fetchProperty, fetchPropertyUnits, PropertyNotFoundError, type PropertyRecord, type UnitRecord } from "../properties-api";
 
@@ -134,7 +135,10 @@ function PropertyView({ property }: { property: PropertyRecord }) {
         <TabPanel id="Values">
           <ValuesTab property={property} />
         </TabPanel>
-        {TABS.slice(2).map((t) => (
+        <TabPanel id="Property taxes">
+          <TaxesTab property={property} />
+        </TabPanel>
+        {TABS.slice(3).map((t) => (
           <TabPanel key={t} id={t}>
             <h2 className="mb-2 text-xl font-semibold">{t}</h2>
             <p>Nothing here yet.</p>

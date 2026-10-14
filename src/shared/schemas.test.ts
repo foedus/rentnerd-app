@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { acceptInvitationSchema, createOwnerSchema, createPropertyValueSchema, ownerListQuerySchema, updateMeSchema, updateOwnerSchema, updatePropertyValueSchema, versionSchema } from "./schemas";
+import { acceptInvitationSchema, createOwnerSchema, createPropertyTaxSchema, createPropertyValueSchema, ownerListQuerySchema, updateMeSchema, updateOwnerSchema, updatePropertyTaxSchema, updatePropertyValueSchema, versionSchema } from "./schemas";
 
 describe("schemas", () => {
   it("enforces the 12–128 character password and a trimmed name", () => {
@@ -103,5 +103,25 @@ describe("property value schema (§6.5)", () => {
   it("requires a version to update", () => {
     expect(updatePropertyValueSchema.safeParse({ amountCents: 5 }).success).toBe(false);
     expect(updatePropertyValueSchema.safeParse({ amountCents: 5, version: 1 }).success).toBe(true);
+  });
+});
+
+describe("property tax schema (§6.6)", () => {
+  const msg = (v: unknown) => createPropertyTaxSchema.safeParse(v).error?.issues[0]?.message;
+  it("accepts years 1990–2100 and a zero amount", () => {
+    for (const taxYear of [1990, 2025, 2100]) expect(createPropertyTaxSchema.safeParse({ taxYear, amountCents: 0 }).success).toBe(true);
+  });
+  it("refuses a year outside the range, a fraction, a blank or a bad amount with the field message", () => {
+    const range = "Enter a tax year from 1990 to 2100.";
+    expect(msg({ taxYear: 1989, amountCents: 1 })).toBe(range);
+    expect(msg({ taxYear: 2101, amountCents: 1 })).toBe(range);
+    expect(msg({ taxYear: 2025.5, amountCents: 1 })).toBe(range);
+    expect(msg({ taxYear: null, amountCents: 1 })).toBe(range);
+    expect(msg({ taxYear: 2025, amountCents: -1 })).toBe("The amount can't be negative.");
+    expect(msg({ taxYear: 2025, amountCents: Number.NaN })).toBe("Enter an amount.");
+  });
+  it("requires a version to update", () => {
+    expect(updatePropertyTaxSchema.safeParse({ amountCents: 5 }).success).toBe(false);
+    expect(updatePropertyTaxSchema.safeParse({ amountCents: 5, version: 1 }).success).toBe(true);
   });
 });
