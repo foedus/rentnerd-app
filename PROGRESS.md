@@ -6,7 +6,7 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 
 ## Blocked
 
-None.
+- **T048 (Lease change API)** — everything is built and passing (edit, delete, month-to-month, end, versions, audit) except one clause of the task title: deleting a lease must also remove its generated PDFs and their stored files. PDFs and their database table don't exist until T086/T087, so this can't be built or tested yet. T088 already says "lease deletion removes PDFs". **Owner: either move that clause from T048 to T088 and set T048 to "done" (the rest is finished and was deployed), or leave it blocked until T087 exists and re-open it then.** No other task depends on this decision except those that depend on T048.
 
 ## Disputed tests
 
