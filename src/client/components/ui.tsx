@@ -9,11 +9,13 @@ interface ConfirmDialogProps {
   title: string;
   children?: ReactNode;
   confirmLabel: string;
+  /** Text of the button that closes without confirming; "Cancel" unless the spec words it differently. */
+  cancelLabel?: string;
   onConfirm: () => void;
 }
 
 /** Confirmation for destructive actions (SPEC §11). Focus starts on "Cancel", Escape closes, focus returns to the opener. */
-export function ConfirmDialog({ isOpen, onOpenChange, title, children, confirmLabel, onConfirm }: ConfirmDialogProps) {
+export function ConfirmDialog({ isOpen, onOpenChange, title, children, confirmLabel, cancelLabel = "Cancel", onConfirm }: ConfirmDialogProps) {
   return (
     <ModalOverlay isOpen={isOpen} onOpenChange={onOpenChange} isDismissable className="fixed inset-0 z-50 grid place-items-center bg-black/40">
       <Modal className="max-w-md rounded bg-white p-6 shadow-lg">
@@ -26,7 +28,7 @@ export function ConfirmDialog({ isOpen, onOpenChange, title, children, confirmLa
               <div>{children}</div>
               <div className="flex justify-end gap-2">
                 <Button autoFocus onPress={close} className="min-h-6 rounded border px-4 py-1">
-                  Cancel
+                  {cancelLabel}
                 </Button>
                 <Button
                   onPress={() => {
