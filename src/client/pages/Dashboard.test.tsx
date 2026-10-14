@@ -63,6 +63,7 @@ it("lists properties with links, a dash for a missing yield, and the lease table
   await mount(async () => Response.json(dashboard));
   const a = rowText("By property", "Property A");
   expect(a?.querySelector("a")?.getAttribute("href")).toBe("/properties/p1");
+  expect(a?.querySelector("a")?.className).toContain("max-w-64");
   expect(a?.textContent).toContain("6.12%");
   expect(rowText("By property", "Property B")?.lastElementChild?.textContent).toBe("—");
   expect(rowText("Leases ending in the next 90 days", "A1")?.textContent).toContain("45");

@@ -15,6 +15,9 @@ type PropertyRow = DashboardRecord["byProperty"][number];
 type DecisionRow = DashboardRecord["leasesNeedingDecision"][number];
 type EndingRow = DashboardRecord["leasesEndingSoon"][number];
 
+/** Bounds the Property column: a long name wraps instead of widening the table or squeezing into a tall sliver. */
+const propertyLinkClass = `${linkClass} min-w-40 max-w-64 [overflow-wrap:anywhere]`;
+
 const money = (cents: number | null) =>
   cents === null ? "—" : formatCents(cents);
 
@@ -23,7 +26,7 @@ const propertyColumns: Column<PropertyRow>[] = [
     key: "name",
     header: "Property",
     cell: (p) => (
-      <Link to={`/properties/${p.propertyId}`} className={linkClass}>
+      <Link to={`/properties/${p.propertyId}`} className={propertyLinkClass}>
         {p.name}
       </Link>
     ),
@@ -60,7 +63,7 @@ const leaseColumns: Column<LeaseRow>[] = [
     key: "property",
     header: "Property",
     cell: (r) => (
-      <Link to={`/properties/${r.propertyId}`} className={linkClass}>
+      <Link to={`/properties/${r.propertyId}`} className={propertyLinkClass}>
         {r.propertyName}
       </Link>
     ),
