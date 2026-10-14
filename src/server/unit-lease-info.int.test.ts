@@ -39,7 +39,7 @@ const json = async <T>(r: Response) => (await r.json()) as T;
 
 interface Info {
   statusText: string; currentRentCents: number | null; potentialRentCents: number | null; tenants: string[]; leaseEndDate: string | null;
-  currentLease: { id: string; statusLabel: string } | null; history: { startDate: string; statusLabel: string; rentAtEndCents: number }[];
+  currentLease: { id: string; statusLabel: string } | null; history: { startDate: string; endDate: string; statusLabel: string; rentAtEndCents: number }[];
 }
 
 async function fixture() {
@@ -53,7 +53,7 @@ async function fixture() {
     call(cookie, "POST", `/api/units/${unitId}/leases`, { startDate, endDate, baseRentCents, rentDueDay: 1, childrenReside: false, ...extra, tenants: [{ tenantId: t2, isPrimary: false }, { tenantId: t1, isPrimary: true }] });
   const unit = async () => (await json<{ lease: Info }>(await call(cookie, "GET", `/api/units/${unitId}`))).lease;
   const listed = async () => (await json<{ data: { lease: Info }[] }>(await call(cookie, "GET", `/api/properties/${p.id}/units`))).data[0]!.lease;
-  return { lease, unit, listed };
+  return { cookie, lease, unit, listed };
 }
 
 describe("unit lease information", () => {
@@ -82,6 +82,22 @@ describe("unit lease information", () => {
     expect(info.statusText).toMatch(/^Vacant · leased from [A-Z][a-z]{2} \d{1,2}, \d{4}$/);
     expect(info).toMatchObject({ currentRentCents: null, potentialRentCents: 190000, currentLease: null });
     expect(info.history[0]?.statusLabel).toBe("Upcoming");
+  });
+
+  it("a moving-out lease shows the move-out date as its end", async () => {
+    const f = await fixture();
+    const out = addDays(today, 60);
+    expect((await f.lease(addDays(today, -30), addDays(today, 300), 215000, { moveOutDate: out, endReason: "Tenant moved out" })).status).toBe(201);
+    const info = await f.unit();
+    expect(info.leaseEndDate).toBe(out);
+    expect(info.history[0]).toMatchObject({ endDate: out });
+  });
+
+  it("a month-to-month lease has no lease end but keeps its rent", async () => {
+    const f = await fixture();
+    const created = await json<{ id: string }>(await f.lease(addDays(today, -400), addDays(today, -10), 180000));
+    expect((await call(f.cookie, "POST", `/api/leases/${created.id}/month-to-month`, { version: 1, monthToMonthRentCents: 230000 })).status).toBe(200);
+    expect(await f.unit()).toMatchObject({ statusText: "Occupied", currentRentCents: 230000, leaseEndDate: null });
   });
 
   it("a lease past its end with no move-out date and no later lease is Needs decision and still counts as occupied", async () => {

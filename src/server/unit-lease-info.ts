@@ -37,7 +37,7 @@ export async function unitLeaseInfo(db: Pick<Db, "select" | "insert" | "update" 
     const tenantsOf = (l: (typeof mine)[number]) => [...currentTermSource(l, today).tenants].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary)).map((t) => names.get(t.tenantId) ?? "");
     const view = (l: (typeof mine)[number], i: number) => {
       const status = occupancy.statuses.get(l.id)!;
-      return { id: l.id, startDate: l.startDate, endDate: effectiveEndDate(terms[i]!), tenants: tenantsOf(l), statusLabel: leaseStatusLabel(status, l.moveOutDate), rentAtEndCents: lastRent(terms[i]!) };
+      return { id: l.id, startDate: l.startDate, endDate: l.moveOutDate ?? effectiveEndDate(terms[i]!), tenants: tenantsOf(l), statusLabel: leaseStatusLabel(status, l.moveOutDate), rentAtEndCents: lastRent(terms[i]!) };
     };
     const currentIndex = mine.findIndex((l) => l.id === occupancy.currentLeaseId);
     const current = currentIndex < 0 ? null : view(mine[currentIndex]!, currentIndex);
@@ -47,7 +47,7 @@ export async function unitLeaseInfo(db: Pick<Db, "select" | "insert" | "update" 
       currentRentCents: occupancy.currentRentCents,
       potentialRentCents: occupancy.occupied ? null : occupancy.potentialRentCents,
       tenants: current?.tenants ?? [],
-      leaseEndDate: current?.endDate ?? null,
+      leaseEndDate: current && occupancy.statuses.get(current.id)?.status !== "month_to_month" ? current.endDate : null,
       currentLease: current ? { id: current.id, startDate: current.startDate, endDate: current.endDate, statusLabel: current.statusLabel, tenants: current.tenants } : null,
       history: mine.map(view).sort((a, b) => b.startDate.localeCompare(a.startDate)),
     });
