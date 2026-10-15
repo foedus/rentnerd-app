@@ -14,7 +14,7 @@ describe("createComplianceTypeSchema", () => {
     expect(createComplianceTypeSchema.safeParse({ ...base, scheduleType: "one_time" }).success).toBe(true);
   });
   it("asks for a month and day for a yearly schedule (AC-CMP-09)", () => {
-    expect(fieldsOf({ ...base, scheduleType: "annual_date" })).toMatchObject({ dueMonth: "Choose a month and day.", dueDay: "Choose a month and day." });
+    expect(fieldsOf({ ...base, scheduleType: "annual_date" })).toEqual({ dueMonth: "Choose a month and day." });
     expect(fieldsOf({ ...base, scheduleType: "annual_date", dueMonth: 9, dueDay: "" })).toMatchObject({ dueDay: "Choose a month and day." });
   });
   it("refuses impossible dates and Feb 29", () => {

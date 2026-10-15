@@ -58,6 +58,7 @@ it("shows the summary with each responsible landlord's name and email, and the U
     expect(text).toContain(s);
   }
   expect(Array.from(document.querySelectorAll("[role=tab]")).map((t) => t.textContent)).toEqual(["Units", "Values", "Property taxes", "Compliance", "Investments"]);
+  await vi.waitFor(() => expect(document.querySelector("table[aria-label=Units]")).not.toBeNull());
   const table = document.querySelector("table[aria-label=Units]") as HTMLElement;
   expect(Array.from(table.querySelectorAll("th")).map((h) => h.textContent)).toEqual(["Unit", "Use", "Status", "Tenants", "Current rent", "Lease end"]);
   expect(table.textContent).toContain("Store");

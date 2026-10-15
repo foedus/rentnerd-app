@@ -41,7 +41,9 @@ export function scheduleProblems(t: Schedule): Record<string, string> {
   if (t.scheduleType === "annual_date") {
     const { dueMonth: m, dueDay: d } = t;
     const ok = m != null && d != null && m >= 1 && m <= 12 && isValidYmd(`2027-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
-    return ok ? {} : { dueMonth: "Choose a month and day.", dueDay: "Choose a month and day." };
+    if (ok) return {};
+    // One message when nothing was chosen; otherwise point at the part that is missing or wrong.
+    return m == null && d == null ? { dueMonth: "Choose a month and day." } : { dueMonth: "Choose a month and day.", dueDay: "Choose a month and day." };
   }
   if (t.scheduleType === "interval") {
     const n = t.intervalMonths;

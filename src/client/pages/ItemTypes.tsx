@@ -38,11 +38,11 @@ function ScheduleFields() {
     <>
       {schedule === "annual_date" && (
         <>
-          <SelectInput name="dueMonth" label="Month" options={MONTH_OPTIONS} />
-          <TextFieldInput name="dueDay" label="Day" numeric />
+          <SelectInput name="dueMonth" label="Month" options={MONTH_OPTIONS} required />
+          <TextFieldInput name="dueDay" label="Day" numeric required />
         </>
       )}
-      {schedule === "interval" && <TextFieldInput name="intervalMonths" label="Repeat every (months)" numeric />}
+      {schedule === "interval" && <TextFieldInput name="intervalMonths" label="Repeat every (months)" numeric required />}
     </>
   );
 }
