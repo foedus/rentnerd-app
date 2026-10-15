@@ -17,7 +17,8 @@ describe("createComplianceTypeSchema", () => {
     expect(fieldsOf({ ...base, scheduleType: "annual_date" })).toEqual({ dueMonth: "Choose a month and day." });
     expect(fieldsOf({ ...base, scheduleType: "annual_date", dueMonth: 9, dueDay: "" })).toEqual({ dueDay: "Choose a month and day." });
     expect(fieldsOf({ ...base, scheduleType: "annual_date", dueDay: 15 })).toEqual({ dueMonth: "Choose a month and day." });
-    expect(fieldsOf({ ...base, scheduleType: "annual_date", dueMonth: 2, dueDay: 30 })).toEqual({ dueDay: "Choose a month and day." });
+    expect(fieldsOf({ ...base, scheduleType: "annual_date", dueMonth: 2, dueDay: 30 })).toEqual({ dueDay: "That day doesn't exist in this month. Choose another day." });
+    expect(fieldsOf({ ...base, scheduleType: "annual_date", dueMonth: 2, dueDay: 29 })).toEqual({ dueDay: "Feb 29 isn't allowed. Choose another day." });
   });
   it("refuses impossible dates and Feb 29", () => {
     expect(scheduleProblems({ scheduleType: "annual_date", dueMonth: 2, dueDay: 29, intervalMonths: null })).toHaveProperty("dueDay");

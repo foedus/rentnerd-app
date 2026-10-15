@@ -186,3 +186,19 @@ it("ignores month and day typed under another schedule", async () => {
   expect(writes).toHaveLength(1);
   expect(writes[0]?.body).toMatchObject({ scheduleType: "interval", intervalMonths: 12, dueMonth: null, dueDay: null });
 });
+
+it("refuses scientific notation in Repeat every (months)", async () => {
+  const { writes } = await render();
+  await act(async () => buttonNamed("Add item type")?.click());
+  await wait();
+  const field = (id: string) => document.querySelector(`#item-type-field-${id}`) as HTMLInputElement & HTMLSelectElement;
+  await setValue(field("name"), "Gutters");
+  await setValue(field("appliesTo"), "All properties");
+  await setValue(field("scheduleType"), "interval");
+  await wait();
+  await setValue(field("intervalMonths"), "1e1");
+  await act(async () => buttonNamed("Save item type")?.click());
+  await wait();
+  expect(writes).toHaveLength(0);
+  expect(document.body.textContent).toContain("Enter a whole number of months from 1 to 120.");
+});

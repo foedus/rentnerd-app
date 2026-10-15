@@ -179,7 +179,7 @@ export function Compliance() {
   const tab = params.get("tab")?.toLowerCase() === "types" ? "types" : "due";
   return (
     <Page title="Compliance">
-      <Tabs selectedKey={tab} onSelectionChange={(key) => setParams(key === "types" ? { tab: "types" } : {}, { replace: true })}>
+      <Tabs selectedKey={tab} onSelectionChange={(key) => setParams(key === "types" ? { tab: "types" } : {})}>
         <TabList aria-label="Compliance sections" className="mb-4 flex flex-wrap gap-2">
           <Tab id="due" className={tabClass}>
             Due list

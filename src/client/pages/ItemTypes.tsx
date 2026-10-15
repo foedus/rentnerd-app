@@ -51,10 +51,10 @@ function ScheduleFields() {
       {schedule === "annual_date" && (
         <>
           <SelectInput name="dueMonth" label="Month" options={MONTH_OPTIONS} required />
-          <TextFieldInput name="dueDay" label="Day" numeric required />
+          <TextFieldInput name="dueDay" label="Day" required />
         </>
       )}
-      {schedule === "interval" && <TextFieldInput name="intervalMonths" label="Repeat every (months)" numeric required />}
+      {schedule === "interval" && <TextFieldInput name="intervalMonths" label="Repeat every (months)" required />}
     </>
   );
 }
@@ -187,7 +187,7 @@ export function ItemTypes() {
           Add item type
         </Button>
       )}
-      <p ref={alertBox} tabIndex={-1} role="alert" className={message ? "mb-4 rounded border border-red-700 p-3 text-red-700 outline-offset-2" : "sr-only"}>
+      <p ref={alertBox} tabIndex={-1} role="alert" className={message ? "mb-4 rounded border border-red-700 p-3 text-red-700 outline-2 outline-offset-2 focus:outline focus:outline-slate-900" : "sr-only"}>
         {message}
       </p>
       {types.isError && (

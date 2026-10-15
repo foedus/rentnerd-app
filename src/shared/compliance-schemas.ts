@@ -44,7 +44,8 @@ export function scheduleProblems(t: Schedule): Record<string, string> {
     if (ok) return {};
     // One message on one field: the month when it is missing or wrong, otherwise the day (missing, or not a date in that month).
     const message = "Choose a month and day.";
-    return m == null || m < 1 || m > 12 ? { dueMonth: message } : { dueDay: message };
+    if (m == null || m < 1 || m > 12) return { dueMonth: message };
+    return d == null ? { dueDay: message } : { dueDay: m === 2 && d === 29 ? "Feb 29 isn't allowed. Choose another day." : "That day doesn't exist in this month. Choose another day." };
   }
   if (t.scheduleType === "interval") {
     const n = t.intervalMonths;
