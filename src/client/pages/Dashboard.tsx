@@ -1,11 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, type ReactNode } from "react";
 import { Button } from "react-aria-components";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { formatCents, formatDate } from "../../shared/format";
 import { UNEXPECTED_MESSAGE } from "../../shared/form-messages";
 import { formatOccupancy, formatYield } from "../../shared/stats";
-import { UnauthenticatedError } from "../api";
+import { signOut, UnauthenticatedError } from "../api";
 import { Page } from "../components/Page";
 import { DataTable, type Column } from "../components/ui";
 import { fetchDashboard, type DashboardRecord } from "../dashboard-api";
@@ -158,10 +158,18 @@ export function Dashboard() {
   const data = dashboard.data;
   const queryClient = useQueryClient();
   const signedOut = dashboard.error instanceof UnauthenticatedError;
-  // A lost session sends the user to sign in again (the Shell redirects once /api/me answers 401).
+  const navigate = useNavigate();
+  // The server refused the dashboard as signed out: end the session for real (so the sign-in page doesn't send the user
+  // straight back), then go to sign-in. If that fails, fall back to re-checking /api/me, whose 401 the Shell redirects on.
   useEffect(() => {
-    if (signedOut) void queryClient.invalidateQueries({ queryKey: ["me"] });
-  }, [signedOut, queryClient]);
+    if (!signedOut) return;
+    void signOut()
+      .then(() => {
+        queryClient.clear();
+        void navigate("/login", { replace: true });
+      })
+      .catch(() => queryClient.invalidateQueries({ queryKey: ["me"] }));
+  }, [signedOut, queryClient, navigate]);
   return (
     <Page title="Dashboard">
       {dashboard.isPending && <p role="status">Loading…</p>}
