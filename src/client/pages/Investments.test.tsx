@@ -64,6 +64,11 @@ async function mount(role: string, path = "/investments", opts: { saveStatus?: n
   return { root, calls };
 }
 const buttonNamed = (name: string) => Array.from(document.querySelectorAll("button")).find((b) => b.textContent === name || b.getAttribute("aria-label") === name);
+/** The row's Edit / Delete button, found by the entry's description. */
+const rowButton = (name: string, description: string) => {
+  const row = Array.from(document.querySelectorAll("tbody tr")).find((r) => r.textContent?.includes(description));
+  return Array.from(row?.querySelectorAll("button") ?? []).find((b) => b.textContent === name);
+};
 const control = (label: string) => Array.from((document.querySelector("[role=dialog]") ?? document).querySelectorAll("label")).find((l) => l.textContent?.startsWith(label))?.control as HTMLInputElement & HTMLSelectElement;
 const typeInto = async (label: string, value: string) => {
   const input = control(label);
@@ -137,7 +142,7 @@ it("limits the Unit choices to the chosen property, with Whole property first, a
 
 it("drops a chosen unit when the property changes", async () => {
   const { root } = await mount("admin");
-  await act(async () => (buttonNamed("Edit Dryer") as HTMLElement).click());
+  await act(async () => (rowButton("Edit", "Dryer") as HTMLElement).click());
   await wait();
   expect(control("Unit").value).toBe("u1");
   await pick("Property", P2);
@@ -175,7 +180,7 @@ it("pre-selects the property on the property's tab and warns when From is after 
 
 it("says so when the entry was deleted elsewhere before saving", async () => {
   const { root } = await mount("admin", "/investments", { gone: true });
-  await act(async () => (buttonNamed("Edit Kitchen") as HTMLElement).click());
+  await act(async () => (rowButton("Edit", "Kitchen") as HTMLElement).click());
   await wait();
   await act(async () => (buttonNamed("Save entry") as HTMLElement).click());
   await wait();
@@ -183,9 +188,17 @@ it("says so when the entry was deleted elsewhere before saving", async () => {
   await act(async () => root.unmount());
 });
 
+it("names the row buttons Edit and Delete and describes them by the entry", async () => {
+  const { root } = await mount("admin");
+  const del = rowButton("Delete", "Dryer") as HTMLElement;
+  expect(del.getAttribute("aria-label")).toBeNull();
+  expect(document.getElementById(del.getAttribute("aria-describedby") ?? "")?.textContent).toBe("Dryer");
+  await act(async () => root.unmount());
+});
+
 it("deletes after confirmation", async () => {
   const { root, calls } = await mount("admin");
-  await act(async () => (buttonNamed("Delete Dryer") as HTMLElement).click());
+  await act(async () => (rowButton("Delete", "Dryer") as HTMLElement).click());
   await wait();
   expect(calls.some((c) => c.method === "DELETE")).toBe(false);
   await act(async () => (buttonNamed("Delete entry") as HTMLElement).click());

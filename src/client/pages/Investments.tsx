@@ -141,7 +141,7 @@ export function InvestmentsPanel({ propertyId, canAdd = true }: { propertyId?: s
     },
     { key: "unit", header: "Unit", cell: (e) => e.unitLabel ?? "Whole property" },
     { key: "category", header: "Category", cell: (e) => e.category },
-    { key: "description", header: "Description", cell: (e) => <span className="break-words">{e.description}</span> },
+    { key: "description", header: "Description", cell: (e) => <span id={`investment-${e.id}`} className="break-words">{e.description}</span> },
     { key: "vendor", header: "Vendor", cell: (e) => e.vendor || "—" },
     { key: "cost", header: "Cost", cell: (e) => formatCents(e.costCents) },
     ...(canWrite
@@ -151,10 +151,10 @@ export function InvestmentsPanel({ propertyId, canAdd = true }: { propertyId?: s
             header: "Actions",
             cell: (e: InvestmentRecord) => (
               <div className="flex gap-2">
-                <Button onPress={() => { setMessage(""); setEditing(e); }} aria-label={`Edit ${e.description}`} className={smallButton}>
+                <Button onPress={() => { setMessage(""); setEditing(e); }} aria-describedby={`investment-${e.id}`} className={smallButton}>
                   Edit
                 </Button>
-                <Button onPress={() => { setMessage(""); setDeleteError(null); setDeleting(e); }} aria-label={`Delete ${e.description}`} className={smallButton}>
+                <Button onPress={() => { setMessage(""); setDeleteError(null); setDeleting(e); }} aria-describedby={`investment-${e.id}`} className={smallButton}>
                   Delete
                 </Button>
               </div>
