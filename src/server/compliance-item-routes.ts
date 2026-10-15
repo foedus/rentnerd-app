@@ -56,6 +56,15 @@ async function presentItems(tx: Tx, rows: { item: ItemRow; type: TypeRow; proper
   });
 }
 
+/** Query parameters as an object; a repeated or bracketed `status` (status=a&status=b, status[]=a) is joined into the comma form. */
+function listParams(search: URLSearchParams): Record<string, string> {
+  const params = Object.fromEntries(search);
+  const statuses = [...search.getAll("status"), ...search.getAll("status[]")].flatMap((s) => s.split(","));
+  delete params["status[]"];
+  if (statuses.length > 0) params.status = statuses.join(",");
+  return params;
+}
+
 /** By due date (so overdue items come first); items without one last; ties by property and item name. */
 const byDue = (a: { nextDueDate: string | null; propertyName: string; type: { name: string } }, b: typeof a) =>
   (a.nextDueDate === null ? 1 : 0) - (b.nextDueDate === null ? 1 : 0) ||
@@ -86,7 +95,7 @@ export function mountComplianceItemRoutes(app: Hono, db: Db) {
   });
 
   app.get("/api/compliance/items", async (c) => {
-    const q = validate(c, complianceItemListQuerySchema, Object.fromEntries(new URL(c.req.url).searchParams));
+    const q = validate(c, complianceItemListQuerySchema, listParams(new URL(c.req.url).searchParams));
     if (!q.ok) return q.response;
     const { page, pageSize, propertyId, responsibleUserId, status } = q.data;
     const conditions = [isNull(property.archivedAt)];

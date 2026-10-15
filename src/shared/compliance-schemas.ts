@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { COMPLIANCE_STATUSES } from "./compliance";
 import { COMPLIANCE_APPLIES_TO } from "./compliance-rules";
-import { isValidYmd } from "./dates";
+import { isValidYmd, todayNy } from "./dates";
 import { listQuerySchema } from "./schemas";
 
 const SCHEDULE_TYPES = ["annual_date", "interval", "one_time"] as const;
@@ -79,7 +79,7 @@ export const updateComplianceItemSchema = z.object({
 
 /** Mark done (§9.3). `nextDueDate` omitted = leave the item's date as it is; null = clear it. */
 export const createComplianceCompletionSchema = z.object({
-  completedOn: sensibleDate("Enter the date it was completed."),
+  completedOn: sensibleDate("Enter the date it was completed.").refine((v) => v <= todayNy(), "The completion date can't be in the future."),
   notes: optionalText(2000).optional(),
   nextDueDate: z.preprocess((v) => (v === "" ? null : v), sensibleDate().nullable()).optional(),
   version: VERSION.optional(),

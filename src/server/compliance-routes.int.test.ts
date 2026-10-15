@@ -183,6 +183,8 @@ describe("compliance items", () => {
     const overdue = await list("?status=Overdue");
     expect(overdue.total).toBe(8);
     expect(overdue.data.every((i) => i.propertyName === "Mine" && i.status === "Overdue")).toBe(true);
+    expect((await list("?status=Overdue&status=Upcoming")).data.every((i) => ["Overdue", "Upcoming"].includes(i.status))).toBe(true);
+    expect((await list("?status[]=Overdue")).total).toBe(8);
     const mixed = await list(`?propertyId=${theirs}&status=Not scheduled,Upcoming,Due soon`);
     expect(mixed.data.every((i) => ["Not scheduled", "Upcoming", "Due soon"].includes(i.status))).toBe(true);
     expect((await list("?pageSize=5&page=2&status=Overdue")).data).toHaveLength(3);
@@ -238,15 +240,15 @@ describe("compliance items", () => {
     const { cookie, id } = await makeUser("a@x.com", "admin");
     const p = await makeProperty("P");
     const bed = named(await itemsOf(cookie, p), "Bed Bug Annual Filing");
-    const done = await call(cookie, "POST", `/api/compliance/items/${bed.id}/completions`, { completedOn: "2026-12-15", notes: "Filed", nextDueDate: "2027-12-31", version: bed.version });
+    const done = await call(cookie, "POST", `/api/compliance/items/${bed.id}/completions`, { completedOn: "2026-09-15", notes: "Filed", nextDueDate: "2027-12-31", version: bed.version });
     expect(done.status).toBe(201);
-    expect(await done.json()).toMatchObject({ completedOn: "2026-12-15", notes: "Filed", completedById: id, completedByName: "Name of a@x.com" });
-    expect(named(await itemsOf(cookie, p), "Bed Bug Annual Filing")).toMatchObject({ nextDueDate: "2027-12-31", lastCompletedOn: "2026-12-15", version: bed.version + 1 });
+    expect(await done.json()).toMatchObject({ completedOn: "2026-09-15", notes: "Filed", completedById: id, completedByName: "Name of a@x.com" });
+    expect(named(await itemsOf(cookie, p), "Bed Bug Annual Filing")).toMatchObject({ nextDueDate: "2027-12-31", lastCompletedOn: "2026-09-15", version: bed.version + 1 });
     expect(await auditCount("compliance_complete")).toBe(1);
 
     await call(cookie, "POST", `/api/compliance/items/${bed.id}/completions`, { completedOn: "2025-12-20" });
     const history = (await (await call(cookie, "GET", `/api/compliance/items/${bed.id}/completions`)).json()) as { data: { id: string; completedOn: string }[]; total: number };
-    expect(history.data.map((h) => h.completedOn)).toEqual(["2026-12-15", "2025-12-20"]);
+    expect(history.data.map((h) => h.completedOn)).toEqual(["2026-09-15", "2025-12-20"]);
     expect(history.total).toBe(2);
     // Omitting nextDueDate leaves the date alone.
     expect(named(await itemsOf(cookie, p), "Bed Bug Annual Filing").nextDueDate).toBe("2027-12-31");
@@ -270,9 +272,10 @@ describe("compliance items", () => {
     const { cookie } = await makeUser("a@x.com", "admin");
     const p = await makeProperty("P");
     const bed = named(await itemsOf(cookie, p), "Bed Bug Annual Filing");
-    expect((await call(cookie, "POST", `/api/compliance/items/${bed.id}/completions`, { completedOn: "2026-12-15", version: bed.version + 3 })).status).toBe(409);
+    expect((await call(cookie, "POST", `/api/compliance/items/${bed.id}/completions`, { completedOn: "2026-09-15", version: bed.version + 3 })).status).toBe(409);
     expect((await call(cookie, "POST", `/api/compliance/items/${bed.id}/completions`, { completedOn: "soon" })).status).toBe(422);
-    expect((await call(cookie, "POST", `/api/compliance/items/${UUID}/completions`, { completedOn: "2026-12-15" })).status).toBe(404);
+    expect((await call(cookie, "POST", `/api/compliance/items/${bed.id}/completions`, { completedOn: "2099-01-01" })).status).toBe(422);
+    expect((await call(cookie, "POST", `/api/compliance/items/${UUID}/completions`, { completedOn: "2026-09-15" })).status).toBe(404);
     expect((await call(cookie, "GET", `/api/compliance/items/${UUID}/completions`)).status).toBe(404);
     expect(await one(`select count(*)::int as n from compliance_completion`)).toEqual({ n: 0 });
   });

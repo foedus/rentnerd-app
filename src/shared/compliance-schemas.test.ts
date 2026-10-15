@@ -57,8 +57,9 @@ describe("item schemas", () => {
     const f = (v: object) => { const r = createComplianceCompletionSchema.safeParse(v); return r.success ? {} : Object.fromEntries(r.error.issues.map((x) => [x.path.join("."), x.message])); };
     expect(f({ completedOn: "0001-01-01" })).toHaveProperty("completedOn");
     expect(f({ completedOn: "9999-12-31" })).toHaveProperty("completedOn");
-    expect(f({ completedOn: "2026-12-15", nextDueDate: "2026-12-01" })).toEqual({ nextDueDate: "Next due date can't be before the completion date." });
-    expect(f({ completedOn: "2026-12-15", nextDueDate: "2026-12-15" })).toEqual({});
+    expect(f({ completedOn: "2099-01-01" })).toEqual({ completedOn: "The completion date can't be in the future." });
+    expect(f({ completedOn: "2026-09-15", nextDueDate: "2026-09-01" })).toEqual({ nextDueDate: "Next due date can't be before the completion date." });
+    expect(f({ completedOn: "2026-09-15", nextDueDate: "2026-09-15" })).toEqual({});
     expect(updateComplianceItemSchema.safeParse({ nextDueDate: "0001-01-01", version: 1 }).success).toBe(false);
   });
 });
