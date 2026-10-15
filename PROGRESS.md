@@ -646,3 +646,10 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 - Adding a type puts it on every property at once (applicable for properties with units, "Not applicable" for those without). Changing who a type applies to, or restoring it, recalculates applicability but keeps any switch an editor set by hand. A type with completions can't be deleted (archive it instead); deleting one without completions removes its items everywhere. Items of an archived type are hidden and can't be changed. Every change is in the Activity log.
 - Note: a seeded type that is deleted comes back the next time the app starts (the catalog is re-seeded); archive it if it should stay out of the way.
 - No screens changed, so no QA pass. The reviewer found that editing an item of an archived type returned an empty answer; fixed and tested. verify.sh passes. Nothing for the owner to do.
+
+### 2026-10-15 — T068: Property Compliance tab
+- A property's **Compliance** tab now lists every item with its **Applies to this property** switch, **Status**, **Due date** and **Last completed** date. **Mark done** asks for **Completed on** (today by default), **Notes** and **Next due date**, filled in with the suggested date from the spec and updated when you change the completion date (until you type your own). **Set due date** changes or clears the date. **History** lists past completions with **Delete** (after a confirmation). The Smoke user can look but not change anything; the links from the daily email (`?tab=compliance`) now open this tab.
+- A switch you turn off stays off when units are added later.
+- AC-CMP-02, 03, 05, 06, 11 and 12 pass. verify.sh passes. The reviewer approved. QA found and I fixed: the lowercase `?tab=compliance` link opened the Units tab; focus was lost after deleting a completion. Left as is: very odd dates (year 0001, far future, due date before the completion date) are accepted since the spec sets no rule; repeated row labels such as "Mark done" are identical in each row.
+- Not yet (later tasks): the Compliance page's Due list and the Dashboard compliance tables (AC-CMP-04, 07, 10 need them).
+- Nothing for the owner to do.
