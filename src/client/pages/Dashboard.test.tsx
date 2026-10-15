@@ -204,4 +204,7 @@ it("stays put and re-checks the signed-in user when signing out fails", async ()
     expect(calls.filter((c) => c === "GET /api/me").length).toBeGreaterThan(1),
   );
   expect(document.body.textContent).not.toContain("Sign in page");
+  expect(document.querySelector('[role="alert"]')?.textContent).toBe(
+    "Something went wrong. Please try again.",
+  );
 });
