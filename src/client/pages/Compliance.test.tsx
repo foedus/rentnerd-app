@@ -79,3 +79,16 @@ it("hides the row actions from the Smoke user", async () => {
   expect(el.querySelector("table")?.textContent).toContain("Court Plaza");
   expect(markDone(el)).toBeUndefined();
 });
+
+it("loads every page of property names for the Property filter", async () => {
+  const pages: string[] = [];
+  vi.stubGlobal("fetch", async (url: string) => {
+    if (!url.startsWith("/api/properties")) return new Response(JSON.stringify(url.startsWith("/api/compliance") ? { data: [], page: 1, pageSize: 50, total: 0 } : url.startsWith("/api/people") ? [] : { role: "admin" }), { status: 200 });
+    pages.push(url);
+    const first = url.includes("page=1");
+    return new Response(JSON.stringify({ data: first ? [{ id: "a", name: "A" }] : [{ id: "b", name: "B" }], total: 2 }), { status: 200 });
+  });
+  const el = await render();
+  expect(pages.length).toBe(2);
+  expect(Array.from(el.querySelectorAll("#due-property option")).map((o) => o.textContent)).toEqual(["All properties", "A", "B"]);
+});

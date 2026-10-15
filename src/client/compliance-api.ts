@@ -104,9 +104,14 @@ export async function fetchDueList(params: { propertyId: string; responsibleUser
   return body as DueListPage;
 }
 
-/** Names of the properties for the Property filter. */
+/** Names of all properties for the Property filter (fetched page by page, 200 at a time). */
 export async function fetchPropertyNames(): Promise<{ id: string; name: string }[]> {
-  const res = await fetch("/api/properties?pageSize=200", { headers: { accept: "application/json" } });
-  if (!res.ok) refuse(res);
-  return ((await res.json()) as { data: { id: string; name: string }[] }).data.map(({ id, name }) => ({ id, name }));
+  const names: { id: string; name: string }[] = [];
+  for (let page = 1; ; page++) {
+    const res = await fetch(`/api/properties?pageSize=200&page=${page}`, { headers: { accept: "application/json" } });
+    if (!res.ok) refuse(res);
+    const body = (await res.json()) as { data: { id: string; name: string }[]; total?: number };
+    names.push(...body.data.map(({ id, name }) => ({ id, name })));
+    if (body.data.length === 0 || names.length >= (body.total ?? 0)) return names;
+  }
 }
