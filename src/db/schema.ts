@@ -271,6 +271,28 @@ export const propertyValue = pgTable(
   (t) => [index("property_value_property_idx").on(t.propertyId, t.valueDate)],
 );
 
+// SPEC §6.15: renovation/appliance/repair log, hard-deleted. Restrict FKs: a property or unit with entries can only be archived (D-09).
+export const investmentCategory = pgEnum("investment_category", ["Renovation", "Appliance", "Repair", "Other"]);
+export const investmentEntry = pgTable(
+  "investment_entry",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    entryDate: date("entry_date", { mode: "string" }).notNull(),
+    propertyId: uuid("property_id").notNull().references(() => property.id, { onDelete: "restrict" }),
+    unitId: uuid("unit_id").references(() => unit.id, { onDelete: "restrict" }),
+    category: investmentCategory("category").notNull(),
+    description: text("description").notNull(),
+    vendor: text("vendor"),
+    costCents: bigint("cost_cents", { mode: "number" }).notNull(),
+    version: integer("version").notNull().default(1),
+    createdById: uuid("created_by_id").references(() => user.id, { onDelete: "set null" }),
+    updatedById: uuid("updated_by_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("investment_entry_property_idx").on(t.propertyId, t.entryDate), index("investment_entry_unit_idx").on(t.unitId)],
+);
+
 // SPEC §6.6: annual property tax per tax year, unique per property, hard-deleted.
 export const propertyTax = pgTable(
   "property_tax",

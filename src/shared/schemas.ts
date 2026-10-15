@@ -202,6 +202,30 @@ export const propertyValueFieldsSchema = z.object({
 export const createPropertyValueSchema = propertyValueFieldsSchema.partial({ source: true });
 export const updatePropertyValueSchema = propertyValueFieldsSchema.partial().extend({ version: z.number().int().min(1, "version is required") });
 
+export const INVESTMENT_CATEGORIES = ["Renovation", "Appliance", "Repair", "Other"] as const;
+export type InvestmentCategory = (typeof INVESTMENT_CATEGORIES)[number];
+
+/** §6.15 investment entry fields; money is `costCents` (API names end in Cents). */
+export const investmentFieldsSchema = z.object({
+  entryDate: z.string({ error: "Enter a valid date." }).refine(isValidYmd, "Enter a valid date."),
+  propertyId: z.string({ error: "Choose a property." }).uuid("Choose a property."),
+  unitId: z.preprocess((v) => (v === "" ? null : v), z.string().uuid("Choose a unit.").nullable()),
+  category: z.enum(INVESTMENT_CATEGORIES, "Choose a category."),
+  description: required("Enter a description.", 500),
+  vendor: optionalText(),
+  costCents: z.number({ error: "Enter a cost." }).int("Enter a cost in whole cents.").min(0, "The cost can't be negative.").max(1_000_000_000_000, "Enter a smaller cost."),
+});
+export const createInvestmentSchema = investmentFieldsSchema.partial({ unitId: true, vendor: true });
+export const updateInvestmentSchema = investmentFieldsSchema.partial().extend({ version: z.number().int().min(1, "version is required") });
+
+const optionalDateFilter = (label: string) => z.preprocess((v) => (v === "" ? undefined : v), z.string().refine(isValidYmd, `Enter a valid ${label} date.`).optional());
+export const investmentListQuerySchema = listQuerySchema.extend({
+  propertyId: z.preprocess((v) => (v === "" ? undefined : v), z.string().uuid("Choose a property.").optional()),
+  category: z.preprocess((v) => (v === "" ? undefined : v), z.enum(INVESTMENT_CATEGORIES, "Choose a category.").optional()),
+  from: optionalDateFilter("From"),
+  to: optionalDateFilter("To"),
+});
+
 /** §6.6 property tax fields: one annual amount per tax year. */
 export const propertyTaxFieldsSchema = z.object({
   taxYear: z.number({ error: "Enter a tax year from 1990 to 2100." }).int("Enter a tax year from 1990 to 2100.").min(1990, "Enter a tax year from 1990 to 2100.").max(2100, "Enter a tax year from 1990 to 2100."),

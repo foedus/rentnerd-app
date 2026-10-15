@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { acceptInvitationSchema, endLeaseSchema, markMonthToMonthSchema, updateLeaseSchema, extensionFieldsSchema, leaseFieldsSchema, leaseRuleIssues, termRuleIssues, createOwnerSchema, createPropertyTaxSchema, createPropertyValueSchema, ownerListQuerySchema, updateMeSchema, updateOwnerSchema, updatePropertyTaxSchema, updatePropertyValueSchema, versionSchema, createTenantSchema, normalizeTenantNames, tenantListQuerySchema, tenantRuleIssues, updateTenantSchema } from "./schemas";
+import { createInvestmentSchema, investmentListQuerySchema, updateInvestmentSchema, acceptInvitationSchema, endLeaseSchema, markMonthToMonthSchema, updateLeaseSchema, extensionFieldsSchema, leaseFieldsSchema, leaseRuleIssues, termRuleIssues, createOwnerSchema, createPropertyTaxSchema, createPropertyValueSchema, ownerListQuerySchema, updateMeSchema, updateOwnerSchema, updatePropertyTaxSchema, updatePropertyValueSchema, versionSchema, createTenantSchema, normalizeTenantNames, tenantListQuerySchema, tenantRuleIssues, updateTenantSchema } from "./schemas";
 
 describe("schemas", () => {
   it("enforces the 12–128 character password and a trimmed name", () => {
@@ -226,5 +226,24 @@ describe("lease change schemas", () => {
     expect(endLeaseSchema.safeParse({ version: 2, moveOutDate: "2026-10-20", endReason: "Other" }).success).toBe(true);
     expect(endLeaseSchema.safeParse({ version: 2, moveOutDate: "2026-02-30", endReason: "Other" }).success).toBe(false);
     expect(endLeaseSchema.safeParse({ version: 2, moveOutDate: "2026-10-20" }).success).toBe(false);
+  });
+});
+
+describe("investment schemas", () => {
+  const ok = { entryDate: "2026-09-01", propertyId: "00000000-0000-4000-8000-000000000000", category: "Appliance", description: " Replace fridge ", costCents: 0 };
+  it("accepts a minimal entry, trims text and treats blank unit and vendor as null", () => {
+    const r = createInvestmentSchema.parse({ ...ok, unitId: "", vendor: "  " });
+    expect(r).toMatchObject({ description: "Replace fridge", unitId: null, vendor: null, costCents: 0 });
+  });
+  it("rejects bad categories, negative or fractional costs and long descriptions", () => {
+    expect(createInvestmentSchema.safeParse({ ...ok, category: "Gifts" }).success).toBe(false);
+    expect(createInvestmentSchema.safeParse({ ...ok, costCents: -1 }).success).toBe(false);
+    expect(createInvestmentSchema.safeParse({ ...ok, costCents: 1.5 }).success).toBe(false);
+    expect(createInvestmentSchema.safeParse({ ...ok, description: "x".repeat(501) }).success).toBe(false);
+  });
+  it("requires a version to update and treats empty filters as absent", () => {
+    expect(updateInvestmentSchema.safeParse({ costCents: 1 }).success).toBe(false);
+    expect(investmentListQuerySchema.parse({ propertyId: "", category: "", from: "", to: "" })).toMatchObject({ page: 1, pageSize: 50 });
+    expect(investmentListQuerySchema.safeParse({ from: "2026-13-01" }).success).toBe(false);
   });
 });
