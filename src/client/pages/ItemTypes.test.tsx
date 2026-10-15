@@ -130,3 +130,23 @@ it("shows the server's reason when a type can't be deleted", async () => {
   await wait();
   expect(document.querySelector("[role=alert]")?.textContent).toBe(reason);
 });
+
+it("loads every page of item types", async () => {
+  const pages: string[] = [];
+  queryClient.setQueryData(["me"], { role: "admin" });
+  vi.stubGlobal("fetch", async (url: string) => {
+    if (!url.startsWith("/api/compliance/types")) return new Response(JSON.stringify(url.startsWith("/api/me") ? { role: "admin" } : url.startsWith("/api/compliance") || url.startsWith("/api/properties") ? { data: [], page: 1, pageSize: 50, total: 0 } : []), { status: 200 });
+    pages.push(url);
+    const first = url.includes("page=1");
+    return new Response(JSON.stringify({ data: [{ ...types[0], id: first ? "a" : "b", name: first ? "First type" : "Second type" }], total: 2 }), { status: 200 });
+  });
+  const el = document.createElement("div");
+  document.body.append(el);
+  await act(async () => createRoot(el).render(<QueryClientProvider client={queryClient}><MemoryRouter><Compliance /></MemoryRouter></QueryClientProvider>));
+  await wait();
+  await act(async () => (Array.from(el.querySelectorAll("[role=tab]")).find((t) => t.textContent === "Item types") as HTMLElement).click());
+  await wait();
+  expect(pages).toHaveLength(2);
+  expect(el.textContent).toContain("First type");
+  expect(el.textContent).toContain("Second type");
+});

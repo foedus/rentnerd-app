@@ -134,13 +134,17 @@ export interface ComplianceTypeRecord {
 /** The type was refused with a message to show as it is (duplicate name, has completions, already archived …). */
 export class TypeRefusedError extends Error {}
 
-/** Every item type, archived ones included (the Item types tab shows both). */
+/** Every item type, archived ones included (the Item types tab shows both), fetched 200 at a time. */
 export async function fetchComplianceTypes(): Promise<ComplianceTypeRecord[]> {
-  const res = await fetch("/api/compliance/types?archived=true&pageSize=200", { headers: { accept: "application/json" } });
-  if (!res.ok) refuse(res);
-  const body = (await res.json()) as { data?: ComplianceTypeRecord[] };
-  if (!Array.isArray(body.data)) throw new Error(GENERIC);
-  return body.data;
+  const all: ComplianceTypeRecord[] = [];
+  for (let page = 1; ; page++) {
+    const res = await fetch(`/api/compliance/types?archived=true&pageSize=200&page=${page}`, { headers: { accept: "application/json" } });
+    if (!res.ok) refuse(res);
+    const body = (await res.json()) as { data?: ComplianceTypeRecord[]; total?: number };
+    if (!Array.isArray(body.data)) throw new Error(GENERIC);
+    all.push(...body.data);
+    if (body.data.length === 0 || all.length >= (body.total ?? 0)) return all;
+  }
 }
 
 async function sendType(url: string, method: string, body?: unknown): Promise<void> {

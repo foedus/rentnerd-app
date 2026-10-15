@@ -15,7 +15,9 @@ describe("createComplianceTypeSchema", () => {
   });
   it("asks for a month and day for a yearly schedule (AC-CMP-09)", () => {
     expect(fieldsOf({ ...base, scheduleType: "annual_date" })).toEqual({ dueMonth: "Choose a month and day." });
-    expect(fieldsOf({ ...base, scheduleType: "annual_date", dueMonth: 9, dueDay: "" })).toMatchObject({ dueDay: "Choose a month and day." });
+    expect(fieldsOf({ ...base, scheduleType: "annual_date", dueMonth: 9, dueDay: "" })).toEqual({ dueDay: "Choose a month and day." });
+    expect(fieldsOf({ ...base, scheduleType: "annual_date", dueDay: 15 })).toEqual({ dueMonth: "Choose a month and day." });
+    expect(fieldsOf({ ...base, scheduleType: "annual_date", dueMonth: 2, dueDay: 30 })).toEqual({ dueDay: "Choose a month and day." });
   });
   it("refuses impossible dates and Feb 29", () => {
     expect(scheduleProblems({ scheduleType: "annual_date", dueMonth: 2, dueDay: 29, intervalMonths: null })).toHaveProperty("dueDay");
