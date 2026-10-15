@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Button, Tab, TabList, TabPanel, Tabs } from "react-aria-components";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { formatDate } from "../../shared/format";
 import { UnauthenticatedError } from "../api";
 import { Page } from "../components/Page";
@@ -175,9 +175,11 @@ function DueList() {
 
 /** Compliance (§11.18). */
 export function Compliance() {
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("tab")?.toLowerCase() === "types" ? "types" : "due";
   return (
     <Page title="Compliance">
-      <Tabs defaultSelectedKey="due">
+      <Tabs selectedKey={tab} onSelectionChange={(key) => setParams(key === "types" ? { tab: "types" } : {}, { replace: true })}>
         <TabList aria-label="Compliance sections" className="mb-4 flex flex-wrap gap-2">
           <Tab id="due" className={tabClass}>
             Due list

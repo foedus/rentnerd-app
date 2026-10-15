@@ -150,3 +150,19 @@ it("loads every page of item types", async () => {
   expect(el.textContent).toContain("First type");
   expect(el.textContent).toContain("Second type");
 });
+
+it("opens on the Item types tab from ?tab=types and writes the tab to the address", async () => {
+  queryClient.setQueryData(["me"], { role: "admin" });
+  vi.stubGlobal("fetch", async (url: string) =>
+    new Response(JSON.stringify(url.startsWith("/api/compliance/types") ? { data: types, total: 2 } : url.startsWith("/api/me") ? { role: "admin" } : url.startsWith("/api/compliance") || url.startsWith("/api/properties") ? { data: [], page: 1, pageSize: 50, total: 0 } : []), { status: 200 }),
+  );
+  const el = document.createElement("div");
+  document.body.append(el);
+  await act(async () => createRoot(el).render(<QueryClientProvider client={queryClient}><MemoryRouter initialEntries={["/compliance?tab=types"]}><Compliance /></MemoryRouter></QueryClientProvider>));
+  await wait();
+  expect(el.querySelector("[role=tab][aria-selected=true]")?.textContent).toBe("Item types");
+  expect(el.textContent).toContain("HPD Property Registration");
+  await act(async () => (Array.from(el.querySelectorAll("[role=tab]")).find((t) => t.textContent === "Due list") as HTMLElement).click());
+  await wait();
+  expect(el.querySelector("[role=tab][aria-selected=true]")?.textContent).toBe("Due list");
+});

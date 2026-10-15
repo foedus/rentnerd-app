@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "react-aria-components";
 import { useFormContext } from "react-hook-form";
 import { COMPLIANCE_APPLIES_TO, COMPLIANCE_SCHEDULE_LABELS, MONTH_NAMES, describeSchedule } from "../../shared/compliance-rules";
@@ -108,6 +108,11 @@ export function ItemTypes() {
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [message, setMessage] = useState("");
   const tableArea = useRef<HTMLDivElement>(null);
+  const alertBox = useRef<HTMLParagraphElement>(null);
+  // A refusal can come from a row far down a long list; bring it into view.
+  useEffect(() => {
+    if (message) alertBox.current?.scrollIntoView?.({ block: "nearest" });
+  }, [message]);
   const types = useQuery({ queryKey: TYPES_KEY, queryFn: fetchComplianceTypes });
 
   const refresh = () => queryClient.invalidateQueries();
@@ -170,7 +175,7 @@ export function ItemTypes() {
           Add item type
         </Button>
       )}
-      <p role="alert" className="mb-4 text-red-700">
+      <p ref={alertBox} role="alert" className={message ? "mb-4 rounded border border-red-700 p-3 text-red-700" : "sr-only"}>
         {message}
       </p>
       {types.isError && (
