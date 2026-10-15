@@ -7,6 +7,8 @@ import { listQuerySchema } from "./schemas";
 const SCHEDULE_TYPES = ["annual_date", "interval", "one_time"] as const;
 const VERSION = z.number().int().min(1, "version is required");
 const date = (message = "Enter a valid date.") => z.string({ error: message }).refine(isValidYmd, message);
+/** A real calendar date in a sensible range, so typos like 0001-01-01 or 9999-12-31 are refused. */
+const sensibleDate = (message = "Enter a valid date.") => date(message).refine((v) => v >= "2000-01-01" && v <= "2100-12-31", "Enter a date between 2000 and 2100.");
 const optionalText = (max: number) =>
   z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? null : v), z.string().trim().max(max, `Use ${max} characters or fewer.`).nullable());
 const intField = (message: string) => z.preprocess((v) => (v === "" ? null : v), z.number({ error: message }).int(message).nullable());
@@ -70,15 +72,17 @@ export const complianceItemListQuerySchema = listQuerySchema.extend({
 
 export const updateComplianceItemSchema = z.object({
   applicable: z.boolean({ error: "Choose Yes or No." }).optional(),
-  nextDueDate: z.preprocess((v) => (v === "" ? null : v), date().nullable()).optional(),
+  nextDueDate: z.preprocess((v) => (v === "" ? null : v), sensibleDate().nullable()).optional(),
   notes: optionalText(2000).optional(),
   version: VERSION,
 });
 
 /** Mark done (§9.3). `nextDueDate` omitted = leave the item's date as it is; null = clear it. */
 export const createComplianceCompletionSchema = z.object({
-  completedOn: date("Enter the date it was completed."),
+  completedOn: sensibleDate("Enter the date it was completed."),
   notes: optionalText(2000).optional(),
-  nextDueDate: z.preprocess((v) => (v === "" ? null : v), date().nullable()).optional(),
+  nextDueDate: z.preprocess((v) => (v === "" ? null : v), sensibleDate().nullable()).optional(),
   version: VERSION.optional(),
+}).superRefine((v, ctx) => {
+  if (v.nextDueDate && v.completedOn && v.nextDueDate < v.completedOn) ctx.addIssue({ code: "custom", path: ["nextDueDate"], message: "Next due date can't be before the completion date." });
 });

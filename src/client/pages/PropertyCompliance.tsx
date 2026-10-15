@@ -236,7 +236,7 @@ export function ComplianceTab({ property }: { property: PropertyRecord }) {
       header: "Applies to this property",
       cell: (i) => (
         <label className="inline-flex min-h-6 items-center gap-2">
-          <input type="checkbox" role="switch" checked={i.applicable} disabled={!writable} onChange={(e) => void toggle(i, e.target.checked)} aria-label="Applies to this property" className="h-5 w-5" />
+          <input type="checkbox" role="switch" checked={i.applicable} disabled={!writable} onChange={(e) => void toggle(i, e.target.checked)} aria-label={`Applies to this property – ${i.type.name}`} className="h-5 w-5" />
           <span>{i.applicable ? "On" : "Off"}</span>
         </label>
       ),
@@ -251,15 +251,15 @@ export function ComplianceTab({ property }: { property: PropertyRecord }) {
         <div className="flex flex-wrap gap-2">
           {writable && (
             <>
-              <Button onPress={() => setAction({ kind: "done", item: i })} className={smallButton}>
+              <Button onPress={() => setAction({ kind: "done", item: i })} aria-label={`Mark done – ${i.type.name}`} className={smallButton}>
                 Mark done
               </Button>
-              <Button onPress={() => setAction({ kind: "due", item: i })} className={smallButton}>
+              <Button onPress={() => setAction({ kind: "due", item: i })} aria-label={`Set due date – ${i.type.name}`} className={smallButton}>
                 Set due date
               </Button>
             </>
           )}
-          <Button onPress={() => setAction({ kind: "history", item: i })} className={smallButton}>
+          <Button onPress={() => setAction({ kind: "history", item: i })} aria-label={`History – ${i.type.name}`} className={smallButton}>
             History
           </Button>
         </div>
