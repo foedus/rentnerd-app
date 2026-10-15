@@ -23,6 +23,7 @@ export interface PropertyRecord {
   unitCount: number;
   occupiedCount: number;
   currentValue?: CurrentValue | null;
+  totalInvestedCents?: number;
 }
 
 export interface PropertiesPage {

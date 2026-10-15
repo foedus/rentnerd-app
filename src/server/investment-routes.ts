@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, count, desc, eq, getTableColumns, gte, lte, sql } from "drizzle-orm";
 import type { Context, Hono } from "hono";
 import type { Db } from "../db/client";
 import { investmentEntry, property, unit } from "../db/schema";
@@ -47,7 +47,8 @@ export function mountInvestmentRoutes(app: Hono, db: Db) {
       to ? lte(investmentEntry.entryDate, to) : undefined,
     );
     const [{ total = 0, totalCents = 0 } = {}] = await db.select({ total: count(), totalCents: sql<number>`coalesce(sum(${investmentEntry.costCents}), 0)::float8` }).from(investmentEntry).where(where);
-    const data = await db.select().from(investmentEntry).where(where)
+    const data = await db.select({ ...getTableColumns(investmentEntry), propertyName: property.name, unitLabel: unit.label })
+      .from(investmentEntry).innerJoin(property, eq(property.id, investmentEntry.propertyId)).leftJoin(unit, eq(unit.id, investmentEntry.unitId)).where(where)
       .orderBy(desc(investmentEntry.entryDate), desc(investmentEntry.createdAt), desc(investmentEntry.id)).limit(pageSize).offset((page - 1) * pageSize);
     return c.json({ data, page, pageSize, total, totalCents });
   });

@@ -1,7 +1,7 @@
 import { and, asc, count, desc, eq, ilike, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import type { Context, Hono } from "hono";
 import type { Db } from "../db/client";
-import { owner, property, propertyResponsible, propertyValue, unit, user } from "../db/schema";
+import { investmentEntry, owner, property, propertyResponsible, propertyValue, unit, user } from "../db/schema";
 import { createPropertyWithUnitSchema, propertyListQuerySchema, propertyType, updatePropertySchema } from "../shared/schemas";
 import { formatCents } from "../shared/format";
 import { currentValue } from "../shared/stats";
@@ -73,15 +73,22 @@ export function mountPropertyRoutes(app: Hono, db: Db) {
     return new Map(rows.map((r) => [r.id, currentValue({ purchasePriceCents: r.purchasePriceCents, values: entries.filter((e) => e.propertyId === r.id) })]));
   };
 
+  /** Sum of each property's investment entries (§11.9 Total invested). */
+  const investedFor = async (tx: Tx, ids: string[]) => {
+    if (ids.length === 0) return new Map<string, number>();
+    const rows = await tx.select({ propertyId: investmentEntry.propertyId, total: sql<number>`coalesce(sum(${investmentEntry.costCents}), 0)::float8` }).from(investmentEntry).where(inArray(investmentEntry.propertyId, ids)).groupBy(investmentEntry.propertyId);
+    return new Map(rows.map((r) => [r.propertyId, r.total]));
+  };
+
   /** Rows plus owner, responsible landlords and the derived type. */
   const present = async (tx: Tx, rows: PropertyRow[]) => {
     const ids = rows.map((r) => r.id);
-    const [people, owners, uses, values] = await Promise.all([responsibleFor(tx, ids), ownerSummary(tx, [...new Set(rows.map((r) => r.ownerId))]), usesFor(tx, ids), valuesFor(tx, rows)]);
+    const [people, owners, uses, values, invested] = await Promise.all([responsibleFor(tx, ids), ownerSummary(tx, [...new Set(rows.map((r) => r.ownerId))]), usesFor(tx, ids), valuesFor(tx, rows), investedFor(tx, ids)]);
     return rows.map((r) => {
       const responsible = people.get(r.id) ?? [];
       const unitUses = uses.get(r.id) ?? [];
       // Leases don't exist yet, so no unit is occupied; the lease tasks derive this with unitOccupancy (§7.4).
-      return { ...r, owner: owners.get(r.ownerId) ?? null, responsible, responsibleUserIds: responsible.map((p) => p.id), propertyType: propertyType(unitUses), unitCount: unitUses.length, occupiedCount: 0, currentValue: values.get(r.id) ?? null };
+      return { ...r, owner: owners.get(r.ownerId) ?? null, responsible, responsibleUserIds: responsible.map((p) => p.id), propertyType: propertyType(unitUses), unitCount: unitUses.length, occupiedCount: 0, currentValue: values.get(r.id) ?? null, totalInvestedCents: invested.get(r.id) ?? 0 };
     });
   };
 

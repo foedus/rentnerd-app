@@ -143,10 +143,12 @@ interface DataTableProps<T> {
   rows: T[];
   rowKey: (row: T) => string;
   emptyMessage?: string;
+  /** Extra rows at the bottom of the table, e.g. a total. */
+  footer?: ReactNode;
 }
 
 /** Named table inside a keyboard-focusable, horizontally scrollable region. */
-export function DataTable<T>({ name, columns, rows, rowKey, emptyMessage }: DataTableProps<T>) {
+export function DataTable<T>({ name, columns, rows, rowKey, emptyMessage, footer }: DataTableProps<T>) {
   return (
     <div role="region" aria-label={`${name} (scrollable)`} tabIndex={0} className="overflow-x-auto">
       <table aria-label={name} className="w-full text-left">
@@ -178,6 +180,7 @@ export function DataTable<T>({ name, columns, rows, rowKey, emptyMessage }: Data
             ))
           )}
         </tbody>
+        {footer && <tfoot>{footer}</tfoot>}
       </table>
     </div>
   );

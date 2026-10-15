@@ -35,7 +35,7 @@ async function makeUser(email: string, role: "admin" | "landlord" | "smoke") {
 const call = (cookie: string, method: string, path: string, body?: unknown) =>
   app.request(path, { method, headers: { cookie, origin: env.APP_URL, "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
 
-type Entry = { id: string; version: number; entryDate: string; propertyId: string; unitId: string | null; category: string; description: string; vendor: string | null; costCents: number };
+type Entry = { propertyName: string; unitLabel: string | null; id: string; version: number; entryDate: string; propertyId: string; unitId: string | null; category: string; description: string; vendor: string | null; costCents: number };
 type List = { data: Entry[]; total: number; totalCents: number; page: number; pageSize: number };
 
 async function fixture() {
@@ -62,6 +62,7 @@ describe("investments API", () => {
     expect(all.totalCents).toBe(185_000);
     expect(all.data.map((e) => e.entryDate)).toEqual(["2026-10-01", "2026-09-01", "2026-08-01"]);
     expect(all.data[0]?.vendor).toBeNull();
+    expect(all.data.map((e) => [e.propertyName, e.unitLabel])).toEqual([["Property A", "1A"], ["Property A", null], ["Property B", null]]);
     const filtered = (await (await call(f.cookie, "GET", `/api/investments?propertyId=${f.a}&category=Appliance`)).json()) as List;
     expect([filtered.total, filtered.totalCents]).toEqual([1, 125_000]);
     const range = (await (await call(f.cookie, "GET", "/api/investments?from=2026-09-01&to=2026-09-30")).json()) as List;
@@ -71,6 +72,20 @@ describe("investments API", () => {
     expect(((await (await call(f.cookie, "GET", "/api/investments?propertyId=&category=&from=&to=")).json()) as List).total).toBe(3);
     const none = (await (await call(f.cookie, "GET", `/api/investments?propertyId=${UUID}`)).json()) as List;
     expect([none.total, none.totalCents]).toEqual([0, 0]);
+  });
+
+  it("reports each property's Total invested on the property", async () => {
+    const f = await fixture();
+    const total = async (id: string) => ((await (await call(f.cookie, "GET", `/api/properties/${id}`)).json()) as { totalInvestedCents: number }).totalInvestedCents;
+    expect(await total(f.a)).toBe(0);
+    const made = (await (await call(f.cookie, "POST", "/api/investments", entry(f.a))).json()) as Entry;
+    await call(f.cookie, "POST", "/api/investments", entry(f.a, { costCents: 90_050 }));
+    await call(f.cookie, "POST", "/api/investments", entry(f.b, { costCents: 700 }));
+    expect([await total(f.a), await total(f.b)]).toEqual([215_050, 700]);
+    await call(f.cookie, "DELETE", `/api/investments/${made.id}`);
+    expect(await total(f.a)).toBe(90_050);
+    const list = (await (await call(f.cookie, "GET", "/api/properties")).json()) as { data: { id: string; totalInvestedCents: number }[] };
+    expect(list.data.find((p) => p.id === f.a)?.totalInvestedCents).toBe(90_050);
   });
 
   it("validates fields and the unit/property relationship", async () => {

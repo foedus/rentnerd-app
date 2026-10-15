@@ -9,6 +9,7 @@ import { Page } from "../components/Page";
 import { DataTable, type Column } from "../components/ui";
 import { UnauthenticatedError } from "../api";
 import { useCanWrite } from "../me";
+import { InvestmentsPanel } from "./Investments";
 import { ComplianceTab } from "./PropertyCompliance";
 import { TaxesTab } from "./PropertyTaxes";
 import { currentValueText, ValuesTab } from "./PropertyValues";
@@ -39,6 +40,7 @@ function Summary({ property }: { property: PropertyRecord }) {
     ["Purchase price", property.purchasePriceCents == null ? "—" : formatCents(property.purchasePriceCents)],
     ["Purchase date", property.purchaseDate ? formatDate(property.purchaseDate) : "—"],
     ["Current value", current ? `${current.amount} (${current.basis})` : "—"],
+    ["Total invested", formatCents(property.totalInvestedCents ?? 0)],
   ];
   return (
     <dl className="mb-6 grid max-w-xl grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-1">
@@ -142,12 +144,10 @@ function PropertyView({ property }: { property: PropertyRecord }) {
         <TabPanel id="Compliance">
           <ComplianceTab property={property} />
         </TabPanel>
-        {TABS.slice(4).map((t) => (
-          <TabPanel key={t} id={t}>
-            <h2 className="mb-2 text-xl font-semibold">{t}</h2>
-            <p>Nothing here yet.</p>
-          </TabPanel>
-        ))}
+        <TabPanel id="Investments">
+          <h2 className="mb-2 text-xl font-semibold">Investments</h2>
+          <InvestmentsPanel propertyId={property.id} canAdd={!property.archivedAt} />
+        </TabPanel>
       </Tabs>
     </Page>
   );

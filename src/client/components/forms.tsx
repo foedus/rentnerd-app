@@ -295,10 +295,12 @@ interface SelectFieldProps {
   label: string;
   options: readonly (string | { value: string; label: string })[];
   required?: boolean;
+  /** Text of the empty first choice. */
+  emptyLabel?: string;
 }
 
 /** Labelled native select with an empty first choice; errors are linked like TextFieldInput. */
-export function SelectInput({ name, label, options, required = false }: SelectFieldProps) {
+export function SelectInput({ name, label, options, required = false, emptyLabel = "Select…" }: SelectFieldProps) {
   const ids = useIds();
   const { register, getFieldState, formState } = useFormContext();
   const error = getFieldState(name, formState).error?.message;
@@ -320,7 +322,7 @@ export function SelectInput({ name, label, options, required = false }: SelectFi
         className="mt-1 block min-h-6 w-full rounded border px-3 py-1"
         {...register(name)}
       >
-        <option value="">Select…</option>
+        <option value="">{emptyLabel}</option>
         {options.map((o) => {
           const { value, label: text } = typeof o === "string" ? { value: o, label: o } : o;
           return (
