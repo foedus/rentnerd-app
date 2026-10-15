@@ -27,7 +27,7 @@ const entries = [
   { id: "e2", version: 2, entryDate: "2026-09-01", propertyId: P1, propertyName: "Court Plaza", unitId: null, unitLabel: null, category: "Renovation", description: "Kitchen", vendor: "Acme", costCents: 2000000 },
 ];
 
-async function mount(role: string, path = "/investments", opts: { saveStatus?: number } = {}) {
+async function mount(role: string, path = "/investments", opts: { saveStatus?: number; gone?: boolean } = {}) {
   const calls: { url: string; method: string; body?: string }[] = [];
   vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
     const method = init?.method ?? "GET";
@@ -35,6 +35,7 @@ async function mount(role: string, path = "/investments", opts: { saveStatus?: n
     if (url === "/api/me") return json({ id: "u", name: "Ann", email: "a@x.com", role, status: "active" });
     if (url.startsWith("/api/investments/") && method === "DELETE") return new Response(null, { status: 204 });
     if (url.startsWith("/api/investments") && method !== "GET") {
+      if (opts.gone) return Response.json({ error: { code: "NOT_FOUND", message: "Entry not found." } }, { status: 404 });
       if (opts.saveStatus) return Response.json({ error: { code: "CONFLICT", message: "This property is archived. Restore it before adding entries." } }, { status: opts.saveStatus });
       return json(entries[0]);
     }
@@ -169,6 +170,16 @@ it("pre-selects the property on the property's tab and warns when From is after 
   await typeInto("From", "2026-10-01");
   await typeInto("To", "2026-09-01");
   expect(document.body.textContent).toContain("From can't be after To.");
+  await act(async () => root.unmount());
+});
+
+it("says so when the entry was deleted elsewhere before saving", async () => {
+  const { root } = await mount("admin", "/investments", { gone: true });
+  await act(async () => (buttonNamed("Edit Kitchen") as HTMLElement).click());
+  await wait();
+  await act(async () => (buttonNamed("Save entry") as HTMLElement).click());
+  await wait();
+  expect(document.querySelector("[role=dialog]")?.textContent).toContain("This entry no longer exists. Reload the page.");
   await act(async () => root.unmount());
 });
 
