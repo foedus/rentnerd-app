@@ -4,6 +4,7 @@ import type { Db } from "../db/client";
 import { owner, property, unit } from "../db/schema";
 import { createUnitSchema, unitListQuerySchema, updateUnitSchema } from "../shared/schemas";
 import { todayNy } from "../shared/dates";
+import { syncPropertyCompliance } from "./compliance-items";
 import { unitLeaseInfo } from "./unit-lease-info";
 import { diffChanges, writeAudit } from "./audit";
 import { apiError } from "./api-guard";
@@ -103,6 +104,7 @@ export function mountUnitRoutes(app: Hono, db: Db) {
           .returning();
         const created = row as UnitRow;
         await writeAudit(tx, { actorUserId: actor(c), action: "create", entityType: "unit", entityId: created.id, summary: `Created unit ${created.label} (${created.use})` });
+        await syncPropertyCompliance(tx, propertyId);
         return (await present(tx, [created]))[0];
       });
       return result instanceof Response ? result : c.json(result, 201);

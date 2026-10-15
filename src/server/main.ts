@@ -8,6 +8,7 @@ import { createApp } from "./app";
 import { createAuth } from "./auth";
 import { seedSmokeUser } from "./seed";
 import { bootstrapAdmin } from "./bootstrap";
+import { seedComplianceCatalog } from "./compliance-items";
 import { PgBoss } from "pg-boss";
 import { EMAIL_QUEUE, enqueueEmail } from "../worker/email";
 import { requireDatabaseUrl } from "../db/client";
@@ -29,6 +30,7 @@ const enqueue = (email: Parameters<typeof enqueueEmail>[2]) => enqueueEmail(pool
 const auth = createAuth(db, process.env, { enqueue, appUrl: process.env.APP_URL ?? "" });
 await seedSmokeUser(auth, db);
 await bootstrapAdmin(db, pool, boss);
+await seedComplianceCatalog(db);
 serve({ fetch: createApp(pool, undefined, auth, config, undefined, db, enqueue).fetch, port }, () =>
   console.log(`${appBanner("web")} listening on ${port}`),
 );

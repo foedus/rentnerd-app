@@ -3,6 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createDb } from "../db/client";
 import { createApp } from "./app";
 import { createAuth } from "./auth";
+import { seedComplianceCatalog } from "./compliance-items";
 
 const url = "postgres://rentnerd:rentnerd@localhost:5432/rentnerd_test";
 const { pool, db } = createDb(url);
@@ -17,7 +18,7 @@ beforeAll(() => {
   execFileSync("node", ["dist/migrate.js"], { env: { ...process.env, DATABASE_URL: url }, stdio: "pipe" });
 });
 beforeEach(async () => {
-  await pool.query('truncate "user", owner, property, unit, audit_log cascade');
+  await pool.query('truncate "user", owner, property, unit, audit_log, compliance_item_type cascade');
 });
 afterAll(() => pool.end());
 
@@ -188,4 +189,30 @@ describe("units API", () => {
     await call(f.cookie, "POST", "/api/properties", { name: "corner store", street: "9 D St", city: "Queens", state: "NY", zip: "11101", ownerId: f.ownerId, singleUnitUse: "Residential" });
     expect((await pool.query("select count(*)::int as n from unit")).rows[0].n).toBe(1);
   });
+
+describe("compliance items follow units (§6.14)", () => {
+  const applicable = async (propertyId: string, name: string) =>
+    (await pool.query(`select i.applicable from property_compliance_item i join compliance_item_type t on t.id = i.type_id where i.property_id = $1 and t.name = $2`, [propertyId, name])).rows[0]?.applicable;
+
+  it("makes items applicable when a unit is added and recomputes when the NYC flag changes", async () => {
+    await seedComplianceCatalog(db);
+    const f = await fixture();
+    expect(await applicable(f.propertyId, "Boiler Inspection")).toBe(false);
+    expect((await addUnit(f, { label: "1R", use: "Residential" })).status).toBe(201);
+    expect(await applicable(f.propertyId, "Boiler Inspection")).toBe(true);
+    expect(await applicable(f.propertyId, "Storefront Registry Filing")).toBe(false);
+    const p = (await (await call(f.cookie, "GET", `/api/properties/${f.propertyId}`)).json()) as { version: number };
+    expect((await call(f.cookie, "PATCH", `/api/properties/${f.propertyId}`, { version: p.version, inNyc: false })).status).toBe(200);
+    expect(await applicable(f.propertyId, "Boiler Inspection")).toBe(false);
+    expect(await applicable(f.propertyId, "Smoke and CO Detector Check")).toBe(true);
+  });
+  it("gives a property created with its single unit applicable items straight away", async () => {
+    await seedComplianceCatalog(db);
+    const { cookie, ownerId } = await fixture();
+    const created = (await (await call(cookie, "POST", "/api/properties", { name: "Shop", street: "9 B St", city: "Brooklyn", state: "NY", zip: "11201", ownerId, singleUnitUse: "Commercial" })).json()) as { id: string };
+    expect(await applicable(created.id, "Storefront Registry Filing")).toBe(true);
+    expect(await applicable(created.id, "HPD Property Registration")).toBe(false);
+  });
+});
+
 });

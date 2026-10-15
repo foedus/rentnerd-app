@@ -467,3 +467,66 @@ export const leaseRevision = pgTable(
   },
   (t) => [unique("lease_revision_lease_version_unique").on(t.leaseId, t.versionNumber)],
 );
+
+export const complianceAppliesTo = pgEnum("compliance_applies_to", ["All properties", "Properties with residential units", "Properties with commercial units"]);
+export const complianceScheduleType = pgEnum("compliance_schedule_type", ["annual_date", "interval", "one_time"]);
+
+// SPEC §6.13: archivable; the unique name applies to every type, archived or not.
+export const complianceItemType = pgTable(
+  "compliance_item_type",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    description: text("description"),
+    appliesTo: complianceAppliesTo("applies_to").notNull(),
+    nycOnly: boolean("nyc_only").notNull().default(false),
+    scheduleType: complianceScheduleType("schedule_type").notNull(),
+    dueMonth: integer("due_month"),
+    dueDay: integer("due_day"),
+    intervalMonths: integer("interval_months"),
+    isSeeded: boolean("is_seeded").notNull().default(false),
+    version: integer("version").notNull().default(1),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdById: uuid("created_by_id").references(() => user.id, { onDelete: "set null" }),
+    updatedById: uuid("updated_by_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("compliance_item_type_name_idx").on(sql`lower(${t.name})`),
+    check("compliance_item_type_schedule_check", sql`(${t.scheduleType} = 'annual_date' and ${t.dueMonth} between 1 and 12 and ${t.dueDay} between 1 and 31 and ${t.intervalMonths} is null)
+      or (${t.scheduleType} = 'interval' and ${t.intervalMonths} between 1 and 120 and ${t.dueMonth} is null and ${t.dueDay} is null)
+      or (${t.scheduleType} = 'one_time' and ${t.dueMonth} is null and ${t.dueDay} is null and ${t.intervalMonths} is null)`),
+  ],
+);
+
+// SPEC §6.14: one row per property × type. Removed with the property (cascade) or, by the app, with a completion-free type.
+export const propertyComplianceItem = pgTable(
+  "property_compliance_item",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    propertyId: uuid("property_id").notNull().references(() => property.id, { onDelete: "cascade" }),
+    typeId: uuid("type_id").notNull().references(() => complianceItemType.id),
+    applicable: boolean("applicable").notNull(),
+    applicableSetByUser: boolean("applicable_set_by_user").notNull().default(false),
+    nextDueDate: date("next_due_date", { mode: "string" }),
+    notes: text("notes"),
+    version: integer("version").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique("property_compliance_item_pair_idx").on(t.propertyId, t.typeId), index("property_compliance_item_type_idx").on(t.typeId)],
+);
+
+export const complianceCompletion = pgTable(
+  "compliance_completion",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    itemId: uuid("item_id").notNull().references(() => propertyComplianceItem.id, { onDelete: "cascade" }),
+    completedOn: date("completed_on", { mode: "string" }).notNull(),
+    notes: text("notes"),
+    completedById: uuid("completed_by_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("compliance_completion_item_idx").on(t.itemId, t.completedOn)],
+);

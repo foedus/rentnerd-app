@@ -5,6 +5,7 @@ import { owner, property, propertyResponsible, propertyValue, unit, user } from 
 import { createPropertyWithUnitSchema, propertyListQuerySchema, propertyType, updatePropertySchema } from "../shared/schemas";
 import { formatCents } from "../shared/format";
 import { currentValue } from "../shared/stats";
+import { syncPropertyCompliance } from "./compliance-items";
 import { diffChanges, writeAudit, type AuditChanges } from "./audit";
 import { apiError } from "./api-guard";
 import { validate, validateBody } from "./validation";
@@ -140,9 +141,11 @@ export function mountPropertyRoutes(app: Hono, db: Db) {
         const created = row as PropertyRow;
         await tx.insert(propertyResponsible).values(responsibleUserIds.map((userId) => ({ propertyId: created.id, userId })));
         await writeAudit(tx, { actorUserId: actor(c), action: "create", entityType: "property", entityId: created.id, summary: `Created property ${created.name}` });
+        await syncPropertyCompliance(tx, created.id);
         if (singleUnitUse) {
           const [u] = await tx.insert(unit).values({ propertyId: created.id, label: ENTIRE_PROPERTY, use: singleUnitUse, createdById: actor(c), updatedById: actor(c) }).returning({ id: unit.id });
           await writeAudit(tx, { actorUserId: actor(c), action: "create", entityType: "unit", entityId: (u as { id: string }).id, summary: `Created unit ${ENTIRE_PROPERTY} (${singleUnitUse}) on ${created.name}` });
+          await syncPropertyCompliance(tx, created.id);
         }
         return (await present(tx, [created]))[0];
       });
@@ -194,6 +197,7 @@ export function mountPropertyRoutes(app: Hono, db: Db) {
         if (current.ownerId !== updated.ownerId) changes.Owner = [before.owner?.name ?? null, after.owner?.name ?? null];
         if (names(before.responsible) !== names(after.responsible)) changes["Responsible landlords"] = [names(before.responsible), names(after.responsible)];
         await writeAudit(tx, { actorUserId: actor(c), action: "update", entityType: "property", entityId: id, summary: `Updated property ${updated.name}`, changes });
+        if (current.inNyc !== updated.inNyc) await syncPropertyCompliance(tx, id);
         return after;
       });
       return result instanceof Response ? result : c.json(result);
