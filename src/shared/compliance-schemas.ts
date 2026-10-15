@@ -11,7 +11,9 @@ const date = (message = "Enter a valid date.") => z.string({ error: message }).r
 const sensibleDate = (message = "Enter a valid date.") => date(message).refine((v) => v >= "2000-01-01" && v <= "2100-12-31", "Enter a date between 2000 and 2100.");
 const optionalText = (max: number) =>
   z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? null : v), z.string().trim().max(max, `Use ${max} characters or fewer.`).nullable());
-const intField = (message: string) => z.preprocess((v) => (v === "" ? null : v), z.number({ error: message }).int(message).nullable());
+/** Blank gives null; whole numbers written as text (from a select) are accepted. */
+const intField = (message: string) =>
+  z.preprocess((v) => (v === "" ? null : typeof v === "string" && /^\d{1,6}$/.test(v.trim()) ? Number(v) : v), z.number({ error: message }).int(message).nullable());
 
 /** §6.13 fields before the cross-field schedule rules. */
 const typeFields = z.object({

@@ -55,3 +55,14 @@ export const SEEDED_COMPLIANCE_TYPES: readonly SeededComplianceType[] = [
   { name: "Boiler Inspection", appliesTo: "All properties", nycOnly: true, scheduleType: "interval", intervalMonths: 12 },
   { name: "Gas Piping Inspection (Local Law 152)", appliesTo: "All properties", nycOnly: true, scheduleType: "interval", intervalMonths: 48 },
 ];
+
+export const COMPLIANCE_SCHEDULE_LABELS: Record<ComplianceScheduleType, string> = { annual_date: "Same date every year", interval: "Every N months after completion", one_time: "One time" };
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"] as const;
+export { MONTH_NAMES };
+
+/** How the Item types table words a schedule, e.g. "Every year on September 1" or "Every 12 months". */
+export function describeSchedule(t: { scheduleType: ComplianceScheduleType; dueMonth: number | null; dueDay: number | null; intervalMonths: number | null }): string {
+  if (t.scheduleType === "annual_date") return t.dueMonth && t.dueDay ? `Every year on ${MONTH_NAMES[t.dueMonth - 1]} ${t.dueDay}` : "Every year";
+  if (t.scheduleType === "interval") return t.intervalMonths === 1 ? "Every month" : `Every ${t.intervalMonths} months`;
+  return "One time";
+}

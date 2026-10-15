@@ -63,3 +63,10 @@ describe("item schemas", () => {
     expect(updateComplianceItemSchema.safeParse({ nextDueDate: "0001-01-01", version: 1 }).success).toBe(false);
   });
 });
+
+describe("numbers written as text", () => {
+  it("accepts a month and day chosen from a select", () => {
+    const r = createComplianceTypeSchema.safeParse({ name: "X", appliesTo: "All properties", nycOnly: false, scheduleType: "annual_date", dueMonth: "9", dueDay: 1 });
+    expect(r.success).toBe(true);
+  });
+});

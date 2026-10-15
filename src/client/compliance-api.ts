@@ -1,6 +1,6 @@
 import { FieldErrorsError, TOO_MANY, TooManyRequestsError, UnauthenticatedError } from "./api";
 import type { ComplianceStatus } from "../shared/compliance";
-import type { ComplianceScheduleType } from "../shared/compliance-rules";
+import type { ComplianceAppliesTo, ComplianceScheduleType } from "../shared/compliance-rules";
 
 const GENERIC = "Something went wrong. Please try again.";
 
@@ -115,3 +115,51 @@ export async function fetchPropertyNames(): Promise<{ id: string; name: string }
     if (body.data.length === 0 || names.length >= (body.total ?? 0)) return names;
   }
 }
+
+export interface ComplianceTypeRecord {
+  id: string;
+  name: string;
+  description: string | null;
+  appliesTo: ComplianceAppliesTo;
+  nycOnly: boolean;
+  scheduleType: ComplianceScheduleType;
+  dueMonth: number | null;
+  dueDay: number | null;
+  intervalMonths: number | null;
+  version: number;
+  archivedAt: string | null;
+  hasCompletions: boolean;
+}
+
+/** The type was refused with a message to show as it is (duplicate name, has completions, already archived …). */
+export class TypeRefusedError extends Error {}
+
+/** Every item type, archived ones included (the Item types tab shows both). */
+export async function fetchComplianceTypes(): Promise<ComplianceTypeRecord[]> {
+  const res = await fetch("/api/compliance/types?archived=true&pageSize=200", { headers: { accept: "application/json" } });
+  if (!res.ok) refuse(res);
+  const body = (await res.json()) as { data?: ComplianceTypeRecord[] };
+  if (!Array.isArray(body.data)) throw new Error(GENERIC);
+  return body.data;
+}
+
+async function sendType(url: string, method: string, body?: unknown): Promise<void> {
+  const res = await fetch(url, { method, headers: body === undefined ? undefined : { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+  if (res.ok) return;
+  if (res.status === 404) throw new MissingItemError("not found");
+  if (res.status === 422 || res.status === 409) {
+    const parsed = (await res.json().catch(() => null)) as { error?: { message?: string; fields?: Record<string, string> } } | null;
+    const fields = parsed?.error?.fields;
+    if (fields && Object.keys(fields).length > 0) throw new FieldErrorsError(fields);
+    if (res.status === 409 && parsed?.error?.message?.includes("changed by someone else")) throw new StaleItemError("conflict");
+    if (parsed?.error?.message) throw new TypeRefusedError(parsed.error.message);
+  }
+  refuse(res);
+}
+
+export type ComplianceTypeInput = Omit<ComplianceTypeRecord, "id" | "version" | "archivedAt" | "hasCompletions">;
+
+export const createComplianceType = (body: unknown) => sendType("/api/compliance/types", "POST", body);
+export const updateComplianceType = (id: string, version: number, body: unknown) => sendType(`/api/compliance/types/${encodeURIComponent(id)}`, "PATCH", { ...(body as object), version });
+export const setComplianceTypeArchived = (id: string, version: number, archive: boolean) => sendType(`/api/compliance/types/${encodeURIComponent(id)}/${archive ? "archive" : "restore"}`, "POST", { version });
+export const deleteComplianceType = (id: string) => sendType(`/api/compliance/types/${encodeURIComponent(id)}`, "DELETE");

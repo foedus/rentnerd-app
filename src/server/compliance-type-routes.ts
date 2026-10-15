@@ -2,6 +2,7 @@ import { asc, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Context, Hono } from "hono";
 import type { Db } from "../db/client";
 import { complianceCompletion, complianceItemType, property, propertyComplianceItem } from "../db/schema";
+import { COMPLIANCE_SCHEDULE_LABELS } from "../shared/compliance-rules";
 import { complianceTypeListQuerySchema, createComplianceTypeSchema, normalizeSchedule, scheduleProblems, updateComplianceTypeSchema } from "../shared/compliance-schemas";
 import { diffChanges, writeAudit } from "./audit";
 import { apiError } from "./api-guard";
@@ -19,7 +20,7 @@ const notFound = (c: Context) => apiError(c, "NOT_FOUND", "Item type not found."
 const stale = (c: Context) => apiError(c, "CONFLICT", "This item type was changed by someone else. Reload and try again.");
 const duplicateName = (c: Context) => apiError(c, "CONFLICT", DUPLICATE_NAME, { name: DUPLICATE_NAME });
 
-const SCHEDULE_LABELS = { annual_date: "Same date every year", interval: "Every N months after completion", one_time: "One time" } as const;
+const SCHEDULE_LABELS = COMPLIANCE_SCHEDULE_LABELS;
 const FIELD_LABELS = { name: "Name", description: "Description", appliesTo: "Applies to", nycOnly: "New York City properties only", dueMonth: "Month", dueDay: "Day", intervalMonths: "Repeat every (months)" };
 const changesOf = (before: TypeRow, after: TypeRow) => ({
   ...diffChanges(before, after, FIELD_LABELS, (v) => (typeof v === "boolean" ? (v ? "Yes" : "No") : String(v))),

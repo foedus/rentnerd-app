@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SEEDED_COMPLIANCE_TYPES, initialDueDate, isTypeApplicable, nextAnnualOccurrence } from "./compliance-rules";
+import { SEEDED_COMPLIANCE_TYPES, describeSchedule, initialDueDate, isTypeApplicable, nextAnnualOccurrence } from "./compliance-rules";
 
 const res = { appliesTo: "Properties with residential units", nycOnly: true } as const;
 
@@ -39,5 +39,14 @@ describe("seeded catalog (§9.1)", () => {
   it("has the nine types with unique names", () => {
     expect(SEEDED_COMPLIANCE_TYPES).toHaveLength(9);
     expect(new Set(SEEDED_COMPLIANCE_TYPES.map((t) => t.name)).size).toBe(9);
+  });
+});
+
+describe("describeSchedule", () => {
+  it("words each schedule type", () => {
+    expect(describeSchedule({ scheduleType: "annual_date", dueMonth: 9, dueDay: 1, intervalMonths: null })).toBe("Every year on September 1");
+    expect(describeSchedule({ scheduleType: "interval", dueMonth: null, dueDay: null, intervalMonths: 12 })).toBe("Every 12 months");
+    expect(describeSchedule({ scheduleType: "interval", dueMonth: null, dueDay: null, intervalMonths: 1 })).toBe("Every month");
+    expect(describeSchedule({ scheduleType: "one_time", dueMonth: null, dueDay: null, intervalMonths: null })).toBe("One time");
   });
 });

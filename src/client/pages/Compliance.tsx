@@ -10,6 +10,7 @@ import { fetchDueList, fetchPropertyNames, type DueItemRecord } from "../complia
 import { useCanWrite } from "../me";
 import { fetchPeople } from "../properties-api";
 import { linkClass } from "./Owners";
+import { ItemTypes } from "./ItemTypes";
 import { DialogShell, MarkDoneForm, reloadedItem, SetDueForm, type Draft } from "./PropertyCompliance";
 
 const tabClass = "min-h-6 cursor-pointer border-b-2 border-transparent px-4 py-1 aria-selected:border-slate-900 aria-selected:font-semibold";
@@ -172,7 +173,7 @@ function DueList() {
   );
 }
 
-/** Compliance (§11.18). The Item types tab arrives with its own task. */
+/** Compliance (§11.18). */
 export function Compliance() {
   return (
     <Page title="Compliance">
@@ -181,9 +182,15 @@ export function Compliance() {
           <Tab id="due" className={tabClass}>
             Due list
           </Tab>
+          <Tab id="types" className={tabClass}>
+            Item types
+          </Tab>
         </TabList>
         <TabPanel id="due">
           <DueList />
+        </TabPanel>
+        <TabPanel id="types">
+          <ItemTypes />
         </TabPanel>
       </Tabs>
     </Page>
