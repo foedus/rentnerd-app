@@ -10,7 +10,7 @@ import { fetchDueList, fetchPropertyNames, type DueItemRecord } from "../complia
 import { useCanWrite } from "../me";
 import { fetchPeople } from "../properties-api";
 import { linkClass } from "./Owners";
-import { DialogShell, MarkDoneForm, SetDueForm } from "./PropertyCompliance";
+import { DialogShell, MarkDoneForm, reloadedItem, SetDueForm, type Draft } from "./PropertyCompliance";
 
 const tabClass = "min-h-6 cursor-pointer border-b-2 border-transparent px-4 py-1 aria-selected:border-slate-900 aria-selected:font-semibold";
 const smallButton = "min-h-6 rounded border px-3 py-1";
@@ -19,7 +19,7 @@ const DEFAULT_STATUSES: readonly string[] = STATUS_CHOICES.slice(0, 3);
 const DUE_KEY = ["compliance-due"] as const;
 const selectClass = "mt-1 block min-h-6 max-w-full rounded border px-3 py-1";
 
-type Action = { kind: "done" | "due"; item: DueItemRecord };
+type Action = { kind: "done" | "due"; item: DueItemRecord; draft?: Draft };
 
 function DueList() {
   const canWrite = useCanWrite();
@@ -41,6 +41,11 @@ function DueList() {
   useEffect(() => {
     if (signedOut) void queryClient.invalidateQueries({ queryKey: ["me"] });
   }, [signedOut, queryClient]);
+  /** After a version conflict: reopen the dialog on the latest version of the item, keeping what was typed. */
+  async function restart(current: Action, draft: Draft) {
+    const fresh = await reloadedItem<DueItemRecord>(queryClient, DUE_KEY, current.item.id);
+    setAction(fresh ? { kind: current.kind, item: fresh, draft } : null);
+  }
   const tableArea = useRef<HTMLDivElement>(null);
   const close = () => {
     setAction(null);
@@ -155,12 +160,12 @@ function DueList() {
       )}
       {action?.kind === "done" && (
         <DialogShell title={`Mark done – ${action.item.type.name} – ${action.item.propertyName}`} onClose={close}>
-          <MarkDoneForm key={action.item.id} refresh={DUE_KEY} item={action.item} onDone={close} />
+          <MarkDoneForm key={`${action.item.id}-${action.item.version}`} refresh={DUE_KEY} item={action.item} draft={action.draft} onDone={close} onStale={(draft) => void restart(action, draft)} />
         </DialogShell>
       )}
       {action?.kind === "due" && (
         <DialogShell title={`Set due date – ${action.item.type.name} – ${action.item.propertyName}`} onClose={close}>
-          <SetDueForm key={action.item.id} refresh={DUE_KEY} item={action.item} onDone={close} />
+          <SetDueForm key={`${action.item.id}-${action.item.version}`} refresh={DUE_KEY} item={action.item} draft={action.draft} onDone={close} onStale={(draft) => void restart(action, draft)} />
         </DialogShell>
       )}
     </>

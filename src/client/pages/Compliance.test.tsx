@@ -11,6 +11,7 @@ import { Compliance } from "./Compliance";
 afterEach(() => {
   vi.unstubAllGlobals();
   queryClient.clear();
+  document.body.innerHTML = "";
 });
 
 const type = { id: "t1", name: "Bed Bug Annual Filing", scheduleType: "annual_date", dueMonth: 12, dueDay: 31, intervalMonths: null };
@@ -91,4 +92,45 @@ it("loads every page of property names for the Property filter", async () => {
   const el = await render();
   expect(pages.length).toBe(2);
   expect(Array.from(el.querySelectorAll("#due-property option")).map((o) => o.textContent)).toEqual(["All properties", "A", "B"]);
+});
+
+it("keeps what was typed and uses the latest version after a version conflict", async () => {
+  const patches: { version?: number; nextDueDate?: string }[] = [];
+  let version = 1;
+  vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+    if (init?.method === "PATCH") {
+      patches.push(JSON.parse(String(init.body)));
+      if (patches.length === 1) {
+        version = 2; // someone else saved in the meantime
+        return new Response(JSON.stringify({ error: { code: "CONFLICT" } }), { status: 409 });
+      }
+      return new Response("{}", { status: 200 });
+    }
+    const body = url.startsWith("/api/compliance/items") ? { data: [{ ...item, version }], page: 1, pageSize: 50, total: 1 }
+      : url.startsWith("/api/properties") ? { data: [{ id: "p1", name: "Court Plaza" }] }
+      : url.startsWith("/api/me") ? { role: "admin" }
+      : [];
+    return new Response(JSON.stringify(body), { status: 200 });
+  });
+  queryClient.setQueryData(["me"], { role: "admin" });
+  // An older cached filter result still holds version 1 of the item.
+  queryClient.setQueryData(["compliance-due", "old", "", ["Overdue"], 1], { data: [item], page: 1, pageSize: 50, total: 1 });
+  const el = await render();
+  const press = async (label: string) => {
+    await act(async () => Array.from(document.querySelectorAll("button")).find((b) => b.textContent === label)?.click());
+    await wait();
+  };
+  await act(async () => Array.from(el.querySelectorAll("button")).find((b) => b.textContent === "Set due date")?.click());
+  await wait();
+  const input = document.querySelector("dialog input, [role=dialog] input[type=date]") as HTMLInputElement;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(input, "2027-03-01");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await press("Save");
+  await press("Reload");
+  expect((document.querySelector("[role=dialog] input[type=date]") as HTMLInputElement).value).toBe("2027-03-01");
+  await press("Save");
+  expect(patches.map((p) => p.version)).toEqual([1, 2]);
+  expect(patches[1]?.nextDueDate).toBe("2027-03-01");
 });

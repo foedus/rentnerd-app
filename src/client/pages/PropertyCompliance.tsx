@@ -23,11 +23,24 @@ import {
 import { useCanWrite } from "../me";
 import type { PropertyRecord } from "../properties-api";
 
-type Action = { kind: "done" | "due" | "history"; item: ComplianceItemRecord };
+type Action = { kind: "done" | "due" | "history"; item: ComplianceItemRecord; draft?: Draft };
 
 const smallButton = "min-h-6 rounded border px-3 py-1";
 const queryKey = (propertyId: string) => ["property-compliance", propertyId];
 type Refresh = readonly unknown[];
+export type Draft = Record<string, unknown>;
+
+/** Re-reads the lists under `refresh` and returns the current version of an item, so a stale form can be kept open with what was typed. */
+export async function reloadedItem<T extends { id: string; version: number }>(queryClient: ReturnType<typeof useQueryClient>, refresh: Refresh, id: string): Promise<T | undefined> {
+  await queryClient.invalidateQueries({ queryKey: refresh });
+  // Older cached pages or filters may still hold a stale copy; the newest version is the current one.
+  let latest: T | undefined;
+  for (const [, cached] of queryClient.getQueriesData<T[] | { data?: T[] }>({ queryKey: refresh })) {
+    const found = (Array.isArray(cached) ? cached : cached?.data)?.find((r) => r.id === id);
+    if (found && (!latest || found.version > latest.version)) latest = found;
+  }
+  return latest;
+}
 
 export function DialogShell({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return (
@@ -45,14 +58,14 @@ export function DialogShell({ title, onClose, children }: { title: string; onClo
 }
 
 /** Keeps Next due date at the §9.3 suggestion while Completed on changes, until the person types their own date. */
-function SuggestNextDue({ item }: { item: ComplianceItemRecord }) {
+function SuggestNextDue({ item, kept }: { item: ComplianceItemRecord; kept: boolean }) {
   const { watch, setValue, formState } = useFormContext();
   const completedOn = String(watch("completedOn") ?? "");
   const edited = Boolean(formState.dirtyFields.nextDueDate);
   useEffect(() => {
-    if (edited || !isValidYmd(completedOn)) return;
+    if (edited || kept || !isValidYmd(completedOn)) return;
     setValue("nextDueDate", suggestNextDueDate({ ...item.type, nextDueDate: item.nextDueDate }, completedOn) ?? "");
-  }, [completedOn, edited, item, setValue]);
+  }, [completedOn, edited, kept, item, setValue]);
   return null;
 }
 
@@ -69,10 +82,10 @@ function failure(err: unknown, refresh: Refresh, queryClient: ReturnType<typeof 
   throw err;
 }
 
-export function MarkDoneForm({ refresh, item, onDone }: { refresh: Refresh; item: ComplianceItemRecord; onDone: () => void }) {
+export function MarkDoneForm({ refresh, item, draft, onDone, onStale }: { refresh: Refresh; item: ComplianceItemRecord; draft?: Draft; onDone: () => void; onStale: (draft: Draft) => void }) {
   const queryClient = useQueryClient();
   const today = todayNy();
-  const form = useAppForm(createComplianceCompletionSchema, { completedOn: today, notes: "", nextDueDate: suggestNextDueDate({ ...item.type, nextDueDate: item.nextDueDate }, today) ?? "" } as never);
+  const form = useAppForm(createComplianceCompletionSchema, { completedOn: today, notes: "", nextDueDate: suggestNextDueDate({ ...item.type, nextDueDate: item.nextDueDate }, today) ?? "", ...draft } as never);
   return (
     <AppForm
       form={form}
@@ -84,7 +97,7 @@ export function MarkDoneForm({ refresh, item, onDone }: { refresh: Refresh; item
           Cancel
         </Button>
       }
-      onReload={() => void queryClient.invalidateQueries({ queryKey: refresh }).then(onDone)}
+      onReload={() => onStale(form.getValues() as Draft)}
       save={async (values) => {
         const v = values as { completedOn: string; notes?: string | null; nextDueDate?: string | null };
         try {
@@ -96,7 +109,7 @@ export function MarkDoneForm({ refresh, item, onDone }: { refresh: Refresh; item
         onDone();
       }}
     >
-      <SuggestNextDue item={item} />
+      <SuggestNextDue item={item} kept={draft !== undefined} />
       <TextFieldInput name="completedOn" label="Completed on" type="date" required />
       <TextFieldInput name="notes" label="Notes" />
       <TextFieldInput name="nextDueDate" label="Next due date" type="date" />
@@ -106,9 +119,9 @@ export function MarkDoneForm({ refresh, item, onDone }: { refresh: Refresh; item
 
 const dueSchema = updateComplianceItemSchema.pick({ nextDueDate: true });
 
-export function SetDueForm({ refresh, item, onDone }: { refresh: Refresh; item: ComplianceItemRecord; onDone: () => void }) {
+export function SetDueForm({ refresh, item, draft, onDone, onStale }: { refresh: Refresh; item: ComplianceItemRecord; draft?: Draft; onDone: () => void; onStale: (draft: Draft) => void }) {
   const queryClient = useQueryClient();
-  const form = useAppForm(dueSchema, { nextDueDate: item.nextDueDate ?? "" } as never);
+  const form = useAppForm(dueSchema, { nextDueDate: item.nextDueDate ?? "", ...draft } as never);
   return (
     <AppForm
       form={form}
@@ -120,7 +133,7 @@ export function SetDueForm({ refresh, item, onDone }: { refresh: Refresh; item: 
           Cancel
         </Button>
       }
-      onReload={() => void queryClient.invalidateQueries({ queryKey: refresh }).then(onDone)}
+      onReload={() => onStale(form.getValues() as Draft)}
       save={async (values) => {
         try {
           await updateComplianceItem(item.id, item.version, { nextDueDate: (values as { nextDueDate?: string | null }).nextDueDate ?? null });
@@ -218,6 +231,11 @@ export function ComplianceTab({ property }: { property: PropertyRecord }) {
   }, [signedOut, queryClient]);
   const writable = canWrite && !property.archivedAt;
   const close = () => setAction(null);
+  /** After a version conflict: reopen the dialog on the latest version of the item, keeping what was typed. */
+  async function restart(current: Action, draft: Draft) {
+    const fresh = await reloadedItem<ComplianceItemRecord>(queryClient, queryKey(property.id), current.item.id);
+    setAction(fresh ? { kind: current.kind, item: fresh, draft } : null);
+  }
 
   async function toggle(item: ComplianceItemRecord, applicable: boolean) {
     setError(null);
@@ -283,12 +301,12 @@ export function ComplianceTab({ property }: { property: PropertyRecord }) {
       {items.data && <DataTable name="Compliance" columns={columns} rows={items.data} rowKey={(i) => i.id} emptyMessage="No compliance items yet." />}
       {action?.kind === "done" && (
         <DialogShell title={`Mark done – ${action.item.type.name}`} onClose={close}>
-          <MarkDoneForm key={action.item.id} refresh={queryKey(property.id)} item={action.item} onDone={close} />
+          <MarkDoneForm key={`${action.item.id}-${action.item.version}`} refresh={queryKey(property.id)} item={action.item} draft={action.draft} onDone={close} onStale={(draft) => void restart(action, draft)} />
         </DialogShell>
       )}
       {action?.kind === "due" && (
         <DialogShell title={`Set due date – ${action.item.type.name}`} onClose={close}>
-          <SetDueForm key={action.item.id} refresh={queryKey(property.id)} item={action.item} onDone={close} />
+          <SetDueForm key={`${action.item.id}-${action.item.version}`} refresh={queryKey(property.id)} item={action.item} draft={action.draft} onDone={close} onStale={(draft) => void restart(action, draft)} />
         </DialogShell>
       )}
       {action?.kind === "history" && (
