@@ -187,7 +187,7 @@ export function ItemTypes() {
           Add item type
         </Button>
       )}
-      <p ref={alertBox} tabIndex={-1} role="alert" className={message ? "mb-4 rounded border border-red-700 p-3 text-red-700 outline-2 outline-offset-2 focus:outline focus:outline-slate-900" : "sr-only"}>
+      <p ref={alertBox} tabIndex={-1} role="alert" className={message ? "mb-4 rounded border border-red-700 p-3 text-red-700 outline-offset-2 focus:outline-2 focus:outline-slate-900" : "sr-only"}>
         {message}
       </p>
       {types.isError && (
