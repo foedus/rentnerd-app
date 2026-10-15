@@ -32,8 +32,20 @@ type Dialog = { kind: "form"; type?: ComplianceTypeRecord; draft?: Record<string
 
 /** The schedule fields that belong to the chosen Schedule. */
 function ScheduleFields() {
-  const { watch } = useFormContext();
+  const { watch, setValue, clearErrors } = useFormContext();
   const schedule = watch("scheduleType");
+  // Values typed under another schedule are not part of this one; drop them so they can't block saving.
+  useEffect(() => {
+    if (schedule !== "annual_date") {
+      setValue("dueMonth", "");
+      setValue("dueDay", null);
+      clearErrors(["dueMonth", "dueDay"]);
+    }
+    if (schedule !== "interval") {
+      setValue("intervalMonths", null);
+      clearErrors("intervalMonths");
+    }
+  }, [schedule, setValue, clearErrors]);
   return (
     <>
       {schedule === "annual_date" && (
@@ -109,9 +121,9 @@ export function ItemTypes() {
   const [message, setMessage] = useState("");
   const tableArea = useRef<HTMLDivElement>(null);
   const alertBox = useRef<HTMLParagraphElement>(null);
-  // A refusal can come from a row far down a long list; bring it into view.
+  // A refusal can come from a row far down a long list; move focus to it (which also scrolls it into view).
   useEffect(() => {
-    if (message) alertBox.current?.scrollIntoView?.({ block: "nearest" });
+    if (message) alertBox.current?.focus();
   }, [message]);
   const types = useQuery({ queryKey: TYPES_KEY, queryFn: fetchComplianceTypes });
 
@@ -175,7 +187,7 @@ export function ItemTypes() {
           Add item type
         </Button>
       )}
-      <p ref={alertBox} role="alert" className={message ? "mb-4 rounded border border-red-700 p-3 text-red-700" : "sr-only"}>
+      <p ref={alertBox} tabIndex={-1} role="alert" className={message ? "mb-4 rounded border border-red-700 p-3 text-red-700 outline-offset-2" : "sr-only"}>
         {message}
       </p>
       {types.isError && (

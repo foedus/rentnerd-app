@@ -166,3 +166,23 @@ it("opens on the Item types tab from ?tab=types and writes the tab to the addres
   await wait();
   expect(el.querySelector("[role=tab][aria-selected=true]")?.textContent).toBe("Due list");
 });
+
+it("ignores month and day typed under another schedule", async () => {
+  const { writes } = await render();
+  await act(async () => buttonNamed("Add item type")?.click());
+  await wait();
+  const field = (id: string) => document.querySelector(`#item-type-field-${id}`) as HTMLInputElement & HTMLSelectElement;
+  await setValue(field("name"), "Gutters");
+  await setValue(field("appliesTo"), "All properties");
+  await setValue(field("scheduleType"), "annual_date");
+  await wait();
+  await setValue(field("dueMonth"), "5");
+  await setValue(field("dueDay"), "abc");
+  await setValue(field("scheduleType"), "interval");
+  await wait();
+  await setValue(field("intervalMonths"), "12");
+  await act(async () => buttonNamed("Save item type")?.click());
+  await wait();
+  expect(writes).toHaveLength(1);
+  expect(writes[0]?.body).toMatchObject({ scheduleType: "interval", intervalMonths: 12, dueMonth: null, dueDay: null });
+});
