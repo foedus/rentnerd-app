@@ -653,3 +653,9 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 - AC-CMP-02, 03, 05, 06, 11 and 12 pass. verify.sh passes. The reviewer approved. QA found and I fixed everything it reported: the lowercase `?tab=compliance` link opened the Units tab; focus was lost after deleting a completion; odd dates were accepted (dates must now be between 2000 and 2100, and the next due date can't be before the completion date — a rule the spec doesn't state, added by judgement); and every row's switch and buttons had the same spoken name (now e.g. "Mark done – Bed Bug Annual Filing").
 - Not yet (later tasks): the Compliance page's Due list and the Dashboard compliance tables (AC-CMP-04, 07, 10 need them).
 - Nothing for the owner to do.
+
+### 2026-10-15 — T069: Compliance Due list
+- The **Compliance** page (`/compliance`) now has a **Due list** tab with the filters **Property**, **Status** (Overdue, Due soon, Upcoming ticked by default; Not scheduled, Not applicable, Completed can be added) and **Responsible landlord**. Columns: Property (linked), Item, Due date, Status, Last completed, Responsible landlords, and **Mark done** / **Set due date** buttons (hidden for the Smoke user) that open the same dialogs as the property's Compliance tab. Unticking every status shows "Choose at least one status."
+- Not yet (later tasks): the **Item types** tab, and the Dashboard compliance tables.
+- AC-CMP-10 passes. verify.sh passes. The reviewer approved. QA found and I fixed: a long property name made the page scroll sideways on a phone; keyboard focus was lost when a saved item left the list; the dialogs didn't name the property; the "choose a status" message wasn't announced. Left as is: the Property filter lists at most 200 properties; a completion date far in the future is accepted (the spec sets no limit).
+- Nothing for the owner to do.

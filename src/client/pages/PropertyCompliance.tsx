@@ -27,8 +27,9 @@ type Action = { kind: "done" | "due" | "history"; item: ComplianceItemRecord };
 
 const smallButton = "min-h-6 rounded border px-3 py-1";
 const queryKey = (propertyId: string) => ["property-compliance", propertyId];
+type Refresh = readonly unknown[];
 
-function DialogShell({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function DialogShell({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return (
     <ModalOverlay isOpen onOpenChange={(open) => !open && onClose()} className="fixed inset-0 z-50 grid place-items-center bg-black/40">
       <Modal className="max-h-[90vh] w-full max-w-lg overflow-auto rounded bg-white p-6 shadow-lg">
@@ -55,10 +56,10 @@ function SuggestNextDue({ item }: { item: ComplianceItemRecord }) {
   return null;
 }
 
-function failure(err: unknown, propertyId: string, queryClient: ReturnType<typeof useQueryClient>): never {
+function failure(err: unknown, refresh: Refresh, queryClient: ReturnType<typeof useQueryClient>): never {
   if (err instanceof StaleItemError) throw new VersionConflictError();
   if (err instanceof MissingItemError) {
-    void queryClient.invalidateQueries({ queryKey: queryKey(propertyId) });
+    void queryClient.invalidateQueries({ queryKey: refresh });
     throw new FormMessageError("This item no longer exists. Cancel to see the latest list.");
   }
   if (err instanceof UnauthenticatedError) {
@@ -68,7 +69,7 @@ function failure(err: unknown, propertyId: string, queryClient: ReturnType<typeo
   throw err;
 }
 
-function MarkDoneForm({ propertyId, item, onDone }: { propertyId: string; item: ComplianceItemRecord; onDone: () => void }) {
+export function MarkDoneForm({ refresh, item, onDone }: { refresh: Refresh; item: ComplianceItemRecord; onDone: () => void }) {
   const queryClient = useQueryClient();
   const today = todayNy();
   const form = useAppForm(createComplianceCompletionSchema, { completedOn: today, notes: "", nextDueDate: suggestNextDueDate({ ...item.type, nextDueDate: item.nextDueDate }, today) ?? "" } as never);
@@ -83,15 +84,15 @@ function MarkDoneForm({ propertyId, item, onDone }: { propertyId: string; item: 
           Cancel
         </Button>
       }
-      onReload={() => void queryClient.invalidateQueries({ queryKey: queryKey(propertyId) }).then(onDone)}
+      onReload={() => void queryClient.invalidateQueries({ queryKey: refresh }).then(onDone)}
       save={async (values) => {
         const v = values as { completedOn: string; notes?: string | null; nextDueDate?: string | null };
         try {
           await markComplianceDone(item.id, { completedOn: v.completedOn, notes: v.notes ?? null, nextDueDate: v.nextDueDate ?? null, version: item.version });
         } catch (err) {
-          failure(err, propertyId, queryClient);
+          failure(err, refresh, queryClient);
         }
-        await queryClient.invalidateQueries({ queryKey: queryKey(propertyId) });
+        await queryClient.invalidateQueries({ queryKey: refresh });
         onDone();
       }}
     >
@@ -105,7 +106,7 @@ function MarkDoneForm({ propertyId, item, onDone }: { propertyId: string; item: 
 
 const dueSchema = updateComplianceItemSchema.pick({ nextDueDate: true });
 
-function SetDueForm({ propertyId, item, onDone }: { propertyId: string; item: ComplianceItemRecord; onDone: () => void }) {
+export function SetDueForm({ refresh, item, onDone }: { refresh: Refresh; item: ComplianceItemRecord; onDone: () => void }) {
   const queryClient = useQueryClient();
   const form = useAppForm(dueSchema, { nextDueDate: item.nextDueDate ?? "" } as never);
   return (
@@ -119,14 +120,14 @@ function SetDueForm({ propertyId, item, onDone }: { propertyId: string; item: Co
           Cancel
         </Button>
       }
-      onReload={() => void queryClient.invalidateQueries({ queryKey: queryKey(propertyId) }).then(onDone)}
+      onReload={() => void queryClient.invalidateQueries({ queryKey: refresh }).then(onDone)}
       save={async (values) => {
         try {
           await updateComplianceItem(item.id, item.version, { nextDueDate: (values as { nextDueDate?: string | null }).nextDueDate ?? null });
         } catch (err) {
-          failure(err, propertyId, queryClient);
+          failure(err, refresh, queryClient);
         }
-        await queryClient.invalidateQueries({ queryKey: queryKey(propertyId) });
+        await queryClient.invalidateQueries({ queryKey: refresh });
         onDone();
       }}
     >
@@ -282,12 +283,12 @@ export function ComplianceTab({ property }: { property: PropertyRecord }) {
       {items.data && <DataTable name="Compliance" columns={columns} rows={items.data} rowKey={(i) => i.id} emptyMessage="No compliance items yet." />}
       {action?.kind === "done" && (
         <DialogShell title={`Mark done – ${action.item.type.name}`} onClose={close}>
-          <MarkDoneForm key={action.item.id} propertyId={property.id} item={action.item} onDone={close} />
+          <MarkDoneForm key={action.item.id} refresh={queryKey(property.id)} item={action.item} onDone={close} />
         </DialogShell>
       )}
       {action?.kind === "due" && (
         <DialogShell title={`Set due date – ${action.item.type.name}`} onClose={close}>
-          <SetDueForm key={action.item.id} propertyId={property.id} item={action.item} onDone={close} />
+          <SetDueForm key={action.item.id} refresh={queryKey(property.id)} item={action.item} onDone={close} />
         </DialogShell>
       )}
       {action?.kind === "history" && (

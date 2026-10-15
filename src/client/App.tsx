@@ -7,6 +7,7 @@ import { Layout } from "./components/Layout";
 import { NoAccess, NotFound } from "./components/Notices";
 import { Page } from "./components/Page";
 import { Dashboard } from "./pages/Dashboard";
+import { Compliance } from "./pages/Compliance";
 import { Account } from "./pages/Account";
 import { AcceptInvite } from "./pages/AcceptInvite";
 import { ForgotPassword } from "./pages/ForgotPassword";
@@ -48,6 +49,7 @@ function pageElement(path: string, title: string, me: Me) {
   if (path === "/tenants") return <Tenants />;
   if (path === "/tenants/new" || path === "/tenants/:id/edit") return <TenantForm />;
   if (path === "/tenants/:id") return <TenantDetail />;
+  if (path === "/compliance") return <Compliance />;
   if (path === "/account") return <Account me={me} />;
   return <Page title={title} />;
 }

@@ -78,3 +78,35 @@ export async function deleteCompletion(id: string): Promise<void> {
   const res = await fetch(`/api/compliance/completions/${encodeURIComponent(id)}`, { method: "DELETE" });
   if (!res.ok && res.status !== 404) refuse(res);
 }
+
+export interface DueItemRecord extends ComplianceItemRecord {
+  propertyName: string;
+  responsible: { id: string; name: string; email: string }[];
+}
+
+export interface DueListPage {
+  data: DueItemRecord[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+/** The Due list (§11.18): items of live properties, filtered by property, status and responsible landlord. */
+export async function fetchDueList(params: { propertyId: string; responsibleUserId: string; statuses: readonly string[]; page: number }): Promise<DueListPage> {
+  const qs = new URLSearchParams({ page: String(params.page) });
+  if (params.propertyId) qs.set("propertyId", params.propertyId);
+  if (params.responsibleUserId) qs.set("responsibleUserId", params.responsibleUserId);
+  if (params.statuses.length > 0) qs.set("status", params.statuses.join(","));
+  const res = await fetch(`/api/compliance/items?${qs}`, { headers: { accept: "application/json" } });
+  if (!res.ok) refuse(res);
+  const body = (await res.json()) as Partial<DueListPage>;
+  if (!Array.isArray(body.data)) throw new Error(GENERIC);
+  return body as DueListPage;
+}
+
+/** Names of the properties for the Property filter. */
+export async function fetchPropertyNames(): Promise<{ id: string; name: string }[]> {
+  const res = await fetch("/api/properties?pageSize=200", { headers: { accept: "application/json" } });
+  if (!res.ok) refuse(res);
+  return ((await res.json()) as { data: { id: string; name: string }[] }).data.map(({ id, name }) => ({ id, name }));
+}
