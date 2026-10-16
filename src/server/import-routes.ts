@@ -1,5 +1,10 @@
 import ExcelJS from "exceljs";
-import type { Hono } from "hono";
+import type { Context, Hono } from "hono";
+import type { Db } from "../db/client";
+import { importRun } from "../db/schema";
+import { apiError } from "./api-guard";
+import { checkImportFile, IMPORT_MAX_BYTES, NOT_XLSX, rejectUpload, TOO_BIG } from "./import-file";
+import { RateLimiter } from "./rate-limit";
 import { IMPORT_COLUMNS, IMPORT_INSTRUCTIONS, IMPORT_SHEETS, IMPORT_TEMPLATE_FILENAME } from "../shared/import-template";
 
 const XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -29,8 +34,11 @@ export async function buildImportTemplate(): Promise<Buffer> {
   return Buffer.from(await wb.xlsx.writeBuffer());
 }
 
-/** Import (§14.2). The upload, check and commit routes come in later tasks. */
-export function mountImportRoutes(app: Hono) {
+/** Import (§14.2): the template, and the upload check. Commit comes in a later task. */
+export function mountImportRoutes(app: Hono, db: Db) {
+  const perUser = new RateLimiter(10, 60 * 60_000);
+  const rejected = (c: Context, message: string) => apiError(c, "VALIDATION_ERROR", message, { file: message });
+
   app.get("/api/import/template", async (c) =>
     c.body(new Uint8Array(await buildImportTemplate()), 200, {
       "content-type": XLSX_TYPE,
@@ -38,4 +46,25 @@ export function mountImportRoutes(app: Hono) {
       "cache-control": "no-store",
     }),
   );
+
+  app.post("/api/import/validate", async (c) => {
+    const user = c.get("user");
+    if (!perUser.take(user.id)) return apiError(c, "RATE_LIMITED", "Too many attempts. Try again in a few minutes.");
+    // Refuse oversized bodies before reading them; the multipart envelope adds a little to the file itself.
+    if (Number(c.req.header("content-length") ?? 0) > IMPORT_MAX_BYTES + 64 * 1024) return rejected(c, TOO_BIG);
+    const form = await c.req.parseBody().catch(() => null);
+    const file = form?.file;
+    if (!(file instanceof File)) return rejected(c, NOT_XLSX);
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const refusal = rejectUpload(file.name, bytes);
+    if (refusal) return rejected(c, refusal);
+    const checked = await checkImportFile(bytes);
+    if ("rejected" in checked) return rejected(c, checked.rejected);
+    const valid = checked.errors.length === 0;
+    const [run] = await db
+      .insert(importRun)
+      .values({ uploadedById: user.id, fileName: file.name.slice(0, 255), file: valid ? bytes : null, status: valid ? "validated" : "failed", counts: checked.counts, errors: checked.errors })
+      .returning({ id: importRun.id });
+    return c.json({ importRunId: run?.id, errors: checked.errors, counts: checked.counts });
+  });
 }

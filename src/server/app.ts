@@ -76,7 +76,7 @@ export function createApp(
     mountPropertyValueRoutes(app, db);
     mountInvestmentRoutes(app, db);
     mountTemplateRoutes(app, db);
-    mountImportRoutes(app);
+    mountImportRoutes(app, db);
     mountPropertyTaxRoutes(app, db);
     if (enqueueEmail) mountUserRoutes(app, db, enqueueEmail, appUrl ?? "");
   }

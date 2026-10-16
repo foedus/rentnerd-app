@@ -725,3 +725,12 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 - AC-IMP-01 passes. verify.sh passes (102 acceptance tests). The reviewer approved. QA found no defects. The spreadsheet library (exceljs) was added to the project.
 - Left as is: the read-only Smoke user can also download the template (it changes no data); say if you want it hidden for them.
 - Nothing for the owner to do.
+
+### 2026-10-16 — T094: Import file check (part 1)
+- On the **Import** page you can now choose a spreadsheet (**Spreadsheet file**) and click **Check file**. A good file shows "Ready to import: 1 owners, 1 properties, 2 units, 2 tenants, 1 leases." (with your own numbers) and a **Cancel** button; a file with problems shows "We found N problems. Fix them in the spreadsheet and check the file again." and a table of Sheet, Row, Column and Problem.
+- The file is checked before anything is read from it: it must be an .xlsx ("Choose an .xlsx file."), 5 MB or smaller ("The file must be 5 MB or smaller."), under 50 MB once unpacked and at most 5,000 rows per sheet ("This file is too large to import."). Each person can check 10 files an hour. A template with no rows at all says "The file has no rows to import." (added by judgement). Every check is saved as an import record (the file itself is kept only when it is valid).
+- Every cell is read the way the spec says (real Excel dates or YYYY-MM-DD text, money as numbers or "2,150.00", percentages as plain numbers, Yes/No, and the names shown in the dropdowns) and each row is checked with the same rules and messages as the normal forms. Missing sheets or columns are reported too.
+- AC-IMP-02 and AC-IMP-06 pass. verify.sh passes. The reviewer approved. QA found and I fixed: keyboard focus was lost after **Check file** and **Cancel**; an empty template looked "ready".
+- Not yet (T095/T096): links between sheets (unknown keys, duplicates), checks against existing data (e.g. a property name that already exists), the lease rules that depend on the unit (e.g. "Children reside in unit" for residential), responsible-landlord emails, and the **Import** button itself. Until then "Ready to import" only means every row is well formed, and there is no Import button yet.
+- Left as is: the 50 MB unpacked-size check trusts the sizes the file declares about itself; the 10-an-hour limit counts rejected files too and resets if the server restarts.
+- Nothing for the owner to do.

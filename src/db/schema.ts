@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigint, boolean, check, date, index, integer, jsonb, numeric, pgEnum, primaryKey, unique, uniqueIndex, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, check, customType, date, index, integer, jsonb, numeric, pgEnum, primaryKey, unique, uniqueIndex, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const userRole = pgEnum("user_role", ["admin", "landlord", "smoke"]);
 export const emailStatus = pgEnum("email_status", ["queued", "sent", "failed"]);
@@ -571,3 +571,18 @@ export const template = pgTable(
   },
   (t) => [uniqueIndex("template_active_name_idx").on(sql`lower(${t.name})`).where(sql`${t.archivedAt} is null`)],
 );
+
+const bytea = customType<{ data: Buffer }>({ dataType: () => "bytea" });
+
+// SPEC §6.17, D-22: an uploaded import file and its check result. The file is cleared at commit or after 24 hours.
+export const importRunStatus = pgEnum("import_run_status", ["validated", "committed", "failed", "expired"]);
+export const importRun = pgTable("import_run", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  uploadedById: uuid("uploaded_by_id").references(() => user.id, { onDelete: "set null" }),
+  fileName: text("file_name").notNull(),
+  file: bytea("file"),
+  status: importRunStatus("status").notNull(),
+  counts: jsonb("counts").$type<Record<string, number>>().notNull(),
+  errors: jsonb("errors").$type<{ sheet: string; row: number | null; column: string | null; problem: string }[]>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
