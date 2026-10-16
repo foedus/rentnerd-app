@@ -11,6 +11,7 @@ import { mountTenantRoutes } from "./tenant-routes";
 import { mountPropertyRoutes } from "./property-routes";
 import { mountPropertyTaxRoutes } from "./property-tax-routes";
 import { mountInvestmentRoutes } from "./investment-routes";
+import { mountTemplateRoutes } from "./template-routes";
 import { mountPropertyValueRoutes } from "./property-value-routes";
 import { mountUnitRoutes } from "./unit-routes";
 import { mountLeaseReadRoutes } from "./lease-read-routes";
@@ -73,6 +74,7 @@ export function createApp(
     mountComplianceItemRoutes(app, db);
     mountPropertyValueRoutes(app, db);
     mountInvestmentRoutes(app, db);
+    mountTemplateRoutes(app, db);
     mountPropertyTaxRoutes(app, db);
     if (enqueueEmail) mountUserRoutes(app, db, enqueueEmail, appUrl ?? "");
   }

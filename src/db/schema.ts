@@ -552,3 +552,22 @@ export const complianceCompletion = pgTable(
   },
   (t) => [index("compliance_completion_item_idx").on(t.itemId, t.completedOn)],
 );
+
+// SPEC §6.11: lease and extension templates stored as TipTap JSON. Names are unique among non-archived templates.
+export const templateKind = pgEnum("template_kind", ["master_lease", "extension"]);
+export const template = pgTable(
+  "template",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    kind: templateKind("kind").notNull(),
+    content: jsonb("content").$type<Record<string, unknown>>().notNull(),
+    version: integer("version").notNull().default(1),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdById: uuid("created_by_id").references(() => user.id, { onDelete: "set null" }),
+    updatedById: uuid("updated_by_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("template_active_name_idx").on(sql`lower(${t.name})`).where(sql`${t.archivedAt} is null`)],
+);
