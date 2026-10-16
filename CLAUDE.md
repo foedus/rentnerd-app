@@ -71,6 +71,10 @@ for rentnerd-app only. Don't try other fly commands, other apps, or reading secr
 6. **Commit and push directly to main.** No branches, no pull requests, no force pushes.
 7. **If genuinely blocked**: set the task's status to "blocked" in docs/tasks.json, add the reason
    and what the owner must do to PROGRESS.md under "Blocked", commit, push and stop.
+   If the only unfinished part of a task cannot be built until a later task exists, move that part into
+   the later task's title in docs/tasks.json (and move any criteria IDs that depend on it), record the move
+   in PROGRESS.md, and mark the task done. Use this only when the later work literally cannot be built yet;
+   never to skip something hard.
 8. Never commit secrets. `.env` holds production values for scripts only; don't print it.
 9. Never run destructive commands against production (no deletes, no database writes).
 
