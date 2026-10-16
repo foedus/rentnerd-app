@@ -1,4 +1,5 @@
 import type { Context, MiddlewareHandler } from "hono";
+import { realNow } from "../shared/clock";
 import { apiError } from "./api-guard";
 
 /** In-memory sliding-window counter. One web machine runs the app (§15), so memory is enough. */
@@ -9,8 +10,11 @@ export class RateLimiter {
     private readonly windowMs: number,
   ) {}
 
-  /** Records an attempt for `key`; false once the limit within the window is used up. */
-  take(key: string, now = Date.now()): boolean {
+  /**
+   * Records an attempt for `key`; false once the limit within the window is used up.
+   * Windows run on real time: a test-clock jump (D-25) must not age attempts out early or pin them in the future.
+   */
+  take(key: string, now = realNow()): boolean {
     const recent = (this.hits.get(key) ?? []).filter((t) => t > now - this.windowMs);
     if (recent.length >= this.limit) {
       this.hits.set(key, recent);

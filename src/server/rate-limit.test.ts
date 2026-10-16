@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Hono } from "hono";
+import { installClock, setClockOffset } from "../shared/clock";
 import { RateLimiter, clientIp, rateLimit, signInRateLimit } from "./rate-limit";
 
 describe("RateLimiter", () => {
@@ -9,6 +10,19 @@ describe("RateLimiter", () => {
     expect(l.take("a", 3)).toBe(false);
     expect(l.take("b", 3)).toBe(true);
     expect(l.take("a", 1001)).toBe(true);
+  });
+
+  it("counts attempts in real time when the app clock jumps", () => {
+    installClock();
+    const l = new RateLimiter(3, 15 * 60_000);
+    try {
+      setClockOffset(-365 * 24 * 3600_000);
+      expect([l.take("a"), l.take("a"), l.take("a")]).toEqual([true, true, true]);
+      setClockOffset(365 * 24 * 3600_000);
+      expect(l.take("a")).toBe(false);
+    } finally {
+      setClockOffset(0);
+    }
   });
 });
 
