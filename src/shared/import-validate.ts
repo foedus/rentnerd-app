@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import { type Cell, IMPORT_FIELDS, parseCell } from "./import-parse";
 import { IMPORT_SHEETS, type ImportSheet } from "./import-template";
+import { checkImportLinks, type ImportExisting, type ReadRow } from "./import-links";
 import { createOwnerSchema, createPropertySchema, createTenantSchema, createUnitSchema, leaseFieldsSchema } from "./schemas";
 
 export interface ImportProblem {
@@ -24,7 +25,12 @@ const REQUIRED_KEYS: Record<ImportSheet, readonly string[]> = {
 };
 
 /** Checks one row's cells against the field formats and the shared §6 schema; returns the problems found (§11.22). */
-export function checkImportRow(sheet: ImportSheet, { row, cells }: SheetRow): ImportProblem[] {
+export function checkImportRow(sheet: ImportSheet, r: SheetRow): ImportProblem[] {
+  return readImportRow(sheet, r).problems;
+}
+
+/** Like checkImportRow, and also the schema's parsed values when the row is free of cell and field problems. */
+export function readImportRow(sheet: ImportSheet, { row, cells }: SheetRow): { problems: ImportProblem[]; data: Record<string, unknown> | null } {
   const fields = IMPORT_FIELDS[sheet];
   const problems: ImportProblem[] = [];
   const add = (column: string | null, problem: string) => problems.push({ sheet, row, column, problem });
@@ -54,26 +60,40 @@ export function checkImportRow(sheet: ImportSheet, { row, cells }: SheetRow): Im
       add(headerOf.get(field) ?? null, issue.message);
     }
   }
-  return problems;
+  return { problems, data: result.success && problems.length === 0 ? (result.data as Record<string, unknown>) : null };
 }
 
 /** Row cap per sheet (§11.22); the data starts below the heading row. */
 export const tooManyRows = (rowCount: number) => rowCount - 1 > IMPORT_MAX_ROWS;
 
 /** Everything the "Ready to import" summary and the problems table need from the parsed sheets. */
-export function checkImportSheets(sheets: Partial<Record<ImportSheet, { missing?: string[]; rows: SheetRow[] }>>): { errors: ImportProblem[]; counts: Record<string, number> } {
+export function checkImportSheets(
+  sheets: Partial<Record<ImportSheet, { missing?: string[]; rows: SheetRow[] }>>,
+  existing: ImportExisting = { propertyNames: new Set(), landlordEmails: new Set() },
+): { errors: ImportProblem[]; counts: Record<string, number> } {
   const errors: ImportProblem[] = [];
   const counts: Record<string, number> = {};
+  const read: Partial<Record<ImportSheet, ReadRow[]>> = {};
+  let complete = true;
   for (const sheet of IMPORT_SHEETS) {
     const data = sheets[sheet];
     if (!data) {
+      complete = false;
       errors.push({ sheet, row: null, column: null, problem: `The workbook has no sheet named ${sheet}. Use the template.` });
       continue;
     }
     for (const column of data.missing ?? []) errors.push({ sheet, row: 1, column, problem: `The column ${column} is missing. Use the template.` });
-    if (data.missing?.length) continue;
+    if (data.missing?.length) {
+      complete = false;
+      continue;
+    }
     counts[sheet] = data.rows.length;
-    for (const r of data.rows) errors.push(...checkImportRow(sheet, r));
+    read[sheet] = data.rows.map((r) => {
+      const { problems, data: values } = readImportRow(sheet, r);
+      errors.push(...problems);
+      return { ...r, data: values };
+    });
   }
+  if (complete) errors.push(...checkImportLinks(read as Record<ImportSheet, ReadRow[]>, existing));
   return { errors, counts };
 }

@@ -98,6 +98,20 @@ describe("POST /api/import/validate", () => {
     expect(run).toEqual({ status: "failed", file: null });
   });
 
+  it("checks property names and landlord emails against what exists, and never counts the Smoke user", async () => {
+    const cookie = await signedIn("admin@example.com", "admin");
+    await signedIn("smoke@example.com", "smoke");
+    await pool.query(`insert into owner (name, owner_type, address_line1, city, state, zip) values ('Old LLC','LLC','1 A St','NYC','NY','10001')`);
+    await pool.query(`insert into property (name, street, city, state, zip, owner_id) select 'Elm House','1 Elm','NYC','NY','10001', id from owner`);
+    const owner = { "Owner key": "O1", "Owner name": "Acme", "Owner type": "LLC", "Mailing address line 1": "5 Way", City: "Brooklyn", State: "NY", "ZIP code": "11201" };
+    const prop = { "Property key": "P1", "Owner key": "O1", "Property name": "elm house", "Street address": "1 Elm St", City: "Brooklyn", State: "NY", "ZIP code": "11201", "Located in New York City": "Yes", "Responsible landlord emails": "admin@example.com;smoke@example.com" };
+    const body = await (await upload(cookie, await withRows(cookie, { Owners: owner, Properties: prop }))).json();
+    expect(body.errors).toEqual([
+      { sheet: "Properties", row: 2, column: "Property name", problem: "A property with this name already exists." },
+      { sheet: "Properties", row: 2, column: "Responsible landlord emails", problem: "Choose only active Admin or Landlord users." },
+    ]);
+  });
+
   it("turns away a file that is not .xlsx and one over 5 MB", async () => {
     const cookie = await signedIn("admin@example.com", "admin");
     const text = await upload(cookie, Buffer.from("hello"), "notes.txt");

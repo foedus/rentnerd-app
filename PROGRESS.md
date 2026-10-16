@@ -734,3 +734,11 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 - Not yet (T095/T096): links between sheets (unknown keys, duplicates), checks against existing data (e.g. a property name that already exists), the lease rules that depend on the unit (e.g. "Children reside in unit" for residential), responsible-landlord emails, and the **Import** button itself. Until then "Ready to import" only means every row is well formed, and there is no Import button yet.
 - Left as is: the 50 MB unpacked-size check trusts the sizes the file declares about itself; the 10-an-hour limit counts rejected files too and resets if the server restarts.
 - Nothing for the owner to do.
+
+### 2026-10-16 — T095: Import file check (part 2)
+- **Check file** now also checks how the sheets fit together. A Properties row with an unknown Owner key, a Units row with an unknown Property key or Owner override key, and a Leases row with an unknown Unit key or Tenant key each get a problem naming the sheet, row and column, e.g. "No property with key 'X' in the Properties sheet." A key used twice in one sheet, the same tenant listed twice on one lease, a repeated unit label within one property, and a property name that already exists (or appears twice in the file) are also listed ("A property with this name already exists.").
+- Responsible landlord emails must belong to active Admin or Landlord users ("Choose only active Admin or Landlord users."); the Smoke user doesn't count.
+- Lease rules now depend on the unit's use, with the same messages as the lease form: a residential lease needs "Children reside in unit", a commercial one can't have it, tax terms are commercial only, a move-out date needs a reason, the end date must be after the start, and two leases on one unit can't overlap ("This unit already has a lease for those dates."). A commercial lease with a Base tax year is refused because the import can't create tax years.
+- AC-IMP-04, 05, 07 and 08 pass. verify.sh passes. The reviewer approved. No screens changed, so no QA pass.
+- Not yet (T096): the **Import** button itself and re-checking at import time. These cross-sheet checks are skipped while a sheet or column is missing, so the template problems show first.
+- Nothing for the owner to do.

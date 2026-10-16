@@ -1,9 +1,11 @@
 import ExcelJS from "exceljs";
 import type { Context, Hono } from "hono";
 import type { Db } from "../db/client";
-import { importRun } from "../db/schema";
+import { and, eq, inArray, isNull } from "drizzle-orm";
+import { importRun, property, user } from "../db/schema";
 import { apiError } from "./api-guard";
 import { checkImportFile, IMPORT_MAX_BYTES, NOT_XLSX, rejectUpload, TOO_BIG } from "./import-file";
+import type { ImportExisting } from "../shared/import-links";
 import { RateLimiter } from "./rate-limit";
 import { IMPORT_COLUMNS, IMPORT_INSTRUCTIONS, IMPORT_SHEETS, IMPORT_TEMPLATE_FILENAME } from "../shared/import-template";
 
@@ -34,6 +36,15 @@ export async function buildImportTemplate(): Promise<Buffer> {
   return Buffer.from(await wb.xlsx.writeBuffer());
 }
 
+/** What the file is checked against: non-archived property names and active Admin/Landlord emails (§6.4, §11.22). */
+async function loadExisting(db: Db): Promise<ImportExisting> {
+  const [props, people] = await Promise.all([
+    db.select({ name: property.name }).from(property).where(isNull(property.archivedAt)),
+    db.select({ email: user.email }).from(user).where(and(inArray(user.role, ["admin", "landlord"]), eq(user.status, "active"))),
+  ]);
+  return { propertyNames: new Set(props.map((p) => p.name.toLowerCase())), landlordEmails: new Set(people.map((p) => p.email.toLowerCase())) };
+}
+
 /** Import (§14.2): the template, and the upload check. Commit comes in a later task. */
 export function mountImportRoutes(app: Hono, db: Db) {
   const perUser = new RateLimiter(10, 60 * 60_000);
@@ -58,7 +69,7 @@ export function mountImportRoutes(app: Hono, db: Db) {
     const bytes = Buffer.from(await file.arrayBuffer());
     const refusal = rejectUpload(file.name, bytes);
     if (refusal) return rejected(c, refusal);
-    const checked = await checkImportFile(bytes);
+    const checked = await checkImportFile(bytes, await loadExisting(db));
     if ("rejected" in checked) return rejected(c, checked.rejected);
     const valid = checked.errors.length === 0;
     const [run] = await db

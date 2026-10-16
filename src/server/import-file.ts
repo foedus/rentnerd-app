@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import { type Cell } from "../shared/import-parse";
+import { type ImportExisting } from "../shared/import-links";
 import { checkImportSheets, type ImportProblem, type SheetRow, tooManyRows } from "../shared/import-validate";
 import { IMPORT_COLUMNS, IMPORT_SHEETS, type ImportSheet } from "../shared/import-template";
 
@@ -51,7 +52,7 @@ export function plainCell(v: ExcelJS.CellValue): Cell {
 export type FileCheck = { errors: ImportProblem[]; counts: Record<string, number> } | { rejected: string };
 
 /** Reads the workbook and checks every row. Heading row is row 1 (the template); data rows start at 2. */
-export async function checkImportFile(buf: Buffer): Promise<FileCheck> {
+export async function checkImportFile(buf: Buffer, existing?: ImportExisting): Promise<FileCheck> {
   const wb = new ExcelJS.Workbook();
   try {
     await wb.xlsx.load(buf as unknown as ArrayBuffer);
@@ -74,7 +75,7 @@ export async function checkImportFile(buf: Buffer): Promise<FileCheck> {
     }
     sheets[name] = { missing, rows };
   }
-  const checked = checkImportSheets(sheets);
+  const checked = checkImportSheets(sheets, existing);
   const empty = checked.errors.length === 0 && Object.values(checked.counts).every((n) => n === 0);
   return empty ? { rejected: NOTHING_TO_IMPORT } : checked;
 }
