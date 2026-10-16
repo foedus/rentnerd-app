@@ -314,6 +314,8 @@ export function NewLease() {
   const [canReplace, setCanReplace] = useState(false);
   const [replacing, setReplacing] = useState(false);
   const [replaceReason, setReplaceReason] = useState("Replaced by new lease");
+  // Set once the person confirmed the replacement; Save lease then sends it.
+  const [replaceChoice, setReplaceChoice] = useState<string | null>(null);
   const today = todayNy();
   const use = unit.data?.use === "Commercial" ? "Commercial" : "Residential";
   const taxYears = usePropertyTaxYears(unit.data?.propertyId, use === "Commercial");
@@ -333,6 +335,7 @@ export function NewLease() {
   // An offer to replace the current lease belongs to the dates it was refused for.
   useEffect(() => {
     setCanReplace(false);
+    setReplaceChoice(null);
   }, [rows, primary, term]);
   // Back from a lease this wizard saved lands here again: go to the unit instead of showing an empty form.
   useEffect(() => {
@@ -350,6 +353,10 @@ export function NewLease() {
     }
     document.getElementById("step-heading")?.focus();
   }, [step]);
+  // The Replace button disappears once confirmed, so focus moves on to Save lease.
+  useEffect(() => {
+    if (replaceChoice) document.getElementById("save-lease")?.focus();
+  }, [replaceChoice]);
   useEffect(() => {
     if (saveRefusals > 0) reviewSummary.current?.focus();
   }, [saveRefusals]);
@@ -417,7 +424,7 @@ export function NewLease() {
       {step === 1 && <TenantsStep rows={rows} setRows={setRows} primary={primary} setPrimary={setPrimary} error={error} />}
       {step === 2 && <TermStep draft={term} setDraft={setTerm} issues={termIssues ?? {}} today={today} focusSignal={termRefusals} />}
       {step === 3 && <SpecialStep draft={special} setDraft={setSpecial} issues={specialIssues ?? {}} use={use} propertyId={unit.data.propertyId} focusSignal={specialRefusals} />}
-      {step === 4 && <ReviewStep ref={reviewSummary} rows={rows} primary={primary} term={term} special={special} use={use} today={today} taxLine={taxResult ? formatCents(taxResult.cents) : null} problems={saveProblems} saving={saving} onSave={() => save()} onReplace={canReplace ? () => setReplacing(true) : null} />}
+      {step === 4 && <ReviewStep ref={reviewSummary} rows={rows} primary={primary} term={term} special={special} use={use} today={today} taxLine={taxResult ? formatCents(taxResult.cents) : null} problems={saveProblems} saving={saving} onSave={() => save(replaceChoice ?? undefined)} onReplace={canReplace && !replaceChoice ? () => setReplacing(true) : null} replaceNote={replaceChoice ? `Saving will end the current lease on ${formatDate(addDays(term.startDate, -1))} (${replaceChoice}).` : null} />}
       <div className="mt-6 flex gap-2">
         {step > 1 && (
           <Button onPress={() => setStep(step - 1)} className="min-h-6 rounded border px-4 py-1">
@@ -437,7 +444,8 @@ export function NewLease() {
         confirmLabel="Replace current lease"
         onConfirm={() => {
           setReplacing(false);
-          void save(replaceReason);
+          setReplaceChoice(replaceReason);
+          setSaveProblems([]);
         }}
       >
         <label htmlFor="replace-reason" className="block">

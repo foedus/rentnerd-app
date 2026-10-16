@@ -388,7 +388,7 @@ it("the Review step shows the computed Tax reimbursement for a Commercial unit",
   await act(async () => root.unmount());
 });
 
-it("a clash offers Replace current lease with a reason, and confirming sends it", async () => {
+it("a clash offers Replace current lease with a reason, and Save lease sends it after confirming", async () => {
   const bodies: Record<string, unknown>[] = [];
   const post = (b: Record<string, unknown>) => {
     bodies.push(b);
@@ -405,6 +405,13 @@ it("a clash offers Replace current lease with a reason, and confirming sends it"
   expect(document.body.textContent).toContain("End the current lease on Oct 31, 2026 and start this one?");
   expect((document.getElementById("replace-reason") as HTMLSelectElement).value).toBe("Replaced by new lease");
   await click(Array.from(document.querySelectorAll("[role=dialog] button")).find((b) => b.textContent === "Replace current lease"));
+  await settle();
+  expect(bodies).toHaveLength(1);
+  expect(document.querySelector("[role=status]")?.textContent).toContain("Saving will end the current lease on Oct 31, 2026 (Replaced by new lease).");
+  expect(buttonNamed("Replace current lease")).toBeUndefined();
+  expect(document.querySelector("[role=alert]")).toBeNull();
+  expect(document.activeElement).toBe(buttonNamed("Save lease"));
+  await click(buttonNamed("Save lease"));
   await settle();
   expect(bodies[1]).toMatchObject({ replaceCurrentLease: { endReason: "Replaced by new lease" } });
   expect(document.querySelector("h1")?.textContent).toBe("Lease page");

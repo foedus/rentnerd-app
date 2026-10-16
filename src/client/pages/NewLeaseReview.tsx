@@ -15,9 +15,9 @@ export const ReviewStep = forwardRef<
   HTMLDivElement,
   {
     rows: readonly WizardTenantRow[]; primary: string | null; term: TermStepDraft; special: SpecialStepDraft; use: string; today: string;
-    taxLine: string | null; onReplace: (() => void) | null; problems: string[]; saving: boolean; onSave: () => void;
+    taxLine: string | null; onReplace: (() => void) | null; replaceNote: string | null; problems: string[]; saving: boolean; onSave: () => void;
   }
->(function ReviewStep({ rows, primary, term, special, use, today, taxLine, onReplace, problems, saving, onSave }, summary) {
+>(function ReviewStep({ rows, primary, term, special, use, today, taxLine, onReplace, replaceNote, problems, saving, onSave }, summary) {
   const items: [string, string][] = [
     ["Tenants", rows.map((r) => (r.key === primary ? `${r.name} (Primary contact)` : r.name)).join(", ")],
     ["Lease start date", formatDate(term.startDate)],
@@ -68,8 +68,9 @@ export const ReviewStep = forwardRef<
           <option value="">None</option>
         </select>
       </div>
+      {replaceNote && <p role="status">{replaceNote}</p>}
       <div className="flex gap-2">
-        <Button onPress={onSave} isDisabled={saving} className="min-h-6 rounded bg-slate-900 px-4 py-1 text-white">
+        <Button id="save-lease" onPress={onSave} isDisabled={saving} className="min-h-6 rounded bg-slate-900 px-4 py-1 text-white">
           Save lease
         </Button>
         {onReplace && (

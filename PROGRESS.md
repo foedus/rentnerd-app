@@ -773,3 +773,10 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 - AC-LEASE-12 and AC-LEASE-23 pass. verify.sh passes (112 acceptance tests). The reviewer approved. QA found and I fixed: a blank month-to-month rent was silently replaced by the last rent (now an error); a date in year 0000 sent through the API gave a server error (now "Enter a valid date."); after closing a dialog, keyboard focus went to the first button instead of the one that opened it.
 - Left as is: after ending a lease with a move-out date before its start, the lease page doesn't show the move-out date or reason (the spec doesn't list them there); deleting a lease that was already deleted in another tab just goes to the unit page; Firefox and WebKit weren't checked by hand.
 - Nothing for the owner to do.
+
+### 2026-10-16 — T057: Replace current lease in the wizard
+- When a new lease clashes with the unit's current lease and starts after it, the New lease wizard shows the overlap message and a **Replace current lease** button (not when the clash is with an upcoming lease, several leases, or the new start is not later). The button asks "End the current lease on {day before new start} and start this one?" with a **Reason** (default "Replaced by new lease"). Confirming doesn't save yet: the Review step shows "Saving will end the current lease on … (reason)." and **Save lease** then saves the new lease and ends the old one in one step. Changing the tenants or dates clears the choice.
+- Older leases entered without a move-out date and the overlap error with no Replace option already worked from earlier tasks (the older-lease acceptance test AC-LEASE-20 is for T078).
+- AC-LEASE-09 and AC-LEASE-19 pass. verify.sh passes (114 acceptance tests). The reviewer approved. QA found and I fixed: the old overlap error stayed on screen after confirming; keyboard focus was lost after confirming (now goes to Save lease).
+- Left as is: if a replace save is refused again as an overlap, the Replace button stays hidden until the dates change. Firefox and WebKit weren't checked by hand.
+- Nothing for the owner to do.
