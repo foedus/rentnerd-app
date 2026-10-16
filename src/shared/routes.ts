@@ -34,6 +34,8 @@ export const pages: readonly PageDef[] = [
   { path: "/compliance", title: "Compliance", access: "any", nav: true },
   { path: "/investments", title: "Investments", access: "any", nav: true },
   { path: "/templates", title: "Templates", access: "any", nav: true },
+  { path: "/templates/new", title: "New template", access: "write" },
+  { path: "/templates/:id", title: "Template details", access: "any" },
   { path: "/import", title: "Import", access: "any", nav: true },
   { path: "/users", title: "Users", access: "admin", nav: true },
   { path: "/activity", title: "Activity log", access: "admin", nav: true },

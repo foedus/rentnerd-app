@@ -9,6 +9,8 @@ import { Page } from "./components/Page";
 import { Dashboard } from "./pages/Dashboard";
 import { Compliance } from "./pages/Compliance";
 import { Investments } from "./pages/Investments";
+import { Templates } from "./pages/Templates";
+import { TemplateEditorPage } from "./pages/TemplateEditorPage";
 import { Account } from "./pages/Account";
 import { AcceptInvite } from "./pages/AcceptInvite";
 import { ForgotPassword } from "./pages/ForgotPassword";
@@ -52,6 +54,8 @@ function pageElement(path: string, title: string, me: Me) {
   if (path === "/tenants/:id") return <TenantDetail />;
   if (path === "/compliance") return <Compliance />;
   if (path === "/investments") return <Investments />;
+  if (path === "/templates") return <Templates />;
+  if (path === "/templates/new" || path === "/templates/:id") return <TemplateEditorPage />;
   if (path === "/account") return <Account me={me} />;
   return <Page title={title} />;
 }
