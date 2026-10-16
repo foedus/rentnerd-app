@@ -45,3 +45,8 @@ it("knows the unit pages and who may open them", () => {
   expect(matchPage("/units/abc/edit")).toMatchObject({ title: "Edit unit", access: "write" });
   expect(matchPage("/units/abc")).toMatchObject({ title: "Unit details", access: "any" });
 });
+
+it("has the template help page for everyone signed in", () => {
+  expect(matchPage("/help/templates")?.title).toBe("Converting a Word lease");
+  expect(canAccess(matchPage("/help/templates")!.access, "smoke")).toBe(true);
+});

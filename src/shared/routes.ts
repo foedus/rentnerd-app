@@ -36,6 +36,7 @@ export const pages: readonly PageDef[] = [
   { path: "/templates", title: "Templates", access: "any", nav: true },
   { path: "/templates/new", title: "New template", access: "write" },
   { path: "/templates/:id", title: "Template details", access: "any" },
+  { path: "/help/templates", title: "Converting a Word lease", access: "any" },
   { path: "/import", title: "Import", access: "any", nav: true },
   { path: "/users", title: "Users", access: "admin", nav: true },
   { path: "/activity", title: "Activity log", access: "admin", nav: true },

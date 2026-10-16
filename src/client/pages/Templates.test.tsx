@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, expect, it, vi } from "vitest";
 import { queryClient } from "../App";
 import { TemplateEditorPage } from "./TemplateEditorPage";
+import { HelpTemplates } from "./HelpTemplates";
 import { Templates } from "./Templates";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -44,6 +45,7 @@ async function mount(path: string, role: string, handler: Handler = () => undefi
             <Route path="/templates" element={<Templates />} />
             <Route path="/templates/new" element={<TemplateEditorPage />} />
             <Route path="/templates/:id" element={<TemplateEditorPage />} />
+            <Route path="/help/templates" element={<HelpTemplates />} />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>,
@@ -314,4 +316,26 @@ it("ties the unrecognised-placeholder warning to the editor and waits for a type
   await waitFor(() => document.querySelector("[role=toolbar]"));
   expect(document.body.textContent).not.toContain("Unrecognised placeholders");
   await act(async () => fresh.root.unmount());
+});
+
+const helpLink = () => Array.from(document.querySelectorAll("a")).find((a) => a.textContent?.startsWith("How to convert a Word lease"));
+
+it("links 'How to convert a Word lease' to the help page from new, saved and read-only templates", async () => {
+  for (const [path, role] of [["/templates/new", "admin"], [`/templates/${ID}`, "admin"], [`/templates/${ID}`, "smoke"]] as const) {
+    const { root } = await mount(path, role);
+    await waitFor(() => helpLink());
+    expect(helpLink()?.getAttribute("href")).toBe("/help/templates");
+    expect(helpLink()?.getAttribute("target")).toBe("_blank"); // keeps the unsaved draft open
+    await act(async () => root.unmount());
+  }
+});
+
+it("shows Appendix A on the help page with its ten steps and the extension keys", async () => {
+  const { root } = await mount("/help/templates", "landlord");
+  expect(document.querySelector("h1")?.textContent).toBe("Converting a Word lease");
+  expect(document.querySelectorAll("ol > li")).toHaveLength(10);
+  expect(document.body.textContent).toContain("{{extension_start_date}}");
+  expect(document.body.textContent).toContain("{{tenant_signature_blocks}}");
+  expect(document.body.textContent).toContain("You can’t save until every placeholder is recognised.");
+  await act(async () => root.unmount());
 });

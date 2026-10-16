@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useFormContext } from "react-hook-form";
-import { useLocation, useNavigate, useParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { UNEXPECTED_MESSAGE, fieldErrorId, fieldId } from "../../shared/form-messages";
 import { TEMPLATE_KIND_LABELS, TEMPLATE_KINDS, type TemplateKind } from "../../shared/placeholders";
 import { checkTemplateContent } from "../../shared/template-content";
@@ -53,6 +53,16 @@ function ContentField({ template }: { template?: TemplateRecord }) {
         onChange={(doc) => setValue("content", doc, { shouldDirty: true, shouldValidate: failed })}
       />
     </div>
+  );
+}
+
+function HelpLink() {
+  return (
+    <p className="mb-4">
+      <Link to="/help/templates" target="_blank" rel="noopener" className="text-blue-800 underline">
+        How to convert a Word lease<span className="sr-only"> (opens in a new tab)</span>
+      </Link>
+    </p>
   );
 }
 
@@ -156,6 +166,7 @@ export function TemplateEditorPage() {
     return (
       <Page title="New template">
         <div className="max-w-3xl">
+          <HelpLink />
           <TemplateForm onChanged={refresh} />
         </div>
       </Page>
@@ -171,11 +182,17 @@ export function TemplateEditorPage() {
         {template.isError && <p role="alert">{template.error instanceof MissingTemplateError ? "Template not found." : UNEXPECTED_MESSAGE}</p>}
         {template.data && canWrite && (
           <>
+            <HelpLink />
             <TemplateForm template={template.data} onChanged={refresh} />
             <TemplateActions template={template.data} onChanged={refresh} />
           </>
         )}
-        {template.data && !canWrite && <ReadOnlyTemplate template={template.data} />}
+        {template.data && !canWrite && (
+          <>
+            <HelpLink />
+            <ReadOnlyTemplate template={template.data} />
+          </>
+        )}
       </div>
     </Page>
   );

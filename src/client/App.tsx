@@ -9,6 +9,7 @@ import { Page } from "./components/Page";
 import { Dashboard } from "./pages/Dashboard";
 import { Compliance } from "./pages/Compliance";
 import { Investments } from "./pages/Investments";
+import { HelpTemplates } from "./pages/HelpTemplates";
 import { Templates } from "./pages/Templates";
 import { TemplateEditorPage } from "./pages/TemplateEditorPage";
 import { Account } from "./pages/Account";
@@ -56,6 +57,7 @@ function pageElement(path: string, title: string, me: Me) {
   if (path === "/investments") return <Investments />;
   if (path === "/templates") return <Templates />;
   if (path === "/templates/new" || path === "/templates/:id") return <TemplateEditorPage />;
+  if (path === "/help/templates") return <HelpTemplates />;
   if (path === "/account") return <Account me={me} />;
   return <Page title={title} />;
 }
