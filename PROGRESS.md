@@ -718,3 +718,10 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 - verify.sh passes (101 acceptance tests; one earlier run had a one-off sign-in timeout in AC-LEASE-07, which passed on its own and on re-run). The reviewer approved. QA found and I fixed: the link discarded unsaved work (now a new tab); keys broke mid-word on a phone.
 - Left as is: the left menu doesn't highlight "Templates" on the help page.
 - Nothing for the owner to do.
+
+### 2026-10-16 — T093: Import template and Import page
+- The **Import** page (`/import`) now explains how importing works and has a **Download template** button. It downloads `rentnerd-import-template.xlsx` with an **Instructions** sheet (every column, whether it is required, and its format) and the sheets **Owners**, **Properties**, **Units**, **Tenants** and **Leases**. Each sheet has one column per field, headed with the field's name from the spec, plus the link columns (Owner key, Property key, Unit key, Tenant 1–4 key, Owner override key) and **Responsible landlord emails**.
+- Not yet (later tasks): choosing a file, **Check file**, the problems table, **Import** and **Cancel**. The Instructions sheet already describes them.
+- AC-IMP-01 passes. verify.sh passes (102 acceptance tests). The reviewer approved. QA found no defects. The spreadsheet library (exceljs) was added to the project.
+- Left as is: the read-only Smoke user can also download the template (it changes no data); say if you want it hidden for them.
+- Nothing for the owner to do.

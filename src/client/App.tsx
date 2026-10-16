@@ -8,6 +8,7 @@ import { NoAccess, NotFound } from "./components/Notices";
 import { Page } from "./components/Page";
 import { Dashboard } from "./pages/Dashboard";
 import { Compliance } from "./pages/Compliance";
+import { Import } from "./pages/Import";
 import { Investments } from "./pages/Investments";
 import { HelpTemplates } from "./pages/HelpTemplates";
 import { Templates } from "./pages/Templates";
@@ -54,6 +55,7 @@ function pageElement(path: string, title: string, me: Me) {
   if (path === "/tenants/new" || path === "/tenants/:id/edit") return <TenantForm />;
   if (path === "/tenants/:id") return <TenantDetail />;
   if (path === "/compliance") return <Compliance />;
+  if (path === "/import") return <Import />;
   if (path === "/investments") return <Investments />;
   if (path === "/templates") return <Templates />;
   if (path === "/templates/new" || path === "/templates/:id") return <TemplateEditorPage />;
