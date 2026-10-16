@@ -20,6 +20,13 @@ RUN apt-get update \
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=prod-deps /app/node_modules ./node_modules
+# Chromium for PDF rendering in the worker (SPEC 8.2); the headless shell is enough and smaller. Installed
+# with its system libraries as root into a shared path, then made readable for the unprivileged user.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN apt-get update \
+ && node node_modules/playwright-core/cli.js install --with-deps --only-shell chromium \
+ && rm -rf /var/lib/apt/lists/* \
+ && chmod -R a+rX /ms-playwright
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/src/db/migrations ./src/db/migrations
 COPY package.json ./

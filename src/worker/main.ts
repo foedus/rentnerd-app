@@ -5,6 +5,7 @@ import { createDb, requireDatabaseUrl } from "../db/client";
 import { loadClock, startClockSync } from "../db/test-clock";
 import { startWorker } from "./boss";
 import { startEmailConsumer } from "./email";
+import { PdfRenderer } from "./pdf-renderer";
 
 const config = loadConfigOrExit("worker");
 const { pool } = createDb();
@@ -14,6 +15,8 @@ if (config.testRoutesEnabled) {
   await loadClock(pool);
   stopClockSync = startClockSync(pool);
 }
+// Chromium starts on the first PDF job and is then reused (SPEC 15.1).
+const pdfRenderer = new PdfRenderer();
 const worker = await startWorker(requireDatabaseUrl());
 await startEmailConsumer(worker.boss, pool, config.testRoutesEnabled);
 console.log(`${appBanner("worker")} started`);
@@ -24,6 +27,7 @@ async function shutdown() {
   shuttingDown = true;
   stopClockSync?.();
   await worker.stop();
+  await pdfRenderer.close();
   await pool.end();
   process.exit(0);
 }
