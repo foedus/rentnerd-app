@@ -4,6 +4,7 @@ import { useFormContext } from "react-hook-form";
 import { useLocation, useNavigate, useParams } from "react-router";
 import { UNEXPECTED_MESSAGE, fieldErrorId, fieldId } from "../../shared/form-messages";
 import { TEMPLATE_KIND_LABELS, TEMPLATE_KINDS, type TemplateKind } from "../../shared/placeholders";
+import { checkTemplateContent } from "../../shared/template-content";
 import { createTemplateSchema } from "../../shared/template-schemas";
 import { FieldErrorsError, UnauthenticatedError } from "../api";
 import { AppForm, FormMessageError, SelectInput, TextFieldInput, useAppForm, VersionConflictError } from "../components/forms";
@@ -15,6 +16,12 @@ import { TemplateEditor } from "../template-editor/TemplateEditor";
 import { fetchTemplate, MissingTemplateError, saveTemplate, StaleTemplateError, templateAction, TemplateRefusedError, type TemplateRecord } from "../templates-api";
 
 const KIND_OPTIONS = TEMPLATE_KINDS.map((value) => ({ value, label: TEMPLATE_KIND_LABELS[value] }));
+const UNRECOGNISED_BLOCK = "Fix the unrecognised placeholders before saving.";
+/** The shared schema plus the check that needs the template type (the server runs the full §8.4 check). */
+const editorSchema = createTemplateSchema.superRefine((v, ctx) => {
+  if (checkTemplateContent(v.content, v.kind).unrecognised.length > 0) ctx.addIssue({ code: "custom", path: ["content"], message: UNRECOGNISED_BLOCK });
+});
+const WARNING_ID = "content-unrecognised";
 const IN_USE_REASON = "Templates used for generated PDFs can only be archived";
 
 /** The editor area, wired to the form's `content` value and its error. */
@@ -22,6 +29,9 @@ function ContentField({ template }: { template?: TemplateRecord }) {
   const { watch, setValue, getFieldState, formState } = useFormContext();
   const error = getFieldState("content", formState).error?.message;
   const kind = (template?.kind ?? watch("kind")) as TemplateKind | "";
+  // Until a type is chosen nothing can be judged unrecognised (extension-only keys depend on it).
+  const unrecognised = kind ? checkTemplateContent(watch("content"), kind).unrecognised : [];
+  const failed = formState.isSubmitted;
   return (
     <div>
       <p className="block">Template content (required)</p>
@@ -31,13 +41,16 @@ function ContentField({ template }: { template?: TemplateRecord }) {
         </p>
       )}
       {/* The editor is remounted when the type changes, because the placeholders on offer depend on it. */}
+      <p id={WARNING_ID} role="status" className={unrecognised.length > 0 ? "mb-2 break-words text-red-700" : "sr-only"}>
+        {unrecognised.length > 0 ? `Unrecognised placeholders: ${unrecognised.join(", ")}` : ""}
+      </p>
       <TemplateEditor
         key={kind}
         kind={kind || "master_lease"}
         content={watch("content") as Record<string, unknown>}
         id={fieldId("content")}
-        describedBy={error ? fieldErrorId("content") : undefined}
-        onChange={(doc) => setValue("content", doc, { shouldDirty: true })}
+        describedBy={[error ? fieldErrorId("content") : "", unrecognised.length > 0 ? WARNING_ID : ""].filter(Boolean).join(" ") || undefined}
+        onChange={(doc) => setValue("content", doc, { shouldDirty: true, shouldValidate: failed })}
       />
     </div>
   );
@@ -46,7 +59,7 @@ function ContentField({ template }: { template?: TemplateRecord }) {
 function TemplateForm({ template, onChanged }: { template?: TemplateRecord; onChanged: (t: TemplateRecord) => void }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const form = useAppForm(createTemplateSchema, { name: template?.name ?? "", kind: template?.kind ?? "", content: template?.content ?? EMPTY_DOC } as never);
+  const form = useAppForm(editorSchema, { name: template?.name ?? "", kind: template?.kind ?? "", content: template?.content ?? EMPTY_DOC } as never);
   return (
     <AppForm
       form={form}

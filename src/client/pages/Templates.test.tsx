@@ -284,3 +284,34 @@ it("makes list, page break and table controls unavailable inside a table", async
   expect(buttonNamed("Bold")?.getAttribute("aria-disabled")).toBeNull();
   await act(async () => root.unmount());
 });
+
+it("lists unrecognised placeholders and blocks saving until they are fixed", async () => {
+  const bad = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "A {{not_a_key}} and {{extension_start_date}}" }] }] };
+  const { root, calls } = await mount(`/templates/${ID}`, "admin", (url, init) => (url === `/api/templates/${ID}` && (init?.method ?? "GET") === "GET" ? json({ ...row, content: bad }) : undefined));
+  await waitFor(() => field("Template name"));
+  expect(document.body.textContent).toContain("Unrecognised placeholders: {{not_a_key}}, {{extension_start_date}} (only available in Lease extension templates)");
+  await act(async () => (buttonNamed("Save template") as HTMLElement).click());
+  await wait();
+  expect(document.body.textContent).toContain("Fix the unrecognised placeholders before saving.");
+  expect(calls.some((c) => c.method === "PATCH")).toBe(false);
+  await act(async () => root.unmount());
+});
+
+it("shows no unrecognised-placeholder warning for valid content", async () => {
+  const { root } = await mount(`/templates/${ID}`, "admin");
+  await waitFor(() => field("Template name"));
+  expect(document.body.textContent).not.toContain("Unrecognised placeholders");
+  await act(async () => root.unmount());
+});
+
+it("ties the unrecognised-placeholder warning to the editor and waits for a type before judging keys", async () => {
+  const bad = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "{{not_a_key}}" }] }] };
+  const { root } = await mount(`/templates/${ID}`, "admin", (url, init) => (url === `/api/templates/${ID}` && (init?.method ?? "GET") === "GET" ? json({ ...row, content: bad }) : undefined));
+  await waitFor(() => field("Template name"));
+  expect(document.querySelector("[role=textbox]")?.getAttribute("aria-describedby")).toContain("content-unrecognised");
+  await act(async () => root.unmount());
+  const fresh = await mount("/templates/new", "admin");
+  await waitFor(() => document.querySelector("[role=toolbar]"));
+  expect(document.body.textContent).not.toContain("Unrecognised placeholders");
+  await act(async () => fresh.root.unmount());
+});

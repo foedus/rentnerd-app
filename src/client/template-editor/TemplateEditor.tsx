@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Button, Dialog, Heading, Modal, ModalOverlay } from "react-aria-components";
 import { placeholdersFor, type TemplateKind } from "../../shared/placeholders";
 import { EMPTY_DOC, templateExtensions } from "./extensions";
+import { chipifyPaste } from "./paste";
 
 const barButton = "min-h-6 min-w-6 rounded border px-2 py-1 aria-pressed:bg-slate-200";
 
@@ -133,6 +134,7 @@ export function TemplateEditor({ kind, content, readOnly = false, id, describedB
     content: content ?? EMPTY_DOC,
     editable: !readOnly,
     editorProps: {
+      transformPasted: (slice, view) => chipifyPaste(slice, view.state.schema, kind),
       attributes: {
         "aria-label": "Template content",
         "aria-multiline": "true",
