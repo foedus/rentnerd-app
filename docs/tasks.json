@@ -4,7 +4,7 @@
     "title": "Fix the intermittent sign-out that makes AC-CMP-05 fail in full verify runs (it passes alone). Find the root cause first; suspects include a test that changes the app's test clock or session settings without restoring them, sign-in rate limiting triggered by many test sign-ins, or session expiry. Fix the app or test infrastructure outside tests/acceptance. If the cause is inside the locked tests, block with evidence. Done means two consecutive full ./scripts/verify.sh runs pass.",
     "depends_on": [],
     "criteria": [],
-    "status": "blocked"
+    "status": "done"
   },
   {
     "id": "T001",

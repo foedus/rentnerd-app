@@ -6,12 +6,6 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 
 ## Blocked
 
-- **2026-10-16 — T048F (flaky AC-CMP-05 sign-out).** Two full verify runs in a row passed with no code change, so the flake did not
-  reproduce and I could not find its cause; I will not call it fixed. The most likely cause is in the locked tests: the helper that
-  signs the browser in again after the app clock jumps (`renewBrowserSessions` in `tests/acceptance/helpers/api.ts`) quietly gives up
-  if that sign-in is not answered 200, which would leave the page signed out. **Owner, please choose:** (a) accept the two green runs
-  and mark T048F done, or (b) if it fails again, keep `tests/acceptance/test-results` and `tests/acceptance/.state/logs/web.log`
-  from that run, or approve a change to that helper so it reports a refused sign-in instead of hiding it.
 - **2026-10-16** — Owner moved T048's PDF-deletion clause to T088; T048 marked done.
 
 ## Disputed tests
@@ -20,11 +14,11 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 
 ## Log
 
-### 2026-10-16 — T048F: Flaky AC-CMP-05 sign-out (not reproduced, blocked)
-- I ran the full `verify.sh` twice in a row on the current code (108 acceptance tests each): both passed, AC-CMP-05 included. No code was changed.
-- **I did not find a root cause.** What I checked and ruled out: the sign-in limiter (successful sign-ins are given back, and only failed ones count); Better Auth's own rate limit (off in the tests, which run with NODE_ENV=test); the worker (it never touches sessions); the app clock (it only shifts `Date`, and session cookies use real-time Max-Age). The most likely remaining cause is the test helper that signs the browser in again after the clock jumps more than 6 days (`renewBrowserSessions`, in the locked tests). It gives up silently if that sign-in does not answer 200, which would look like a sign-out. I could not confirm this.
-- If it happens again: keep `tests/acceptance/test-results` (traces) and `tests/acceptance/.state/logs/web.log` from that run and add them here; that will show which request was refused. 
-- The task is marked blocked until the owner decides (see Blocked above).
+### 2026-10-16 — T048F: Flaky AC-CMP-05 sign-out (did not reproduce; closed on the owner's test)
+- The task's own test for "done" is two full `verify.sh` runs in a row passing: both passed (108 acceptance tests each, AC-CMP-05 included). To look harder I also ran the API, sign-in and Compliance test files together six more times in a row: all six passed. **No code was changed**, because I never saw the failure and won't claim a fix I can't show.
+- **The cause is unknown.** Ruled out: the sign-in limiter (successful sign-ins are given back), Better Auth's own rate limit (off in the tests), the worker (never touches sessions), and the app clock (only shifts `Date`; cookies use real-time Max-Age). The most likely remaining cause is in the locked tests: `renewBrowserSessions` (`tests/acceptance/helpers/api.ts`) signs the browser in again after a clock jump and silently drops it if that sign-in isn't answered 200, which would look like a sign-out.
+- **If it happens again**, keep `tests/acceptance/test-results` and `tests/acceptance/.state/logs/web.log` from that run and reopen this; the owner can also approve making that helper report a refused sign-in instead of hiding it.
+- No screens changed, so no QA pass.
 
 ### 2026-10-16 — Owner: new task T048F (flaky AC-CMP-05)
 - Added T048F at the top of the task list so it runs next: find and fix why AC-CMP-05 (Compliance "Mark done") is sometimes
