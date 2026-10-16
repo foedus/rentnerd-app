@@ -1,5 +1,12 @@
 [
   {
+    "id": "T048F",
+    "title": "Fix the intermittent sign-out that makes AC-CMP-05 fail in full verify runs (it passes alone). Find the root cause first; suspects include a test that changes the app's test clock or session settings without restoring them, sign-in rate limiting triggered by many test sign-ins, or session expiry. Fix the app or test infrastructure outside tests/acceptance. If the cause is inside the locked tests, block with evidence. Done means two consecutive full ./scripts/verify.sh runs pass.",
+    "depends_on": [],
+    "criteria": [],
+    "status": "todo"
+  },
+  {
     "id": "T001",
     "title": "Scaffold the single npm package: src/client (React+Vite), src/server (Hono), src/worker, src/shared, src/cli; TypeScript, ESLint, Vitest unit and integration configs (--passWithNoTests), npm scripts dev/build/lint/typecheck/test:unit/test:integration; build emits dist/server.js, dist/worker.js, dist/migrate.js, dist/cli.js stubs; add dist/ and coverage/ to .gitignore; one trivial unit test",
     "depends_on": [],

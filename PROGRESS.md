@@ -14,6 +14,10 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 
 ## Log
 
+### 2026-10-16 — Owner: new task T048F (flaky AC-CMP-05)
+- Added T048F at the top of the task list so it runs next: find and fix why AC-CMP-05 (Compliance "Mark done") is sometimes
+  signed out during a full verify run even though it passes on its own. Done means two full verify runs in a row pass.
+
 ### 2026-10-13 — T025: Users screen (done)
 - `/users` (Admin only) has the "Invite landlord" button and dialog (Name, Email, "Send invitation"; an existing email shows
   "A user with this email already exists.") and the Users table: Name, Email, Role, Status (Active / Invited / Invitation expired /
