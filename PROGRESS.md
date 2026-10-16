@@ -753,3 +753,9 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 - AC-IMP-04, 05, 07 and 08 pass. verify.sh passes. The reviewer approved. No screens changed, so no QA pass.
 - Not yet (T096): the **Import** button itself and re-checking at import time. These cross-sheet checks are skipped while a sheet or column is missing, so the template problems show first.
 - Nothing for the owner to do.
+
+### 2026-10-16 — T049: Extensions API
+- Behind the scenes, a lease can now be extended: adding an extension needs only an end date and a monthly rent. The start date, tenants and every other term (deposit, due day, late fee, pets, parking, tax, special terms) are copied from the previous term unless given. An extension must start on or after the day after the previous end ("Extension must start on or after Nov 1, 2027."), keeps at least one tenant from the original lease (with the spec's message), and can't be added to an ended lease or one with a move-out date, or clash with another lease on the unit. Adding one turns Month-to-month off. The latest extension can be edited or deleted; older ones are refused. Every change saves a new lease version and an activity-log entry.
+- verify.sh passes (108 acceptance tests). The reviewer approved. No screens changed, so no QA pass. The screens for extensions come with later tasks.
+- Left as is: deleting an extension doesn't require a version number (same as deleting a lease), but checks it if one is sent.
+- Nothing for the owner to do.

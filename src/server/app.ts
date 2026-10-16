@@ -16,6 +16,7 @@ import { mountImportRoutes } from "./import-routes";
 import { mountPropertyValueRoutes } from "./property-value-routes";
 import { mountUnitRoutes } from "./unit-routes";
 import { mountLeaseReadRoutes } from "./lease-read-routes";
+import { mountExtensionRoutes } from "./extension-routes";
 import { mountLeaseChangeRoutes } from "./lease-change-routes";
 import { mountLeaseRoutes } from "./lease-routes";
 import { mountComplianceItemRoutes } from "./compliance-item-routes";
@@ -70,6 +71,7 @@ export function createApp(
     mountLeaseRoutes(app, db);
     mountLeaseReadRoutes(app, db);
     mountLeaseChangeRoutes(app, db);
+    mountExtensionRoutes(app, db);
     mountDashboardRoutes(app, db);
     mountComplianceTypeRoutes(app, db);
     mountComplianceItemRoutes(app, db);

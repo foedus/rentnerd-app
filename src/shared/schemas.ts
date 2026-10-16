@@ -426,6 +426,18 @@ export const updateLeaseSchema = z
   .object(Object.fromEntries(Object.entries(leaseFieldsSchema.shape).filter(([k]) => k !== "unitId").map(([k, v]) => [k, withoutDefault(v).optional()])))
   .extend({ version: versionField }) as unknown as z.ZodType<Partial<Omit<z.infer<typeof leaseFieldsSchema>, "unitId">> & { version: number }>;
 
+/** POST /leases/{id}/extensions (§6.10, §14.2): only the end date and rent are required; omitted start date, tenants and terms copy the previous term. */
+export const createExtensionSchema = z
+  .object(Object.fromEntries(Object.entries(extensionFieldsSchema.shape).map(([k, v]) => [k, withoutDefault(v).optional()])))
+  .extend({ startDate: ymd.optional(), endDate: ymd, baseRentCents: money("Enter the monthly rent."), version: versionField }) as unknown as z.ZodType<
+  Partial<z.infer<typeof extensionFieldsSchema>> & { endDate: string; baseRentCents: number; version: number }
+>;
+
+/** PATCH /extensions/{id}: any extension field; omitted fields keep their value, `tenants` and `rentSteps` replace the lists. */
+export const updateExtensionSchema = z
+  .object(Object.fromEntries(Object.entries(extensionFieldsSchema.shape).map(([k, v]) => [k, withoutDefault(v).optional()])))
+  .extend({ version: versionField }) as unknown as z.ZodType<Partial<z.infer<typeof extensionFieldsSchema>> & { version: number }>;
+
 /** POST /leases/{id}/month-to-month (§11.13): the rent is optional (then the last term rent applies). */
 export const markMonthToMonthSchema = z.object({ monthToMonthRentCents: optionalNullable(money()).optional(), version: versionField });
 

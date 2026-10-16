@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createInvestmentSchema, investmentListQuerySchema, updateInvestmentSchema, acceptInvitationSchema, endLeaseSchema, markMonthToMonthSchema, updateLeaseSchema, extensionFieldsSchema, leaseFieldsSchema, leaseRuleIssues, termRuleIssues, createOwnerSchema, createPropertyTaxSchema, createPropertyValueSchema, ownerListQuerySchema, updateMeSchema, updateOwnerSchema, updatePropertyTaxSchema, updatePropertyValueSchema, versionSchema, createTenantSchema, normalizeTenantNames, tenantListQuerySchema, tenantRuleIssues, updateTenantSchema } from "./schemas";
+import { createInvestmentSchema, investmentListQuerySchema, updateInvestmentSchema, acceptInvitationSchema, endLeaseSchema, markMonthToMonthSchema, updateLeaseSchema, createExtensionSchema, updateExtensionSchema, extensionFieldsSchema, leaseFieldsSchema, leaseRuleIssues, termRuleIssues, createOwnerSchema, createPropertyTaxSchema, createPropertyValueSchema, ownerListQuerySchema, updateMeSchema, updateOwnerSchema, updatePropertyTaxSchema, updatePropertyValueSchema, versionSchema, createTenantSchema, normalizeTenantNames, tenantListQuerySchema, tenantRuleIssues, updateTenantSchema } from "./schemas";
 
 describe("schemas", () => {
   it("enforces the 12–128 character password and a trimmed name", () => {
@@ -226,6 +226,24 @@ describe("lease change schemas", () => {
     expect(endLeaseSchema.safeParse({ version: 2, moveOutDate: "2026-10-20", endReason: "Other" }).success).toBe(true);
     expect(endLeaseSchema.safeParse({ version: 2, moveOutDate: "2026-02-30", endReason: "Other" }).success).toBe(false);
     expect(endLeaseSchema.safeParse({ version: 2, moveOutDate: "2026-10-20" }).success).toBe(false);
+  });
+});
+
+describe("extension change schemas (§6.10)", () => {
+  it("requires only the end date, rent and version; nothing omitted gets a default, so it can be copied from the previous term", () => {
+    const parsed = createExtensionSchema.parse({ endDate: "2028-10-31", baseRentCents: 225000, version: 2 });
+    expect(parsed).toEqual({ endDate: "2028-10-31", baseRentCents: 225000, version: 2 });
+    const bad = createExtensionSchema.safeParse({ baseRentCents: 0, version: 0 });
+    expect(bad.success).toBe(false);
+    expect(createExtensionSchema.safeParse({ endDate: "2028-10-31", baseRentCents: 1, version: 1, rentDueDay: 29 }).success).toBe(false);
+  });
+  it("keeps explicit nulls so a copied term can be cleared", () => {
+    expect(createExtensionSchema.parse({ endDate: "2028-10-31", baseRentCents: 1, version: 1, pets: null, parkingChargeCents: null })).toMatchObject({ pets: null, parkingChargeCents: null });
+  });
+  it("PATCH leaves omitted fields alone and needs the version", () => {
+    expect(updateExtensionSchema.parse({ version: 3, notes: "x" })).toEqual({ version: 3, notes: "x" });
+    expect(updateExtensionSchema.safeParse({ notes: "x" }).success).toBe(false);
+    expect(updateExtensionSchema.safeParse({ version: 1, baseRentCents: 0 }).success).toBe(false);
   });
 });
 

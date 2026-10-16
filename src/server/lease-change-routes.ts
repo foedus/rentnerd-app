@@ -12,18 +12,18 @@ import { loadLease, unitLeaseTerms, writeRevision, type LeasePresentation } from
 import { tenantDisplayName } from "./tenant-routes";
 import { validateBody } from "./validation";
 
-type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
-const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-const OVERLAP = "This unit already has a lease for those dates.";
+export const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+export const OVERLAP = "This unit already has a lease for those dates.";
 const notFound = (c: Context) => apiError(c, "NOT_FOUND", "Lease not found.");
 const stale = (c: Context) => apiError(c, "CONFLICT", "This lease was changed by someone else. Reload and try again.");
-const fieldErrors = (c: Context, fields: Record<string, string>) => apiError(c, "VALIDATION_ERROR", "Please check the highlighted fields.", fields);
-const decimal = (n: number | null | undefined) => (n == null ? null : n.toFixed(4));
+export const fieldErrors = (c: Context, fields: Record<string, string>) => apiError(c, "VALIDATION_ERROR", "Please check the highlighted fields.", fields);
+export const decimal = (n: number | null | undefined) => (n == null ? null : n.toFixed(4));
 
 type Scalar = string | number | boolean | null | undefined;
-const money = (v: Scalar) => (v == null ? null : formatCents(Number(v)));
-const date = (v: Scalar) => (v == null ? null : formatDate(String(v)));
+export const money = (v: Scalar) => (v == null ? null : formatCents(Number(v)));
+export const date = (v: Scalar) => (v == null ? null : formatDate(String(v)));
 const text = (v: Scalar) => (v == null || v === "" ? null : String(v));
 const yesNo = (v: Scalar) => (v == null ? null : v ? "Yes" : "No");
 const percent = (v: Scalar) => (v == null ? null : `${v}%`);
@@ -54,7 +54,7 @@ const FIELDS: [keyof LeasePresentation, string, (v: Scalar) => string | null][] 
 ];
 
 /** Readable before/after lines for what differs between two versions of a lease (D-31). */
-function describeChanges(before: LeasePresentation, after: LeasePresentation, names: Map<string, string>): AuditChanges {
+export function describeChanges(before: LeasePresentation, after: LeasePresentation, names: Map<string, string>): AuditChanges {
   const out: AuditChanges = {};
   for (const [key, label, show] of FIELDS) {
     const [b, a] = [show(before[key] as Scalar), show(after[key] as Scalar)];
@@ -66,25 +66,23 @@ function describeChanges(before: LeasePresentation, after: LeasePresentation, na
   if (steps(before) !== steps(after)) out["Rent steps"] = [steps(before), steps(after)];
   return out;
 }
-const summarize = (changes: AuditChanges) => Object.entries(changes).map(([label, [b, a]]) => `${label}: ${b ?? "—"} → ${a ?? "—"}`).join("; ");
+export const summarize = (changes: AuditChanges) => Object.entries(changes).map(([label, [b, a]]) => `${label}: ${b ?? "—"} → ${a ?? "—"}`).join("; ");
 
-const termsOf = (l: LeasePresentation): LeaseTerms => {
+export const termsOf = (l: LeasePresentation): LeaseTerms => {
   const dates = (t: { startDate: string; endDate: string }) => ({ startDate: t.startDate, endDate: t.endDate, rentCents: 1, increaseType: "none" as const });
   return { master: dates(l), extensions: l.extensions.map(dates), monthToMonth: l.monthToMonth, monthToMonthRentCents: l.monthToMonthRentCents, moveOutDate: l.moveOutDate };
 };
 
-/** Lease changes (§6.9, §11.13, §14.2): edit, delete, mark month-to-month and end. Each edit re-checks every rule and saves a new version (D-31). */
-export function mountLeaseChangeRoutes(app: Hono, db: Db) {
-  const actor = (c: Context) => c.get("user").id;
+/** `respond` replaces the default reply (the updated lease) when a route answers with a part of it, such as an extension. */
+export type LeaseChange = { changes: AuditChanges; summary: string; auditSummary: string; respond?: (c: Context, after: LeasePresentation) => Response };
+type ChangeFn = (tx: Tx, current: LeasePresentation, unitRow: typeof unit.$inferSelect) => Promise<Response | LeaseChange | null>;
 
-  /** Locks the lease and checks `version`; `change` returns an error response or the lease's new summary and changes. */
-  const mutate = async (
-    c: Context,
-    version: number | undefined,
-    change: (tx: Tx, current: LeasePresentation, unitRow: typeof unit.$inferSelect) => Promise<Response | { changes: AuditChanges; summary: string; auditSummary: string } | null>,
-  ) => {
-    const id = c.req.param("id") ?? "";
+/** Locks the lease and checks `version`; `change` returns an error response or the lease's new summary and changes. Saves the next version (D-31). */
+export function leaseMutator(db: Db) {
+  return async (c: Context, version: number | undefined, change: ChangeFn, leaseId?: string) => {
+    const id = leaseId ?? c.req.param("id") ?? "";
     if (!isUuid(id)) return notFound(c);
+    const actorId = c.get("user").id;
     const result = await db.transaction(async (tx) => {
       const [row] = await tx.select().from(lease).where(eq(lease.id, id)).for("update");
       if (!row) return notFound(c);
@@ -95,27 +93,36 @@ export function mountLeaseChangeRoutes(app: Hono, db: Db) {
       const done = await change(tx, before, u!);
       if (done instanceof Response) return done;
       if (done === null) return before;
-      const [bumped] = await tx.update(lease).set({ version: sql`${lease.version} + 1`, updatedById: actor(c), updatedAt: new Date() }).where(eq(lease.id, id)).returning({ version: lease.version });
-      await writeRevision(tx, id, bumped!.version, actor(c), done.summary);
-      await writeAudit(tx, { actorUserId: actor(c), action: "update", entityType: "lease", entityId: id, summary: done.auditSummary, changes: done.changes });
-      return (await loadLease(tx, id))!;
+      if (Object.keys(done.changes).length === 0) return done.respond ? done.respond(c, before) : before;
+      const [bumped] = await tx.update(lease).set({ version: sql`${lease.version} + 1`, updatedById: actorId, updatedAt: new Date() }).where(eq(lease.id, id)).returning({ version: lease.version });
+      await writeRevision(tx, id, bumped!.version, actorId, done.summary);
+      await writeAudit(tx, { actorUserId: actorId, action: "update", entityType: "lease", entityId: id, summary: done.auditSummary, changes: done.changes });
+      const after = (await loadLease(tx, id))!;
+      return done.respond ? done.respond(c, after) : after;
     });
     return result instanceof Response ? result : c.json(result);
   };
+}
 
-  const tenantNames = async (tx: Tx, ids: string[]) => {
-    const rows = ids.length === 0 ? [] : await tx.select().from(tenant).where(inArray(tenant.id, ids));
-    return new Map(rows.map((t) => [t.id, tenantDisplayName(t)]));
-  };
-  /** Whether the lease, with these terms, would share a day with another non-archived lease on its unit (§6.9). */
-  const clashesWithOthers = async (tx: Tx, l: LeasePresentation, terms: LeaseTerms) => {
-    const mine = occupiedPeriod(terms);
-    return (await unitLeaseTerms(tx, l.unitId)).some((o) => o.id !== l.id && periodsOverlap(mine, occupiedPeriod(o)));
-  };
-  const statusOf = async (tx: Tx, l: LeasePresentation) => {
-    const all = await unitLeaseTerms(tx, l.unitId);
-    return unitLeaseStatuses(all, todayNy()).get(l.id)?.status;
-  };
+export const tenantNames = async (tx: Tx, ids: string[]) => {
+  const rows = ids.length === 0 ? [] : await tx.select().from(tenant).where(inArray(tenant.id, ids));
+  return new Map(rows.map((t) => [t.id, tenantDisplayName(t)]));
+};
+/** Whether the lease, with these terms, would share a day with another non-archived lease on its unit (§6.9). */
+export const clashesWithOthers = async (tx: Tx, l: LeasePresentation, terms: LeaseTerms) => {
+  const mine = occupiedPeriod(terms);
+  return (await unitLeaseTerms(tx, l.unitId)).some((o) => o.id !== l.id && periodsOverlap(mine, occupiedPeriod(o)));
+};
+export const statusOf = async (tx: Tx, l: LeasePresentation) => {
+  const all = await unitLeaseTerms(tx, l.unitId);
+  return unitLeaseStatuses(all, todayNy()).get(l.id)?.status;
+};
+
+/** Lease changes (§6.9, §11.13, §14.2): edit, delete, mark month-to-month and end. Each edit re-checks every rule and saves a new version (D-31). */
+export function mountLeaseChangeRoutes(app: Hono, db: Db) {
+  const actor = (c: Context) => c.get("user").id;
+
+  const mutate = leaseMutator(db);
 
   app.patch("/api/leases/:id", async (c) => {
     const parsed = await validateBody(c, updateLeaseSchema);
