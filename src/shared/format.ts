@@ -44,3 +44,49 @@ export function formatDateTime(instant: Date | string): string {
 export function pageCount(total: number, pageSize: number): number {
   return Math.max(1, Math.ceil(total / pageSize));
 }
+
+const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** "2027-01-05" -> "January 5, 2027" (documents, §8.1). */
+export function formatLongDate(ymd: string): string {
+  const m = YMD.exec(ymd);
+  const month = m ? LONG_MONTHS[Number(m[2]) - 1] : undefined;
+  if (!m || !month) return ymd;
+  return `${month} ${Number(m[3])}, ${m[1]}`;
+}
+
+/** 1 -> "1st", 22 -> "22nd", 11 -> "11th" */
+export function ordinal(n: number): string {
+  const tens = n % 100;
+  const suffix = tens >= 11 && tens <= 13 ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th");
+  return `${n}${suffix}`;
+}
+
+const ONES = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"];
+const TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
+const SCALES = [[1_000_000_000, "billion"], [1_000_000, "million"], [1_000, "thousand"]] as const;
+
+function wordsBelowThousand(n: number): string {
+  const parts: string[] = [];
+  if (n >= 100) parts.push(`${ONES[Math.floor(n / 100)]} hundred`);
+  const rest = n % 100;
+  if (rest >= 20) parts.push(rest % 10 === 0 ? TENS[rest / 10]! : `${TENS[Math.floor(rest / 10)]}-${ONES[rest % 10]}`);
+  else if (rest > 0) parts.push(ONES[rest]!);
+  return parts.join(" ");
+}
+
+/** 215000 -> "Two thousand one hundred fifty dollars and 00/100" (§8.1 monthly_rent_words). */
+export function centsInWords(cents: number): string {
+  const dollars = Math.floor(Math.abs(cents) / 100);
+  const parts: string[] = [];
+  let rest = dollars;
+  for (const [size, name] of SCALES) {
+    if (rest >= size) {
+      parts.push(`${wordsBelowThousand(Math.floor(rest / size))} ${name}`);
+      rest %= size;
+    }
+  }
+  if (rest > 0 || parts.length === 0) parts.push(dollars === 0 ? "zero" : wordsBelowThousand(rest));
+  const text = parts.join(" ");
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)} ${dollars === 1 ? "dollar" : "dollars"} and ${String(Math.abs(cents) % 100).padStart(2, "0")}/100`;
+}

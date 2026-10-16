@@ -702,3 +702,8 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 - AC-TPL-09 passes. verify.sh passes. The reviewer approved. QA found and I fixed: the notice never went away; Word bullet markers were left in as stray "·" text.
 - Left as is: a table cell merged over several rows (rowspan) loses the merge but the rows below aren't padded, so such a table can look ragged (column merges are padded correctly); an empty first paragraph can remain where a removed header/logo was. Not tested with a real Word copy, Firefox or WebKit by hand (the acceptance run covers Chromium only on CI).
 - Nothing for the owner to do.
+
+### 2026-10-16 — T085: Template rendering to HTML
+- Behind the scenes, a template can now be turned into the page content for a PDF. Every placeholder from the spec gets its value: dates like "January 5, 2027", money like "$2,500.00", rent in words ("Two thousand five hundred dollars and 00/100"), "1st" for the due day, "5 days", "3%", tenant names joined with commas and "and", signature lines (one per tenant) and the rent schedule table. In an extension, the extension's own dates, rent and tenants are used, and "Removed tenants" / "Added tenants" show "None" when nobody changed. Anything with no value prints as `__________`, and the list of empty items (for the "These items are empty…" message) is produced at the same time.
+- The output only ever contains the allowed formatting, with all text escaped, so nothing in a template or a tenant name can inject links, images or scripts.
+- Not yet (later tasks): the PDF itself, Preview PDF and the Generate PDF dialog use this. No screens changed, so no QA pass. The reviewer approved. verify.sh passes. Nothing for the owner to do.
