@@ -1,6 +1,6 @@
 import type { EditableLease } from "../shared/lease-edit";
 import { FieldErrorsError, TOO_MANY, TooManyRequestsError } from "./api";
-import { VersionConflictError } from "./components/forms";
+import { FormMessageError, VersionConflictError } from "./components/forms";
 
 /** The server's refusal when the dates clash with another lease on the unit (§6.9). */
 export const OVERLAP_MESSAGE = "This unit already has a lease for those dates.";
@@ -37,6 +37,9 @@ export interface LeaseDetailRecord extends EditableLease {
   unitId: string;
   propertyId: string | null;
   statusLabel: string;
+  status: "ended" | "upcoming" | "active" | "month_to_month" | "ended_superseded" | "needs_decision";
+  monthToMonth: boolean;
+  lastRentCents: number;
   propertyName: string | null;
   unitLabel: string | null;
   unitUse: "Residential" | "Commercial" | null;
@@ -92,6 +95,38 @@ export async function updateLease(id: string, body: Record<string, unknown>): Pr
   if (res.status === 422 && fields && Object.keys(fields).length > 0) throw new FieldErrorsError(fields);
   if (res.status === 409 && parsed?.error?.message?.startsWith(STALE_PREFIX)) throw new VersionConflictError();
   if ((res.status === 409 || res.status === 404) && parsed?.error?.message) throw new Error(parsed.error.message);
+  throw new Error(GENERIC);
+}
+
+/** Posts a lease action (§14.2); field problems come back as FieldErrorsError, a stale version as VersionConflictError. */
+async function postAction(id: string, action: "month-to-month" | "end", body: Record<string, unknown>): Promise<void> {
+  const res = await fetch(`/api/leases/${encodeURIComponent(id)}/${action}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  }).catch(() => {
+    throw new Error(GENERIC);
+  });
+  if (res.ok) return;
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  const parsed = (await res.json().catch(() => null)) as { error?: { message?: string; fields?: Record<string, string> } } | null;
+  const fields = parsed?.error?.fields;
+  if (res.status === 422 && fields && Object.keys(fields).length > 0) throw new FieldErrorsError(fields);
+  if (res.status === 409 && parsed?.error?.message?.startsWith(STALE_PREFIX)) throw new VersionConflictError();
+  if ((res.status === 409 || res.status === 404) && parsed?.error?.message) throw new FormMessageError(parsed.error.message);
+  throw new Error(GENERIC);
+}
+
+export const markMonthToMonth = (id: string, version: number, monthToMonthRentCents: number) => postAction(id, "month-to-month", { version, monthToMonthRentCents });
+export const endLease = (id: string, version: number, moveOutDate: string, endReason: string) => postAction(id, "end", { version, moveOutDate, endReason });
+
+/** Deletes the lease with its extensions, versions and PDFs (§11.13). */
+export async function deleteLease(id: string): Promise<void> {
+  const res = await fetch(`/api/leases/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {
+    throw new Error(GENERIC);
+  });
+  if (res.ok || res.status === 404) return;
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
   throw new Error(GENERIC);
 }
 

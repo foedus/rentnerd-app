@@ -20,7 +20,7 @@ function parts(ymd: string): Parts | null {
   const match = YMD.exec(ymd);
   if (!match) return null;
   const [y, m, d] = [Number(match[1]), Number(match[2]), Number(match[3])];
-  return m >= 1 && m <= 12 && d >= 1 && d <= daysInMonth(y, m) ? { y, m, d } : null;
+  return y >= 1 && m >= 1 && m <= 12 && d >= 1 && d <= daysInMonth(y, m) ? { y, m, d } : null;
 }
 
 function mustParse(ymd: string): Parts {

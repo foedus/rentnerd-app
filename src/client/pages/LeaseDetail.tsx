@@ -6,6 +6,7 @@ import { formatCents, formatDate, formatDateTime } from "../../shared/format";
 import { formatSharePercent } from "../../shared/income";
 import { fetchLease, fetchLeaseVersions, type LeaseDetailRecord, type LeaseVersionRow } from "../leases-api";
 import { useCanWrite } from "../me";
+import { LeaseActions } from "./LeaseActions";
 import { Page } from "../components/Page";
 import { DataTable, type Column } from "../components/ui";
 
@@ -110,6 +111,7 @@ function LeaseView({ lease }: { lease: LeaseDetailRecord }) {
           <Button onPress={() => navigate(`/leases/${lease.id}/edit`)} className="min-h-6 rounded border px-4 py-1">
             Edit lease
           </Button>
+          <LeaseActions lease={lease} />
         </div>
       )}
       <Section title="Tenants">

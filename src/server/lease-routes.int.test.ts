@@ -353,7 +353,7 @@ describe("lease reads", () => {
     const res = await call(f.cookie, "GET", `/api/leases/${l.id}`);
     expect(res.status).toBe(200);
     const d = (await res.json()) as Detail & { pets: string; extensions: { id: string; tenants: unknown[] }[]; current: { extensionId: string; pets: string } };
-    expect(d).toMatchObject({ id: l.id, status: "needs_decision", statusLabel: "Needs decision", effectiveEndDate: "2021-12-31", currentRentCents: 275000, pets: "One cat", unitLabel: "2R" });
+    expect(d).toMatchObject({ id: l.id, status: "needs_decision", statusLabel: "Needs decision", effectiveEndDate: "2021-12-31", currentRentCents: 275000, lastRentCents: 275000, monthToMonth: false, pets: "One cat", unitLabel: "2R" });
     expect(d.tenants).toHaveLength(2);
     expect(d.rentSteps).toEqual([{ effectiveDate: "2020-07-01", amountCents: 260000 }]);
     expect(d.extensions).toHaveLength(1);

@@ -28,8 +28,10 @@ const versions = [
   { versionNumber: 1, changedAt: "2026-10-15T15:00:00.000Z", changedByName: null, summary: "Lease created" },
 ];
 
-async function mount(response: Response, role = "admin") {
-  vi.stubGlobal("fetch", async (url: string) => {
+async function mount(response: Response, role = "admin", post?: (url: string, init?: RequestInit) => Response | undefined) {
+  vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+    const posted = post?.(url, init);
+    if (posted) return posted;
     if (url === "/api/me") return json({ id: "u", name: "Ann", email: "a@x.com", role, status: "active" });
     if (url.endsWith("/versions")) return json({ data: versions, page: 1, pageSize: 2, total: 2 });
     return response.clone();
@@ -114,4 +116,90 @@ it("offers Edit lease to people who can write, but not to the Smoke user", async
   expect(Array.from(document.querySelectorAll("button")).some((b) => b.textContent === "Edit lease")).toBe(true);
   await mount(json(lease), "smoke");
   expect(Array.from(document.querySelectorAll("button")).some((b) => b.textContent === "Edit lease")).toBe(false);
+});
+
+const labels = () => Array.from(document.querySelectorAll("button")).map((b) => b.textContent);
+const active = { ...lease, status: "active", monthToMonth: false, lastRentCents: 220000, version: 3 };
+
+it("shows the lease actions that §11.13 allows for each status", async () => {
+  const cases: [string, boolean, string[]][] = [
+    ["upcoming", false, ["Delete lease"]],
+    ["active", false, ["Mark month-to-month", "End lease", "Delete lease"]],
+    ["needs_decision", false, ["Mark month-to-month", "End lease", "Delete lease"]],
+    ["month_to_month", true, ["End lease", "Delete lease"]],
+    ["ended", false, ["Delete lease"]],
+    ["ended_superseded", false, ["Delete lease"]],
+  ];
+  for (const [status, monthToMonth, expected] of cases) {
+    await mount(json({ ...active, status, monthToMonth }));
+    const shown = labels().filter((l) => ["Mark month-to-month", "End lease", "Delete lease"].includes(l ?? ""));
+    expect(shown, status).toEqual(expected);
+  }
+  await mount(json(active), "smoke");
+  expect(labels()).not.toContain("Delete lease");
+});
+
+it("Mark month-to-month asks about the effective end date and prefills the last rent", async () => {
+  await mount(json(active));
+  await act(async () => void Array.from(document.querySelectorAll("button")).find((b) => b.textContent === "Mark month-to-month")?.click());
+  const dialog = document.querySelector('[role="dialog"]');
+  expect(dialog?.textContent).toContain("Mark this lease month-to-month after Oct 31, 2027?");
+  const input = Array.from(dialog?.querySelectorAll("input") ?? []).find((i) => i.labels?.[0]?.textContent?.startsWith("Month-to-month monthly rent"));
+  expect(input?.value).toBe("$2,200.00");
+});
+
+it("End lease has Move-out date and Reason and sends them with the version", async () => {
+  const sent: unknown[] = [];
+  await mount(json(active), "admin", (url, init) => {
+    if (!url.endsWith("/end")) return undefined;
+    sent.push(JSON.parse(String(init?.body)));
+    return new Response(null, { status: 200 });
+  });
+  await act(async () => void Array.from(document.querySelectorAll("button")).find((b) => b.textContent === "End lease")?.click());
+  const dialog = document.querySelector('[role="dialog"]') as HTMLElement;
+  const set = (el: HTMLInputElement | HTMLSelectElement, value: string) => {
+    const proto = el instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(proto, "value")?.set?.call(el, value);
+    el.dispatchEvent(new Event(el instanceof HTMLSelectElement ? "change" : "input", { bubbles: true }));
+  };
+  const byLabel = (text: string) => Array.from(dialog.querySelectorAll("input, select")).find((e) => (e as HTMLInputElement).labels?.[0]?.textContent?.startsWith(text)) as HTMLInputElement;
+  await act(async () => {
+    set(byLabel("Move-out date"), "2026-10-20");
+    set(byLabel("Reason") as unknown as HTMLSelectElement, "Other");
+  });
+  await act(async () => {
+    Array.from(dialog.querySelectorAll("button")).find((b) => b.textContent === "End lease")?.click();
+    await new Promise((r) => setTimeout(r, 100));
+  });
+  expect(sent).toEqual([{ version: 3, moveOutDate: "2026-10-20", endReason: "Other" }]);
+});
+
+it("Delete lease asks for confirmation with the spec wording", async () => {
+  await mount(json(active));
+  await act(async () => void Array.from(document.querySelectorAll("button")).find((b) => b.textContent === "Delete lease")?.click());
+  expect(document.querySelector('[role="alertdialog"], [role="dialog"]')?.textContent).toContain("Delete this lease, its extensions and all generated PDFs? This cannot be undone.");
+});
+
+it("Mark month-to-month refuses a blank rent instead of using the last rent", async () => {
+  const sent: unknown[] = [];
+  await mount(json(active), "admin", (url, init) => {
+    if (!url.endsWith("/month-to-month")) return undefined;
+    sent.push(init?.body);
+    return new Response(null, { status: 200 });
+  });
+  await act(async () => void Array.from(document.querySelectorAll("button")).find((b) => b.textContent === "Mark month-to-month")?.click());
+  const dialog = document.querySelector('[role="dialog"]') as HTMLElement;
+  const input = Array.from(dialog.querySelectorAll("input")).find((i) => i.labels?.[0]?.textContent?.startsWith("Month-to-month monthly rent")) as HTMLInputElement;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(input, "");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    input.blur();
+  });
+  await act(async () => {
+    Array.from(dialog.querySelectorAll("button")).find((b) => b.textContent === "Mark month-to-month")?.click();
+    await new Promise((r) => setTimeout(r, 100));
+  });
+  expect(sent).toEqual([]);
+  expect(dialog.textContent).toContain("Enter an amount");
 });

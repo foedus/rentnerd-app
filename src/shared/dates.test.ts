@@ -8,6 +8,7 @@ describe("dates", () => {
   it("validates calendar dates", () => {
     expect(isValidYmd("2024-02-29")).toBe(true);
     expect(isValidYmd("2026-02-29")).toBe(false);
+    expect(isValidYmd("0000-01-01")).toBe(false);
     expect(isValidYmd("2026-13-01")).toBe(false);
     expect(isValidYmd("2026-4-01")).toBe(false);
     expect(isValidYmd("2026-04-31")).toBe(false);

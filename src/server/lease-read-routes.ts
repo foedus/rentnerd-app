@@ -3,7 +3,7 @@ import type { Context, Hono } from "hono";
 import type { Db } from "../db/client";
 import { extensionTenant, lease, leaseExtension, leaseRevision, leaseTenant, property, propertyTax, tenant, unit, user } from "../db/schema";
 import { todayNy } from "../shared/dates";
-import { leaseStatus, leaseStatusLabel } from "../shared/lease";
+import { lastRent, leaseStatus, leaseStatusLabel } from "../shared/lease";
 import { currentTermSource, leaseRentSchedule, leaseSummary, leaseTermsOf } from "../shared/lease-view";
 import { taxReimbursement } from "../shared/income";
 import { leaseListQuerySchema } from "../shared/schemas";
@@ -50,6 +50,7 @@ export function mountLeaseReadRoutes(app: Hono, db: Db) {
         propertyId: u?.propertyId ?? null,
         propertyName: u?.propertyName ?? null,
         ...leaseSummary(l, today),
+        lastRentCents: lastRent(terms),
         currentTenants,
       };
       if (!detail) return base;
