@@ -140,6 +140,19 @@ it("limits the Unit choices to the chosen property, with Whole property first, a
   await act(async () => root.unmount());
 });
 
+it("has the property's units ready the moment the property is chosen", async () => {
+  const { root } = await mount("admin");
+  await act(async () => (buttonNamed("Add entry") as HTMLElement).click());
+  await waitFor(() => control("Property").options.length > 1);
+  const select = control("Property");
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(select, P1);
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  expect(optionLabels("Unit")).toEqual(["Whole property", "1A", "1B"]);
+  await act(async () => root.unmount());
+});
+
 it("drops a chosen unit when the property changes", async () => {
   const { root } = await mount("admin");
   await act(async () => (rowButton("Edit", "Dryer") as HTMLElement).click());

@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "react-aria-components";
 import { useFormContext } from "react-hook-form";
@@ -58,8 +58,11 @@ function EntryForm({ entry, propertyId, onSaved, onCancel }: { entry?: Investmen
     vendor: entry?.vendor ?? "",
     costCents: entry?.costCents ?? null,
   } as never);
-  const names = (properties.data ?? []).map((p) => ({ value: p.id, label: p.name }));
-  if (entry && !names.some((n) => n.value === entry.propertyId)) names.push({ value: entry.propertyId, label: entry.propertyName });
+  // Every property's units load before any property can be chosen, so the Unit choices are there the moment a property is picked.
+  const unitQueries = useQueries({ queries: (properties.data ?? []).map((p) => ({ queryKey: ["property-units", p.id, false], queryFn: () => fetchPropertyUnits(p.id, false) })) });
+  const ready = properties.data !== undefined && unitQueries.every((q) => !q.isPending);
+  const names = ready ? (properties.data ?? []).map((p) => ({ value: p.id, label: p.name })) : [];
+  if (ready && entry && !names.some((n) => n.value === entry.propertyId)) names.push({ value: entry.propertyId, label: entry.propertyName });
   return (
     <AppForm
       form={form}
