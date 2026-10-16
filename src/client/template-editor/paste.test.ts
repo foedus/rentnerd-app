@@ -42,3 +42,23 @@ it("converts several tokens in one paragraph", () => {
   expect(json.match(/"type":"placeholder"/g)).toHaveLength(2);
   expect(json).toContain("{{nope}}");
 });
+
+const runInline = (children: unknown[], kind: "master_lease" | "extension" = "master_lease") => {
+  const editor = new Editor({ extensions: templateExtensions, content: { type: "doc", content: [{ type: "paragraph", content: children as never }] } });
+  const slice = chipifyPaste(editor.state.doc.slice(0, editor.state.doc.content.size), editor.schema, kind);
+  const json = JSON.stringify(slice.content.toJSON());
+  editor.destroy();
+  return json;
+};
+
+it("joins a key split across formatting runs into one chip", () => {
+  const json = runInline([
+    { type: "text", text: "Between the Owner and {{tenant_" },
+    { type: "text", text: "names", marks: [{ type: "bold" }] },
+    { type: "text", text: "}} (the Tenant)." },
+  ]);
+  expect(json).toContain('"key":"tenant_names"');
+  expect(json).not.toContain("{{");
+  expect(json).toContain("Between the Owner and ");
+  expect(json).toContain(" (the Tenant).");
+});

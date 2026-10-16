@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Button, Dialog, Heading, Modal, ModalOverlay } from "react-aria-components";
 import { placeholdersFor, type TemplateKind } from "../../shared/placeholders";
 import { EMPTY_DOC, templateExtensions } from "./extensions";
-import { chipifyPaste } from "./paste";
+import { chipifyPaste, cleanPastedHtml } from "./paste";
 
 const barButton = "min-h-6 min-w-6 rounded border px-2 py-1 aria-pressed:bg-slate-200";
 
@@ -129,11 +129,17 @@ function Toolbar({ editor, kind, readOnly }: { editor: Editor; kind: TemplateKin
 
 /** The TipTap editor with its toolbar. `onChange` gets the TipTap JSON after every edit. */
 export function TemplateEditor({ kind, content, readOnly = false, id, describedBy, onChange }: { kind: TemplateKind; content?: Record<string, unknown>; readOnly?: boolean; id?: string; describedBy?: string; onChange: (doc: Record<string, unknown>) => void }) {
+  const [removedNotice, setRemovedNotice] = useState(false);
   const editor = useEditor({
     extensions: templateExtensions,
     content: content ?? EMPTY_DOC,
     editable: !readOnly,
     editorProps: {
+      transformPastedHTML: (html) => {
+        const cleaned = cleanPastedHtml(html);
+        setRemovedNotice(cleaned.removed);
+        return cleaned.html;
+      },
       transformPasted: (slice, view) => chipifyPaste(slice, view.state.schema, kind),
       attributes: {
         "aria-label": "Template content",
@@ -144,7 +150,10 @@ export function TemplateEditor({ kind, content, readOnly = false, id, describedB
         ...(describedBy ? { "aria-describedby": describedBy, "aria-invalid": "true" } : {}),
       },
     },
-    onUpdate: ({ editor: e }) => onChange(e.getJSON() as Record<string, unknown>),
+    onUpdate: ({ editor: e }) => {
+      if (e.isEmpty) setRemovedNotice(false);
+      onChange(e.getJSON() as Record<string, unknown>);
+    },
     immediatelyRender: false,
     // The default stylesheet is injected inline, which the Content Security Policy blocks; styles.css carries what is needed.
     injectCSS: false,
@@ -157,6 +166,9 @@ export function TemplateEditor({ kind, content, readOnly = false, id, describedB
     <div>
       <Toolbar editor={editor} kind={kind} readOnly={readOnly} />
       <EditorContent editor={editor} />
+      <p role="status" className={removedNotice ? "mt-2 break-words text-amber-800" : "sr-only"}>
+        {removedNotice ? "Some content was removed: images, headers and other unsupported items aren't allowed in templates." : ""}
+      </p>
     </div>
   );
 }

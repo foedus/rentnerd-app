@@ -696,3 +696,9 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 - AC-TPL-01 to 04 pass. verify.sh passes. The reviewer approved. QA found and I fixed: a very long key made the page scroll sideways on a phone; the warning wasn't linked to the editor for screen readers; before a template type is chosen the warning no longer appears (keys can't be judged yet).
 - Left as is (spec only converts pasted keys): a valid `{{key}}` typed by hand (not pasted) stays as text without a warning (unknown typed keys are still listed), and a key pasted while Master lease is chosen and kept as text stays text if the type is later switched to Lease extension. Keys split across formatting runs (Word) come with T084.
 - Nothing for the owner to do.
+
+### 2026-10-16 — T084: Word paste clean-up
+- Pasting from Word (or anywhere) into the template editor now removes images, shapes, headers, footers, footnotes, comments and Word's list-bullet markers, drops hyperlinks but keeps their text, drops tracked deletions (keeps inserted text), and splits merged table cells. When something was removed, the editor shows "Some content was removed: images, headers and other unsupported items aren't allowed in templates." (it clears after a paste that removes nothing, or when the editor is emptied). A `{{key}}` that Word split across formatting runs (e.g. partly bold) now becomes one chip.
+- AC-TPL-09 passes. verify.sh passes. The reviewer approved. QA found and I fixed: the notice never went away; Word bullet markers were left in as stray "·" text.
+- Left as is: a table cell merged over several rows (rowspan) loses the merge but the rows below aren't padded, so such a table can look ragged (column merges are padded correctly); an empty first paragraph can remain where a removed header/logo was. Not tested with a real Word copy, Firefox or WebKit by hand (the acceptance run covers Chromium only on CI).
+- Nothing for the owner to do.
