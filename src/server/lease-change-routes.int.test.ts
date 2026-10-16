@@ -100,6 +100,16 @@ describe("PATCH /api/leases/{id}", () => {
     expect(audit[0].changes).toEqual({ "Monthly rent": ["$2,150.00", "$2,200.00"] });
   });
 
+  it("names the lease's tenants in the detail and in a version view", async () => {
+    const f = await fixture();
+    const l = await lease(f, f.res, { tenants: [{ tenantId: f.t1, isPrimary: false }, { tenantId: f.t2, isPrimary: true }] });
+    const detail = await json<{ masterTenants: { tenantId: string; isPrimary: boolean; displayName: string }[] }>(await call(f.cookie, "GET", `/api/leases/${l.id}`));
+    expect(detail.masterTenants).toEqual(expect.arrayContaining([{ tenantId: f.t1, isPrimary: false, displayName: "Ann Lee" }, { tenantId: f.t2, isPrimary: true, displayName: "Bo Lee" }]));
+    const v1 = await json<{ snapshotTenants: { tenantId: string; displayName: string }[] }>(await call(f.cookie, "GET", `/api/leases/${l.id}/versions/1`));
+    expect(v1.snapshotTenants.map((t) => t.displayName).sort()).toEqual(["Ann Lee", "Bo Lee"]);
+    expect((await call(f.cookie, "GET", `/api/leases/${l.id}/versions/99999999999999999999`)).status).toBe(404);
+  });
+
   it("is refused with 409 for a stale version and changes nothing", async () => {
     const f = await fixture();
     const l = await lease(f);

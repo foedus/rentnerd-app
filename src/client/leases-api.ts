@@ -1,4 +1,6 @@
+import type { EditableLease } from "../shared/lease-edit";
 import { FieldErrorsError, TOO_MANY, TooManyRequestsError } from "./api";
+import { VersionConflictError } from "./components/forms";
 
 /** The server's refusal when the dates clash with another lease on the unit (§6.9). */
 export const OVERLAP_MESSAGE = "This unit already has a lease for those dates.";
@@ -29,8 +31,11 @@ export async function createLease(unitId: string, body: Record<string, unknown>)
   throw new Error(GENERIC);
 }
 
-export interface LeaseDetailRecord {
+export interface LeaseDetailRecord extends EditableLease {
   id: string;
+  version: number;
+  unitId: string;
+  propertyId: string | null;
   statusLabel: string;
   propertyName: string | null;
   unitLabel: string | null;
@@ -66,4 +71,55 @@ export async function fetchLease(id: string): Promise<LeaseDetailRecord> {
   if (res.ok) return (await res.json()) as LeaseDetailRecord;
   if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
   throw new Error(res.status === 404 ? "Lease not found." : GENERIC);
+}
+
+/** The server's refusal when someone else saved the lease first (409 with this wording, §6.9). */
+const STALE_PREFIX = "This lease was changed by someone else";
+
+/** Saves the edited lease (§14.2); field problems come back as FieldErrorsError, a stale version as VersionConflictError. */
+export async function updateLease(id: string, body: Record<string, unknown>): Promise<void> {
+  const res = await fetch(`/api/leases/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  }).catch(() => {
+    throw new Error(GENERIC);
+  });
+  if (res.ok) return;
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  const parsed = (await res.json().catch(() => null)) as { error?: { message?: string; fields?: Record<string, string> } } | null;
+  const fields = parsed?.error?.fields;
+  if (res.status === 422 && fields && Object.keys(fields).length > 0) throw new FieldErrorsError(fields);
+  if (res.status === 409 && parsed?.error?.message?.startsWith(STALE_PREFIX)) throw new VersionConflictError();
+  if ((res.status === 409 || res.status === 404) && parsed?.error?.message) throw new Error(parsed.error.message);
+  throw new Error(GENERIC);
+}
+
+export interface LeaseVersionRow {
+  versionNumber: number;
+  changedAt: string;
+  changedByName: string | null;
+  summary: string;
+}
+
+export async function fetchLeaseVersions(id: string): Promise<LeaseVersionRow[]> {
+  const res = await fetch(`/api/leases/${encodeURIComponent(id)}/versions`, { headers: { accept: "application/json" } }).catch(() => {
+    throw new Error(GENERIC);
+  });
+  if (!res.ok) throw new Error(GENERIC);
+  return ((await res.json()) as { data: LeaseVersionRow[] }).data;
+}
+
+/** One saved version: the lease as it was then (D-31). */
+export interface LeaseVersionRecord extends LeaseVersionRow {
+  snapshot: Omit<EditableLease, "masterTenants"> & { tenants: { tenantId: string; isPrimary: boolean }[] };
+  snapshotTenants: { tenantId: string; isPrimary: boolean; displayName: string }[];
+}
+
+export async function fetchLeaseVersion(id: string, n: string): Promise<LeaseVersionRecord> {
+  const res = await fetch(`/api/leases/${encodeURIComponent(id)}/versions/${encodeURIComponent(n)}`, { headers: { accept: "application/json" } }).catch(() => {
+    throw new Error(GENERIC);
+  });
+  if (res.ok) return (await res.json()) as LeaseVersionRecord;
+  throw new Error(res.status === 404 ? "Version not found." : GENERIC);
 }

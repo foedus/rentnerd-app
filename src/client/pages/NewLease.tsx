@@ -199,16 +199,16 @@ function NewTenantForm({ onAdd, onCancel }: { onAdd: (name: string, values: Reco
   );
 }
 
-interface Row extends WizardTenantRow {
+export interface Row extends WizardTenantRow {
   /** The email, shown so two tenants with the same name can be told apart. */
   detail?: string;
   /** Only for tenants created with the lease. */
   newTenant?: Record<string, unknown>;
 }
 
-function TenantsStep({
-  rows, setRows, primary, setPrimary, error,
-}: { rows: Row[]; setRows: (r: Row[]) => void; primary: string | null; setPrimary: (k: string | null) => void; error: string | null }) {
+export function TenantsStep({
+  rows, setRows, primary, setPrimary, error, allowNew = true,
+}: { rows: Row[]; setRows: (r: Row[]) => void; primary: string | null; setPrimary: (k: string | null) => void; error: string | null; allowNew?: boolean }) {
   const [adding, setAdding] = useState(false);
   const addButton = useRef<HTMLButtonElement>(null);
   const errorId = useId();
@@ -218,7 +218,7 @@ function TenantsStep({
   return (
     <section aria-labelledby="step-heading" className="space-y-4">
       <ExistingTenantPicker taken={taken} onPick={(tenantId, name, detail) => add({ tenantId, name, detail })} />
-      {adding ? (
+      {!allowNew ? null : adding ? (
         <NewTenantForm
           onAdd={(name, newTenant) => {
             add({ name, newTenant, detail: typeof newTenant.email === "string" ? newTenant.email : undefined });

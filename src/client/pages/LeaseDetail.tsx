@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { useParams } from "react-router";
-import { formatCents, formatDate } from "../../shared/format";
+import { Button } from "react-aria-components";
+import { Link, useNavigate, useParams } from "react-router";
+import { formatCents, formatDate, formatDateTime } from "../../shared/format";
 import { formatSharePercent } from "../../shared/income";
-import { fetchLease, type LeaseDetailRecord } from "../leases-api";
+import { fetchLease, fetchLeaseVersions, type LeaseDetailRecord, type LeaseVersionRow } from "../leases-api";
+import { useCanWrite } from "../me";
 import { Page } from "../components/Page";
 import { DataTable, type Column } from "../components/ui";
 
@@ -22,6 +24,21 @@ const scheduleColumns: Column<Period>[] = [
   { key: "end", header: "Period end", cell: (p) => formatDate(p.periodEnd) },
   { key: "rent", header: "Monthly rent", cell: (p) => formatCents(p.rentCents) },
   { key: "term", header: "Term", cell: (p) => p.term },
+];
+
+const versionColumns = (leaseId: string): Column<LeaseVersionRow>[] => [
+  {
+    key: "version",
+    header: "Version",
+    cell: (v) => (
+      <Link to={`/leases/${leaseId}/versions/${v.versionNumber}`} className="underline">
+        Version {v.versionNumber}
+      </Link>
+    ),
+  },
+  { key: "changedOn", header: "Changed on", cell: (v) => formatDateTime(v.changedAt) },
+  { key: "changedBy", header: "Changed by", cell: (v) => v.changedByName || "–" },
+  { key: "summary", header: "Summary", cell: (v) => v.summary },
 ];
 
 const money = (cents: number | null) => (cents === null ? "–" : formatCents(cents));
@@ -52,7 +69,22 @@ function Facts({ rows }: { rows: [string, string][] }) {
   );
 }
 
+function VersionsSection({ leaseId }: { leaseId: string }) {
+  const versions = useQuery({ queryKey: ["lease-versions", leaseId], queryFn: () => fetchLeaseVersions(leaseId), gcTime: 0 });
+  return (
+    <Section title="Versions">
+      {versions.isError ? (
+        <p role="alert">{versions.error.message}</p>
+      ) : (
+        <DataTable name="Versions" columns={versionColumns(leaseId)} rows={versions.data ?? []} rowKey={(v) => String(v.versionNumber)} emptyMessage={versions.isPending ? "Loading…" : "No versions."} />
+      )}
+    </Section>
+  );
+}
+
 function LeaseView({ lease }: { lease: LeaseDetailRecord }) {
+  const canWrite = useCanWrite();
+  const navigate = useNavigate();
   const c = lease.current;
   const commercial = lease.unitUse === "Commercial";
   const special: [string, string][] = [
@@ -73,6 +105,13 @@ function LeaseView({ lease }: { lease: LeaseDetailRecord }) {
       <p className="mb-4">
         <span className="inline-block rounded border px-2 py-0.5 font-semibold">{lease.statusLabel}</span>
       </p>
+      {canWrite && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          <Button onPress={() => navigate(`/leases/${lease.id}/edit`)} className="min-h-6 rounded border px-4 py-1">
+            Edit lease
+          </Button>
+        </div>
+      )}
       <Section title="Tenants">
         <DataTable name="Tenants" columns={tenantColumns} rows={c.tenants} rowKey={(t) => t.tenantId} emptyMessage="No tenants." />
       </Section>
@@ -105,6 +144,7 @@ function LeaseView({ lease }: { lease: LeaseDetailRecord }) {
         />
         {commercial && c.taxReimbursementExplanation && <p className="mt-1 text-slate-700">{c.taxReimbursementExplanation}</p>}
       </Section>
+      <VersionsSection leaseId={lease.id} />
     </Page>
   );
 }

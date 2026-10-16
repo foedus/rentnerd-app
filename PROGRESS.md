@@ -759,3 +759,10 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 - verify.sh passes (108 acceptance tests). The reviewer approved. No screens changed, so no QA pass. The screens for extensions come with later tasks.
 - Left as is: deleting an extension doesn't require a version number (same as deleting a lease), but checks it if one is sent.
 - Nothing for the owner to do.
+
+### 2026-10-16 — T055: Edit lease and Versions
+- A lease page now has an **Edit lease** button (hidden for the read-only Smoke user). It opens `/leases/:id/edit` with the tenants, term and rent, and special terms all on one page, filled in with the lease's values, and **Save lease** (plus **Cancel**). Saving checks every lease rule again and creates a new version. If someone else saved first, the page says "Someone else changed this record. Reload to see the latest version." with a **Reload** button.
+- The lease page also has a **Versions** table (Version, Changed on, Changed by, Summary, newest first); each row opens a read-only view of that version at `/leases/:id/versions/:n`, so Version 1 keeps showing the old rent after a change.
+- AC-LEASE-16 and AC-LEASE-21 pass. verify.sh passes (110 acceptance tests). The reviewer approved. QA found and I fixed: a huge version number in the address gave an error page instead of "Version not found."
+- Left as is: tenants can't be created from the Edit page (only existing tenants can be added or removed, since the edit API takes no new tenants); the version view heading doesn't name the property or unit; the tenant table's Remove / Primary contact controls don't include the tenant's name for screen readers (same as the New lease wizard); the late-fee amount has no upper limit beyond the wizard's (also the same as the wizard); a rent-increase change in the version summary shows the codes "none → schedule"; after Reload keyboard focus starts at the top of the page.
+- Nothing for the owner to do.

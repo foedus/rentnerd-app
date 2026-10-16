@@ -23,8 +23,17 @@ const lease = {
   rentSchedule: [{ periodStart: "2026-11-01", periodEnd: "2027-10-31", rentCents: 215000, term: "Master lease" }],
 };
 
-async function mount(response: Response) {
-  vi.stubGlobal("fetch", async () => response.clone());
+const versions = [
+  { versionNumber: 2, changedAt: "2026-10-16T15:00:00.000Z", changedByName: "Ann Admin", summary: "Monthly rent: $2,150.00 → $2,200.00" },
+  { versionNumber: 1, changedAt: "2026-10-15T15:00:00.000Z", changedByName: null, summary: "Lease created" },
+];
+
+async function mount(response: Response, role = "admin") {
+  vi.stubGlobal("fetch", async (url: string) => {
+    if (url === "/api/me") return json({ id: "u", name: "Ann", email: "a@x.com", role, status: "active" });
+    if (url.endsWith("/versions")) return json({ data: versions, page: 1, pageSize: 2, total: 2 });
+    return response.clone();
+  });
   queryClient.clear();
   document.body.innerHTML = '<div id="root"></div>';
   const root = createRoot(document.getElementById("root") as HTMLElement);
@@ -87,4 +96,22 @@ it("says 1 day (not 1 days) and keeps line breaks in special terms", async () =>
   expect(section("Term and rent")?.textContent).toContain("Late fee grace period1 day");
   expect(section("Term and rent")?.textContent).not.toContain("1 days");
   expect(section("Special terms")?.querySelector("dd.whitespace-pre-line")).toBeTruthy();
+});
+
+it("lists the versions, newest first, each linking to its read-only view", async () => {
+  await mount(json(lease));
+  const table = section("Versions")?.querySelector('table[aria-label="Versions"]');
+  const rows = Array.from(table?.querySelectorAll("tbody tr") ?? []);
+  expect(rows).toHaveLength(2);
+  expect(rows[0]?.textContent).toContain("Monthly rent: $2,150.00 → $2,200.00");
+  expect(rows[0]?.textContent).toContain("Ann Admin");
+  expect(rows[0]?.querySelector("a")?.getAttribute("href")).toBe("/leases/l1/versions/2");
+  expect(rows[1]?.querySelector("a")?.textContent).toBe("Version 1");
+});
+
+it("offers Edit lease to people who can write, but not to the Smoke user", async () => {
+  await mount(json(lease));
+  expect(Array.from(document.querySelectorAll("button")).some((b) => b.textContent === "Edit lease")).toBe(true);
+  await mount(json(lease), "smoke");
+  expect(Array.from(document.querySelectorAll("button")).some((b) => b.textContent === "Edit lease")).toBe(false);
 });

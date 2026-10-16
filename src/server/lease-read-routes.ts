@@ -63,7 +63,11 @@ export function mountLeaseReadRoutes(app: Hono, db: Db) {
       };
       const taxes = current.baseTaxYear === null ? [] : await db.select({ taxYear: propertyTax.taxYear, amountCents: propertyTax.amountCents }).from(propertyTax).where(eq(propertyTax.propertyId, u?.propertyId ?? ""));
       const tax = taxReimbursement(taxes, current.baseTaxYear, current.taxSharePercent === null ? null : String(current.taxSharePercent));
-      return { ...base, current: { ...current, taxReimbursementCents: tax?.cents ?? null, taxReimbursementExplanation: tax?.explanation ?? null }, rentSchedule: leaseRentSchedule(l) };
+      const masterTenants = l.tenants.map((t) => {
+        const p = person.get(t.tenantId);
+        return { tenantId: t.tenantId, isPrimary: t.isPrimary, displayName: p ? tenantDisplayName(p) : "" };
+      });
+      return { ...base, masterTenants, current: { ...current, taxReimbursementCents: tax?.cents ?? null, taxReimbursementExplanation: tax?.explanation ?? null }, rentSchedule: leaseRentSchedule(l) };
     }));
   };
 
@@ -132,9 +136,16 @@ export function mountLeaseReadRoutes(app: Hono, db: Db) {
   app.get("/api/leases/:id/versions/:n", async (c) => {
     const row = await detail(c);
     const n = Number(c.req.param("n"));
-    if (!row || !Number.isInteger(n) || n < 1) return notFound(c);
+    if (!row || !Number.isInteger(n) || n < 1 || n > 2_147_483_647) return notFound(c);
     const [version] = await revisions(row.id, n);
     if (!version) return apiError(c, "NOT_FOUND", "Version not found.");
-    return c.json(version);
+    const snapshot = version.snapshot as { tenants?: { tenantId: string; isPrimary: boolean }[] };
+    const members = snapshot.tenants ?? [];
+    const people = members.length === 0 ? [] : await db.select().from(tenant).where(inArray(tenant.id, members.map((t) => t.tenantId)));
+    const snapshotTenants = members.map((t) => {
+      const p = people.find((x) => x.id === t.tenantId);
+      return { ...t, displayName: p ? tenantDisplayName(p) : "" };
+    });
+    return c.json({ ...version, snapshotTenants });
   });
 }
