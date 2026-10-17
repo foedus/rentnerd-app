@@ -2,7 +2,7 @@ import { and, asc, count, desc, eq, ilike, isNull, or, sql, type SQL } from "dri
 import type { Context, Hono } from "hono";
 import type { Db } from "../db/client";
 import { extensionTenant, leaseTenant, tenant } from "../db/schema";
-import { normalizeTenantNames, tenantListQuerySchema, tenantRuleIssues, createTenantSchema, updateTenantSchema, versionSchema } from "../shared/schemas";
+import { normalizeTenantNames, tenantListQuerySchema, tenantRuleIssues, createTenantSchema, updateTenantSchema, requiredVersionSchema } from "../shared/schemas";
 import { diffChanges, writeAudit } from "./audit";
 import { apiError } from "./api-guard";
 import { validate, validateBody } from "./validation";
@@ -40,7 +40,7 @@ const stale = (c: Context) => apiError(c, "CONFLICT", "This tenant was changed b
 
 /** Tenants CRUD, archive and restore (SPEC §6.8, §14.2). Every editor may use them; the Smoke user is blocked by the session guard. */
 export function mountTenantRoutes(app: Hono, db: Db, usage: TenantUsage = dbTenantUsage) {
-  const actionVersion = async (c: Context) => validate(c, versionSchema, await c.req.json().catch(() => ({})));
+  const actionVersion = async (c: Context) => validate(c, requiredVersionSchema, await c.req.json().catch(() => ({})));
   const present = (t: TenantRow) => ({ ...t, displayName: tenantDisplayName(t) });
   const actor = (c: Context) => c.get("user").id;
 

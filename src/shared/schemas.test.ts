@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createInvestmentSchema, investmentListQuerySchema, updateInvestmentSchema, acceptInvitationSchema, endLeaseSchema, markMonthToMonthSchema, updateLeaseSchema, createExtensionSchema, updateExtensionSchema, extensionFieldsSchema, leaseFieldsSchema, leaseRuleIssues, termRuleIssues, createOwnerSchema, createPropertyTaxSchema, createPropertyValueSchema, ownerListQuerySchema, updateMeSchema, updateOwnerSchema, updatePropertyTaxSchema, updatePropertyValueSchema, versionSchema, createTenantSchema, normalizeTenantNames, tenantListQuerySchema, tenantRuleIssues, updateTenantSchema } from "./schemas";
+import { createInvestmentSchema, investmentListQuerySchema, updateInvestmentSchema, acceptInvitationSchema, endLeaseSchema, markMonthToMonthSchema, updateLeaseSchema, createExtensionSchema, updateExtensionSchema, extensionFieldsSchema, leaseFieldsSchema, leaseRuleIssues, termRuleIssues, createOwnerSchema, createPropertyTaxSchema, createPropertyValueSchema, ownerListQuerySchema, updateMeSchema, updateOwnerSchema, updatePropertyTaxSchema, updatePropertyValueSchema, versionSchema, requiredVersionSchema, createTenantSchema, normalizeTenantNames, tenantListQuerySchema, tenantRuleIssues, updateTenantSchema } from "./schemas";
 
 describe("schemas", () => {
   it("enforces the 12–128 character password and a trimmed name", () => {
@@ -41,6 +41,11 @@ describe("owner schemas", () => {
     expect(updateOwnerSchema.safeParse({ city: "Queens" }).success).toBe(false);
     expect(updateOwnerSchema.safeParse({ city: "Queens", version: 2 }).success).toBe(true);
     expect(versionSchema.safeParse({}).success).toBe(true);
+  });
+  it("tenant archive and restore must send a version", () => {
+    expect(requiredVersionSchema.safeParse({}).success).toBe(false);
+    expect(requiredVersionSchema.safeParse({ version: "x" }).success).toBe(false);
+    expect(requiredVersionSchema.safeParse({ version: 2 }).success).toBe(true);
   });
   it("list query defaults and limits", () => {
     expect(ownerListQuerySchema.parse({})).toMatchObject({ page: 1, pageSize: 50, sort: "name", order: "asc", archived: "false" });

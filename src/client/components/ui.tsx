@@ -150,7 +150,7 @@ interface DataTableProps<T> {
 /** Named table inside a keyboard-focusable, horizontally scrollable region. */
 export function DataTable<T>({ name, columns, rows, rowKey, emptyMessage, footer }: DataTableProps<T>) {
   return (
-    <div role="region" aria-label={`${name} (scrollable)`} tabIndex={0} className="overflow-x-auto">
+    <div role="region" aria-label={`${name} (scrollable)`} tabIndex={0} className="overflow-x-auto scroll-shadow">
       <table aria-label={name} className="w-full text-left">
         <thead>
           <tr>

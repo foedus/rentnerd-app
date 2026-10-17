@@ -116,7 +116,7 @@ describe("tenants API", () => {
   it("returns 404 for unknown or malformed ids", async () => {
     const admin = await makeUser("admin@example.com", "admin");
     for (const id of [crypto.randomUUID(), "nope"]) {
-      for (const [method, suffix, body] of [["GET", "", undefined], ["PATCH", "", { phone: "1", version: 1 }], ["DELETE", "", undefined], ["POST", "/archive", {}], ["POST", "/restore", {}]] as const) {
+      for (const [method, suffix, body] of [["GET", "", undefined], ["PATCH", "", { phone: "1", version: 1 }], ["DELETE", "", undefined], ["POST", "/archive", { version: 1 }], ["POST", "/restore", { version: 1 }]] as const) {
         const res = await call(app, admin.cookie, method, `/api/tenants/${id}${suffix}`, body);
         expect(res.status, `${method} ${id}${suffix}`).toBe(404);
         expect((await res.json()).error.code).toBe("NOT_FOUND");
@@ -130,7 +130,7 @@ describe("tenants API", () => {
     await create(admin.cookie, { tenantType: "Individual", firstName: "Al", lastName: "Adams" });
     await create(admin.cookie, { tenantType: "Business", businessName: "100% Pizza", contactPerson: "Cy" });
     const gone = await create(admin.cookie, { tenantType: "Individual", firstName: "Di", lastName: "Gone" });
-    await call(app, admin.cookie, "POST", `/api/tenants/${gone.id}/archive`, {});
+    await call(app, admin.cookie, "POST", `/api/tenants/${gone.id}/archive`, { version: gone.version });
     const names = async (qs: string) => ((await (await call(app, admin.cookie, "GET", `/api/tenants${qs}`)).json()).data as { displayName: string }[]).map((t) => t.displayName);
     expect(await names("")).toEqual(["100% Pizza (Cy)", "Al Adams", "Bo Zed"]);
     expect(await names("?archived=true")).toHaveLength(4);
@@ -151,13 +151,22 @@ describe("tenants API", () => {
     const archived = await (await call(app, admin.cookie, "POST", `/api/tenants/${t.id}/archive`, { version: 1 })).json();
     expect(archived).toMatchObject({ version: 2 });
     expect(archived.archivedAt).toBeTruthy();
-    expect((await call(app, admin.cookie, "POST", `/api/tenants/${t.id}/archive`, {})).status).toBe(409);
+    expect((await call(app, admin.cookie, "POST", `/api/tenants/${t.id}/archive`, { version: 2 })).status).toBe(409);
     expect((await call(app, admin.cookie, "POST", `/api/tenants/${t.id}/restore`, { version: 1 })).status).toBe(409);
     const restored = await (await call(app, admin.cookie, "POST", `/api/tenants/${t.id}/restore`, { version: 2 })).json();
     expect(restored).toMatchObject({ version: 3, archivedAt: null });
-    expect((await call(app, admin.cookie, "POST", `/api/tenants/${t.id}/restore`, {})).status).toBe(409);
+    expect((await call(app, admin.cookie, "POST", `/api/tenants/${t.id}/restore`, { version: 3 })).status).toBe(409);
     const { rows } = await pool.query("select action from audit_log where action in ('archive','restore') order by at, id");
     expect(rows.map((r) => r.action)).toEqual(["archive", "restore"]);
+  });
+
+  it("refuses archive and restore without a valid version", async () => {
+    const admin = await makeUser("admin@example.com", "admin");
+    const t = await create(admin.cookie);
+    for (const body of [{}, { version: "x" }, { version: 0 }]) {
+      for (const action of ["archive", "restore"]) expect((await call(app, admin.cookie, "POST", `/api/tenants/${t.id}/${action}`, body)).status).toBe(422);
+    }
+    expect((await (await call(app, admin.cookie, "GET", `/api/tenants/${t.id}`)).json()).archivedAt).toBeNull();
   });
 
   it("deletes an unused tenant with an audit row; a tenant on a lease can only be archived", async () => {
@@ -169,7 +178,7 @@ describe("tenants API", () => {
     expect(refused.status).toBe(409);
     expect((await refused.json()).error.code).toBe("CONFLICT");
     expect((await (await call(usageApp, admin.cookie, "GET", `/api/tenants/${used.id}`)).json()).onLease).toBe(true);
-    expect((await call(usageApp, admin.cookie, "POST", `/api/tenants/${used.id}/archive`, {})).status).toBe(200);
+    expect((await call(usageApp, admin.cookie, "POST", `/api/tenants/${used.id}/archive`, { version: used.version })).status).toBe(200);
     onLease = false;
     expect((await call(app, admin.cookie, "DELETE", `/api/tenants/${t.id}`)).status).toBe(204);
     expect((await call(app, admin.cookie, "GET", `/api/tenants/${t.id}`)).status).toBe(404);

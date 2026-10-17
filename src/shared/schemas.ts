@@ -106,6 +106,9 @@ export const updateOwnerSchema = ownerFieldsSchema.partial().extend({ version: z
 /** Actions (archive, restore) may carry the version being acted on. */
 export const versionSchema = z.object({ version: z.number().int().min(1, "version must be a positive whole number").optional() });
 
+/** Tenant archive and restore must say which version they act on (D-10), so a stale page can't archive blindly. */
+export const requiredVersionSchema = z.object({ version: z.number("version is required").int().min(1, "version must be a positive whole number") });
+
 export const ownerListQuerySchema = listQuerySchema.extend({
   sort: z.enum(["name", "ownerType", "city", "createdAt"]).default("name"),
   order: z.enum(["asc", "desc"]).default("asc"),
