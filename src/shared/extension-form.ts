@@ -2,9 +2,12 @@ import { addDays } from "./dates";
 import { draftsFromLease, type EditableLease } from "./lease-edit";
 import { specialStepIssues, termStepIssues, type SpecialStepDraft, type TermStepDraft, type WizardTenantRow } from "./lease-wizard";
 
+/** A tenant row; `newTenant` holds a tenant made on the form that is created when the extension is saved. */
+export type ExtensionTenantRow = WizardTenantRow & { newTenant?: Record<string, unknown> };
+
 /** What the extension form edits (SPEC §11.14): tenants, dates, rent, rent increases, the other terms and notes. */
 export interface ExtensionDraft {
-  rows: WizardTenantRow[];
+  rows: ExtensionTenantRow[];
   primary: string | null;
   term: TermStepDraft;
   special: SpecialStepDraft;

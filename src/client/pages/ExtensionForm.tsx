@@ -10,6 +10,7 @@ import { FieldErrorsError } from "../api";
 import { VersionConflictError } from "../components/forms";
 import { Page } from "../components/Page";
 import { fetchExtension, fetchLease, saveExtension, type LeaseDetailRecord } from "../leases-api";
+import { saveTenant } from "../tenants-api";
 import { TenantsStep, type Row } from "./NewLease";
 import { SpecialStep } from "./NewLeaseSpecial";
 import { Field, fieldId, Money, ProblemSummary, RentIncreaseFields } from "./NewLeaseTerm";
@@ -20,8 +21,6 @@ const MAIN_FIELDS = ["startDate", "endDate", "baseRentCents", "increasePercent",
 const RENT_TERM_FIELDS = ["securityDepositCents", "rentDueDay", "lateFeeCents", "lateFeeGraceDays"];
 const SPECIAL_FIELDS = ["pets", "parking", "parkingChargeCents", "childrenReside", "breakClause", "otherTerms", "baseTaxYear", "taxSharePercent"];
 const FORM_FIELDS = new Set([...MAIN_FIELDS, ...RENT_TERM_FIELDS, ...SPECIAL_FIELDS]);
-const pick = (issues: Record<string, string>, names: string[]) => Object.fromEntries(Object.entries(issues).filter(([k]) => names.includes(k)));
-const omit = (issues: Record<string, string>, names: string[]) => Object.fromEntries(Object.entries(issues).filter(([k]) => !names.includes(k)));
 
 function Form({ lease, extensionId, initial }: { lease: LeaseDetailRecord; extensionId?: string; initial: ExtensionDraft }) {
   const use = lease.unitUse === "Commercial" ? "Commercial" : "Residential";
@@ -35,7 +34,6 @@ function Form({ lease, extensionId, initial }: { lease: LeaseDetailRecord; exten
   const [saving, setSaving] = useState(false);
   const [tenantIssue, setTenantIssue] = useState<string | null>(null);
   const [otherOpen, setOtherOpen] = useState(false);
-  const [specialRefusals, setSpecialRefusals] = useState(0);
   const [refusals, setRefusals] = useState(0);
   const summary = useRef<HTMLDivElement>(null);
   const alertBox = useRef<HTMLDivElement>(null);
@@ -61,11 +59,17 @@ function Form({ lease, extensionId, initial }: { lease: LeaseDetailRecord; exten
     setTenantIssue(tenants);
     const hidden = Object.keys(found).some((k) => [...RENT_TERM_FIELDS, ...SPECIAL_FIELDS].includes(k));
     if (hidden) setOtherOpen(true);
-    if (Object.keys(pick(found, SPECIAL_FIELDS)).length > 0 && Object.keys(omit(found, SPECIAL_FIELDS)).length === 0 && !tenants) setSpecialRefusals((n) => n + 1);
     if (tenants || Object.keys(found).length > 0) return setRefusals((n) => n + 1);
     setSaving(true);
     try {
-      await saveExtension(extensionId ? { extensionId } : { leaseId: lease.id }, extensionBody(draft, lease.version, use));
+      // Tenants made on this form are created first; a row keeps its new id if the extension itself is then refused.
+      let ready = draft;
+      for (const row of draft.rows.filter((r) => !r.tenantId && r.newTenant)) {
+        const created = await saveTenant(row.newTenant as Record<string, unknown>);
+        ready = { ...ready, rows: ready.rows.map((r) => (r.key === row.key ? { key: r.key, tenantId: created.id, name: r.name } : r)) };
+        setDraft(ready);
+      }
+      await saveExtension(extensionId ? { extensionId } : { leaseId: lease.id }, extensionBody(ready, lease.version, use));
       await queryClient.invalidateQueries();
       navigate(back);
     } catch (e) {
@@ -108,11 +112,11 @@ function Form({ lease, extensionId, initial }: { lease: LeaseDetailRecord; exten
       )}
       <h2 className="mb-3 text-xl font-semibold">Tenants</h2>
       <div ref={tenantBox} tabIndex={-1} className="outline-offset-2 focus:outline focus:outline-2">
-        <TenantsStep rows={draft.rows} setRows={setRows} primary={draft.primary} setPrimary={setPrimary} error={tenantIssue} allowNew={false} />
+        <TenantsStep rows={draft.rows} setRows={setRows} primary={draft.primary} setPrimary={setPrimary} error={tenantIssue} />
       </div>
       <h2 className="mb-3 mt-8 text-xl font-semibold">Term and rent</h2>
       <section className="max-w-xl space-y-4">
-        <ProblemSummary ref={summary} items={Object.entries(omit(issues, SPECIAL_FIELDS)).map(([name, text]) => ({ name, text }))} targetId={(name) => (name === "steps" ? fieldId("increaseType") : fieldId(name))} />
+        <ProblemSummary ref={summary} items={Object.entries(issues).map(([name, text]) => ({ name, text }))} targetId={(name) => (name === "steps" ? fieldId("increaseType") : fieldId(name))} />
         <Field name="startDate" label="Extension start date" required error={issues.startDate}>
           {(p) => <input {...p} type="date" value={draft.term.startDate} onChange={(e) => set({ startDate: e.target.value })} />}
         </Field>
@@ -141,8 +145,7 @@ function Form({ lease, extensionId, initial }: { lease: LeaseDetailRecord; exten
             <Field name="lateFeeGraceDays" label="Late fee grace period (days)" error={issues.lateFeeGraceDays}>
               {(p) => <input {...p} type="text" inputMode="numeric" autoComplete="off" value={draft.term.lateFeeGraceDays} onChange={(e) => set({ lateFeeGraceDays: e.target.value })} />}
             </Field>
-            <h3 className="font-semibold">Other income and special terms</h3>
-            <SpecialStep draft={draft.special} setDraft={(special) => setDraft((d) => ({ ...d, special }))} issues={pick(issues, SPECIAL_FIELDS)} use={use} propertyId={lease.propertyId ?? undefined} focusSignal={specialRefusals} />
+            <SpecialStep draft={draft.special} setDraft={(special) => setDraft((d) => ({ ...d, special }))} issues={issues} use={use} propertyId={lease.propertyId ?? undefined} focusSignal={0} grouped />
           </div>
         )}
       </div>

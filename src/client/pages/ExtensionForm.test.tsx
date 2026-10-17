@@ -244,3 +244,48 @@ it("edits the latest extension with its own tenants and terms", async () => {
   await openOther();
   expect(input("Parking charge").value).toBe("$150.00");
 });
+
+it("groups the other terms as Rent terms, Other income and Special terms", async () => {
+  await mount("/leases/l1/extensions/new", "/leases/:id/extensions/new");
+  await openOther();
+  const headings = Array.from(document.querySelectorAll("h3")).map((h) => h.textContent);
+  expect(headings).toEqual(["Rent terms", "Other income", "Special terms"]);
+});
+
+it("lists every problem in one box, including those in the other terms", async () => {
+  await mount("/leases/l1/extensions/new", "/leases/:id/extensions/new");
+  await openOther();
+  await type(input("Rent due day"), "40");
+  await type(input("Parking charge"), "-5");
+  await press(button("Save extension"));
+  expect(Array.from(document.querySelectorAll("h3")).filter((h) => h.textContent === "There is a problem")).toHaveLength(1);
+  const box = document.querySelector('[role="alert"]');
+  expect(box?.textContent).toContain("Enter a whole number from 1 to 28.");
+  expect(box?.textContent).toContain("The amount can't be negative.");
+});
+
+it("creates a tenant made on the form, then saves the extension with the new tenant", async () => {
+  const calls: { url: string; body: Record<string, unknown> }[] = [];
+  await mount("/leases/l1/extensions/new", "/leases/:id/extensions/new", (url, init) => {
+    if (init?.method !== "POST") return undefined;
+    calls.push({ url, body: JSON.parse(String(init.body)) });
+    return url === "/api/tenants" ? json({ id: "t9" }, 201) : json({ id: "e2" }, 201);
+  });
+  await press(button("Add new tenant"));
+  await press(document.querySelector("input[type=radio][value=Individual]") as HTMLInputElement);
+  await type(document.getElementById("new-tenant-field-firstName") as HTMLInputElement, "Cy");
+  await type(document.getElementById("new-tenant-field-lastName") as HTMLInputElement, "Newcomer");
+  await press(button("Add tenant"));
+  await type(input("Extension end date"), "2028-10-31");
+  await type(input("Monthly rent"), "2250");
+  await press(button("Save extension"));
+  expect(calls.map((c) => c.url)).toEqual(["/api/tenants", "/api/leases/l1/extensions"]);
+  expect(calls[0]?.body).toMatchObject({ firstName: "Cy", lastName: "Newcomer" });
+  expect(calls[1]?.body.tenants).toEqual([{ tenantId: "t1", isPrimary: true }, { tenantId: "t2", isPrimary: false }, { tenantId: "t9", isPrimary: false }]);
+});
+
+it("keeps keyboard focus in the Tenants section after Remove", async () => {
+  await mount("/leases/l1/extensions/new", "/leases/:id/extensions/new");
+  await press(Array.from(rowOf("Bo Lee")?.querySelectorAll("button") ?? []).find((b) => b.textContent === "Remove"));
+  expect(document.activeElement).toBe(button("Add new tenant"));
+});

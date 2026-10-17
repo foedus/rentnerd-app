@@ -211,12 +211,13 @@ export function TenantsStep({
 }: { rows: Row[]; setRows: (r: Row[]) => void; primary: string | null; setPrimary: (k: string | null) => void; error: string | null; allowNew?: boolean }) {
   const [adding, setAdding] = useState(false);
   const addButton = useRef<HTMLButtonElement>(null);
+  const root = useRef<HTMLElement>(null);
   const errorId = useId();
   const nextKey = useRef(0);
   const add = (row: Omit<Row, "key">) => setRows([...rows, { ...row, key: `row-${nextKey.current++}` }]);
   const taken = new Set(rows.flatMap((r) => (r.tenantId ? [r.tenantId] : [])));
   return (
-    <section aria-labelledby="step-heading" className="space-y-4">
+    <section ref={root} aria-labelledby="step-heading" className="space-y-4">
       <ExistingTenantPicker taken={taken} onPick={(tenantId, name, detail) => add({ tenantId, name, detail })} />
       {!allowNew ? null : adding ? (
         <NewTenantForm
@@ -269,7 +270,7 @@ export function TenantsStep({
                     onPress={() => {
                       setRows(rows.filter((x) => x.key !== r.key));
                       if (primary === r.key) setPrimary(null);
-                      queueMicrotask(() => addButton.current?.focus());
+                      queueMicrotask(() => (addButton.current ?? root.current?.querySelector("input"))?.focus());
                     }}
                     aria-describedby={`${r.key}-name`}
                     className="min-h-6 rounded border px-3 py-1"
