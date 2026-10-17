@@ -5,6 +5,12 @@
   outline-offset: 0;
 }
 
+/* Checkboxes meet the 24 px target size (§11, D-34). */
+input[type="checkbox"] {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
 /* Visually hidden until focused; kept inside the viewport so it never sits off-screen. */
 .skip-link {
   position: absolute;

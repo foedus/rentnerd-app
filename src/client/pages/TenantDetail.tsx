@@ -1,8 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Button } from "react-aria-components";
-import { useLocation, useNavigate, useParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { UNEXPECTED_MESSAGE } from "../../shared/form-messages";
+import { fetchTenantLeases, type LeaseListRow } from "../leases-api";
+import { formatDate } from "../../shared/format";
 import { Page } from "../components/Page";
 import { ConfirmDialog, DataTable, ReasonButton, type Column } from "../components/ui";
 import { useCanWrite } from "../me";
@@ -10,23 +12,21 @@ import { deleteTenant, fetchTenant, tenantAction, type TenantAction, type Tenant
 
 const ON_LEASE_DELETE = "Tenants on a lease can only be archived";
 
-interface LeaseRow {
-  id: string;
-  property: string;
-  unit: string;
-  start: string;
-  end: string;
-  status: string;
-  primary: boolean;
-}
-
-const leaseColumns: Column<LeaseRow>[] = [
-  { key: "property", header: "Property", cell: (l) => l.property },
-  { key: "unit", header: "Unit", cell: (l) => l.unit },
-  { key: "start", header: "Start", cell: (l) => l.start },
-  { key: "end", header: "End", cell: (l) => l.end },
-  { key: "status", header: "Status", cell: (l) => l.status },
-  { key: "primary", header: "Primary contact", cell: (l) => (l.primary ? "Yes" : "No") },
+const leaseColumns = (tenantId: string): Column<LeaseListRow>[] => [
+  { key: "property", header: "Property", cell: (l) => <span className="block max-w-48 break-words">{l.propertyName ?? "–"}</span> },
+  {
+    key: "unit",
+    header: "Unit",
+    cell: (l) => (
+      <Link to={`/leases/${l.id}`} className="underline" aria-label={`Lease for unit ${l.unitLabel ?? ""}`}>
+        {l.unitLabel ?? "–"}
+      </Link>
+    ),
+  },
+  { key: "start", header: "Start", cell: (l) => formatDate(l.startDate) },
+  { key: "end", header: "End", cell: (l) => formatDate(l.effectiveEndDate) },
+  { key: "status", header: "Status", cell: (l) => l.statusLabel },
+  { key: "primary", header: "Primary contact", cell: (l) => (l.currentTenants.some((t) => t.tenantId === tenantId && t.isPrimary) ? "Yes" : "No") },
 ];
 
 function Details({ tenant }: { tenant: TenantRecord }) {
@@ -63,8 +63,12 @@ function TenantView({ tenant }: { tenant: TenantRecord }) {
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ["tenant"] });
     await queryClient.invalidateQueries({ queryKey: ["tenants"] });
+    await queryClient.invalidateQueries({ queryKey: ["tenant-leases"] });
   };
+  const busy = useRef(false);
   const run = async (action: TenantAction) => {
+    if (busy.current) return; // a double-click would re-send the old version and report a false conflict
+    busy.current = true;
     setNotice("");
     setProblem("");
     try {
@@ -74,6 +78,7 @@ function TenantView({ tenant }: { tenant: TenantRecord }) {
       setProblem(err instanceof Error ? err.message : UNEXPECTED_MESSAGE);
     }
     await refresh();
+    busy.current = false;
     outcome.current?.focus();
   };
   const remove = async () => {
@@ -88,8 +93,7 @@ function TenantView({ tenant }: { tenant: TenantRecord }) {
     await refresh();
     navigate("/tenants", { state: { saved: "Tenant deleted." } });
   };
-  // The leases list and the real "on a lease" check come with the lease screens.
-  const leases: LeaseRow[] = [];
+  const leases = useQuery({ queryKey: ["tenant-leases", tenant.id], queryFn: () => fetchTenantLeases(tenant.id), gcTime: 0 });
   return (
     <Page title={tenant.displayName}>
       <div ref={outcome} tabIndex={-1} className="outline-none">
@@ -106,7 +110,11 @@ function TenantView({ tenant }: { tenant: TenantRecord }) {
       <Details tenant={tenant} />
       <h2 className="mb-2 text-xl font-semibold">Leases</h2>
       <div className="mb-6">
-        <DataTable name="Leases" columns={leaseColumns} rows={leases} rowKey={(l) => l.id} emptyMessage="This tenant is not on any lease." />
+        {leases.isError ? (
+          <p role="alert">{leases.error.message}</p>
+        ) : (
+          <DataTable name="Leases" columns={leaseColumns(tenant.id)} rows={leases.data ?? []} rowKey={(l) => l.id} emptyMessage={leases.isPending ? "Loading…" : "This tenant is not on any lease."} />
+        )}
       </div>
       {canWrite && (
         <div className="flex flex-wrap gap-2">

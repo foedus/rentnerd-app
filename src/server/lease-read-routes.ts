@@ -99,10 +99,14 @@ export function mountLeaseReadRoutes(app: Hono, db: Db) {
       conditions.push(or(exists(onLease), exists(onExtension)) as SQL);
     }
     const dir = order === "asc" ? asc : desc;
-    const column = { startDate: lease.startDate, endDate: lease.endDate, createdAt: lease.createdAt }[sort];
+    const column = { startDate: lease.startDate, endDate: lease.endDate, createdAt: lease.createdAt, property: lease.startDate }[sort];
     const rows = await db.select().from(lease).where(and(...conditions)).orderBy(dir(column), asc(lease.id));
     // Status is derived, so it is filtered (and the page cut) in code after loading the candidates (D-32).
-    const all = await describe(rows, false);
+    const described = await describe(rows, false);
+    // "property" orders by property name, then unit label (numbers in natural order), then newest start first.
+    const byUnit = (a: (typeof described)[number], b: (typeof described)[number]) =>
+      (a.propertyName ?? "").localeCompare(b.propertyName ?? "") || (a.unitLabel ?? "").localeCompare(b.unitLabel ?? "", undefined, { numeric: true }) || b.startDate.localeCompare(a.startDate);
+    const all = sort === "property" ? [...described].sort((a, b) => (order === "asc" ? byUnit(a, b) : byUnit(b, a))) : described;
     const matching = status.length === 0 ? all : all.filter((l) => status.includes(l.status));
     return c.json({ data: matching.slice((page - 1) * pageSize, page * pageSize), page, pageSize, total: matching.length });
   });

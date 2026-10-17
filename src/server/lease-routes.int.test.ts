@@ -278,6 +278,7 @@ describe("lease reads", () => {
   type Detail = Lease & {
     status: string; statusLabel: string; effectiveEndDate: string; currentRentCents: number; unitLabel: string; propertyId: string;
     current: { tenants: { tenantId: string; displayName: string }[]; baseRentCents: number };
+    currentTenants: { tenantId: string; isPrimary: boolean }[];
     rentSchedule: { periodStart: string; rentCents: number; term: string }[];
   };
   const make = async (f: Fx, unitId: string, over: Record<string, unknown>) => json<Detail>(await post(f, unitId, over));
@@ -328,6 +329,16 @@ describe("lease reads", () => {
     expect((await list(f)).total).toBe(0);
     const withArchived = await list(f, "?archived=true");
     expect(withArchived.data[0]).toMatchObject({ id: l.id, statusLabel: "Needs decision · Archived" });
+  });
+
+  it("lists a tenant's archived leases too and flags where they are the primary contact", async () => {
+    const f = await fixture();
+    const l = await make(f, f.res, { startDate: "2020-01-01", endDate: "2020-12-31" });
+    await pool.query("update lease set archived_at = now() where id = $1", [l.id]);
+    expect((await list(f, `?tenantId=${f.t1}`)).total).toBe(0);
+    const rows = (await list(f, `?tenantId=${f.t1}&archived=true`)).data;
+    expect(rows.map((x) => x.id)).toEqual([l.id]);
+    expect(rows[0]?.currentTenants.filter((t) => t.isPrimary)).toHaveLength(1);
   });
 
   it("finds a tenant who is only on an extension", async () => {
@@ -396,5 +407,21 @@ describe("lease reads", () => {
     const one = await json<{ versionNumber: number; snapshot: { id: string; baseRentCents: number } }>(await call(f.cookie, "GET", `/api/leases/${l.id}/versions/1`));
     expect(one).toMatchObject({ versionNumber: 1, summary: "Lease created", snapshot: { id: l.id, baseRentCents: 250000 } });
     for (const n of ["3", "0", "x"]) expect((await call(f.cookie, "GET", `/api/leases/${l.id}/versions/${n}`)).status, n).toBe(404);
+  });
+});
+
+describe("GET /api/leases?sort=property", () => {
+  it("orders by property name, then unit label in natural order, newest start first", async () => {
+    const f = await fixture();
+    const unit = async (label: string) => (await json<{ id: string }>(await call(f.cookie, "POST", `/api/properties/${f.propertyId}/units`, { label, use: "Residential" }))).id;
+    const u10 = await unit("10");
+    const u2 = await unit("2");
+    await post(f, u10, { startDate: "2026-01-01", endDate: "2026-12-31" });
+    await post(f, u2, { startDate: "2026-01-01", endDate: "2026-12-31" });
+    await post(f, f.res, { startDate: "2026-01-01", endDate: "2026-12-31" });
+    const labels = async (order: string) =>
+      (await json<{ data: { unitLabel: string }[] }>(await call(f.cookie, "GET", `/api/leases?sort=property&order=${order}`))).data.map((l) => l.unitLabel);
+    expect(await labels("asc")).toEqual(["2", "2R", "10"]);
+    expect(await labels("desc")).toEqual(["10", "2R", "2"]);
   });
 });

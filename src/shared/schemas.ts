@@ -456,7 +456,7 @@ export const leaseListQuerySchema = listQuerySchema.extend({
   propertyId: z.uuid("Invalid property id.").optional(),
   unitId: z.uuid("Invalid unit id.").optional(),
   tenantId: z.uuid("Invalid tenant id.").optional(),
-  sort: z.enum(["startDate", "endDate", "createdAt"]).default("startDate"),
+  sort: z.enum(["startDate", "endDate", "createdAt", "property"]).default("startDate"),
   order: z.enum(["asc", "desc"]).default("desc"),
   archived: z.enum(["true", "false"]).default("false"),
 });

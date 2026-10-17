@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { Link } from "react-router";
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router";
 import { UNEXPECTED_MESSAGE } from "../../shared/form-messages";
-import { formatCents, formatDate } from "../../shared/format";
+import { formatCents, formatDate, pageCount } from "../../shared/format";
 import { LEASE_STATUS_LABELS, type LeaseStatus } from "../../shared/lease";
 import { fetchPropertyNames } from "../compliance-api";
 import { fetchLeases, type LeaseListRow } from "../leases-api";
@@ -19,6 +19,7 @@ export const STATUS_FILTERS: { label: string; codes: LeaseStatus[] }[] = [
   { label: LEASE_STATUS_LABELS.ended, codes: ["ended", "ended_superseded"] },
 ];
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DEFAULT_CHECKED = STATUS_FILTERS.map((f) => f.label).filter((l) => l !== LEASE_STATUS_LABELS.ended);
 
 const columns: Column<LeaseListRow>[] = [
@@ -50,10 +51,31 @@ const columns: Column<LeaseListRow>[] = [
 const NO_LEASES = { data: [], page: 1, pageSize: 50, total: 0 };
 
 export function Leases() {
-  const [checked, setChecked] = useState<string[]>(DEFAULT_CHECKED);
-  const [archived, setArchived] = useState(false);
-  const [propertyId, setPropertyId] = useState("");
-  const [page, setPage] = useState(1);
+  // The filters live in the address (?status=Active&archived=1&property=…&page=2) so Back, Reload and shared links keep them.
+  // The page's own state answers clicks at once; the address follows (the router applies it in a deferred update).
+  const [params, setParams] = useSearchParams();
+  const [filters, setFilters] = useState(() => {
+    const chosen = params.getAll("status");
+    return {
+      checked: chosen.length === 0 ? DEFAULT_CHECKED : chosen.filter((l) => l !== "none"),
+      archived: params.get("archived") === "1",
+      // A hand-typed or stale property that is not an id is ignored instead of reaching the server.
+      propertyId: UUID.test(params.get("property") ?? "") ? (params.get("property") as string) : "",
+      page: Math.max(1, Number.parseInt(params.get("page") ?? "1", 10) || 1),
+    };
+  });
+  const { checked, archived, propertyId, page } = filters;
+  const apply = (change: Partial<typeof filters>) => {
+    const next = { ...filters, page: 1, ...change };
+    setFilters(next);
+    const query = new URLSearchParams();
+    if (next.checked.join() !== DEFAULT_CHECKED.join()) for (const l of next.checked.length === 0 ? ["none"] : next.checked) query.append("status", l);
+    if (next.archived) query.set("archived", "1");
+    if (next.propertyId) query.set("property", next.propertyId);
+    if (next.page > 1) query.set("page", String(next.page));
+    setParams(query, { replace: true });
+  };
+  const setPage = (n: number) => apply({ page: n });
   const status = STATUS_FILTERS.filter((f) => checked.includes(f.label)).flatMap((f) => f.codes);
   const properties = useQuery({ queryKey: ["compliance-property-names"], queryFn: fetchPropertyNames });
   // Nothing checked would mean "no filter" to the server, so it is answered here, at once, with an empty list.
@@ -65,6 +87,11 @@ export function Leases() {
     enabled: !noStatus,
   });
   const data = noStatus ? NO_LEASES : leases.data;
+  // A bookmarked page past the end (the list shrank) moves to the last page.
+  const lastPage = leases.data ? Math.max(1, pageCount(leases.data.total, leases.data.pageSize)) : 1;
+  useEffect(() => {
+    if (leases.data && !leases.isPlaceholderData && page > lastPage) setPage(lastPage);
+  });
   return (
     <Page title="Leases">
       <div className="mb-4 flex flex-wrap items-end gap-4">
@@ -75,10 +102,10 @@ export function Leases() {
               <input
                 type="checkbox"
                 checked={checked.includes(f.label)}
-                onChange={(e) => {
-                  setChecked(e.target.checked ? [...checked, f.label] : checked.filter((l) => l !== f.label));
-                  setPage(1);
-                }}
+                onChange={(e) =>
+                  // Keep the spec's order so the same selection always gives the same address.
+                  apply({ checked: STATUS_FILTERS.map((x) => x.label).filter((l) => (l === f.label ? e.target.checked : checked.includes(l))) })
+                }
               />
               {f.label}
             </label>
@@ -88,10 +115,7 @@ export function Leases() {
           <input
             type="checkbox"
             checked={archived}
-            onChange={(e) => {
-              setArchived(e.target.checked);
-              setPage(1);
-            }}
+            onChange={(e) => apply({ archived: e.target.checked })}
           />
           Show archived
         </label>
@@ -102,10 +126,7 @@ export function Leases() {
           <select
             id="lease-property"
             value={propertyId}
-            onChange={(e) => {
-              setPropertyId(e.target.value);
-              setPage(1);
-            }}
+            onChange={(e) => apply({ propertyId: e.target.value })}
             className="mt-1 block min-h-6 w-64 max-w-full rounded border px-3 py-1"
           >
             <option value="">All properties</option>

@@ -164,7 +164,7 @@ export interface LeaseListRow {
   propertyName: string | null;
   unitId: string;
   unitLabel: string | null;
-  currentTenants: { tenantId: string; displayName: string }[];
+  currentTenants: { tenantId: string; displayName: string; isPrimary: boolean }[];
   startDate: string;
   effectiveEndDate: string;
   currentRentCents: number;
@@ -180,7 +180,7 @@ export interface LeaseListPage {
 
 /** GET /leases (§14.2); `status` is sent once per lease status code. */
 export async function fetchLeases(params: { status: readonly string[]; propertyId: string; archived: boolean; page: number }): Promise<LeaseListPage> {
-  const qs = new URLSearchParams({ page: String(params.page), archived: String(params.archived) });
+  const qs = new URLSearchParams({ page: String(params.page), archived: String(params.archived), sort: "property", order: "asc" });
   for (const s of params.status) qs.append("status", s);
   if (params.propertyId) qs.set("propertyId", params.propertyId);
   const res = await fetch(`/api/leases?${qs}`, { headers: { accept: "application/json" } }).catch(() => {
@@ -189,4 +189,15 @@ export async function fetchLeases(params: { status: readonly string[]; propertyI
   if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
   if (!res.ok) throw new Error(GENERIC);
   return (await res.json()) as LeaseListPage;
+}
+
+/** Every lease the tenant is on, archived ones included (§11.15), as the §14.2 list filtered by `tenantId`. */
+export async function fetchTenantLeases(tenantId: string): Promise<LeaseListRow[]> {
+  const qs = new URLSearchParams({ tenantId, archived: "true", pageSize: "200", sort: "startDate", order: "desc" });
+  const res = await fetch(`/api/leases?${qs}`, { headers: { accept: "application/json" } }).catch(() => {
+    throw new Error(GENERIC);
+  });
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  if (!res.ok) throw new Error(GENERIC);
+  return ((await res.json()) as LeaseListPage).data;
 }

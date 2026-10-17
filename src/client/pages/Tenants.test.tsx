@@ -163,13 +163,38 @@ it("edit: Reload after a conflict shows the latest version", async () => {
 });
 
 it("detail: shows contact details, the Leases table and the action buttons", async () => {
-  const { root } = await mount(`/tenants/${business.id}`, async () => json({ ...business, email: "bo@acme.test" }));
+  const { root } = await mount(`/tenants/${business.id}`, async (url) =>
+    url.startsWith("/api/leases") ? json({ data: [], page: 1, pageSize: 200, total: 0 }) : json({ ...business, email: "bo@acme.test" }));
   expect(document.querySelector("h1")?.textContent).toBe("Acme Shop (Bo Diaz)");
   expect(document.querySelector("dl")?.textContent).toContain("bo@acme.test");
   const table = document.querySelector("table[aria-label=Leases]") as HTMLElement;
   expect(Array.from(table.querySelectorAll("th")).map((h) => h.textContent)).toEqual(["Property", "Unit", "Start", "End", "Status", "Primary contact"]);
   for (const name of ["Edit tenant", "Archive tenant", "Delete tenant"]) expect(buttonNamed(name)).toBeDefined();
   expect(buttonNamed("Delete tenant")?.getAttribute("aria-disabled")).toBeNull();
+  await act(async () => root.unmount());
+});
+
+it("detail: the Leases table lists each lease from the tenant's lease list with a Primary contact Yes/No", async () => {
+  const row = (id: string, unit: string, primary: boolean) => ({
+    id, propertyName: "Oak House", unitId: `u-${id}`, unitLabel: unit, startDate: "2026-01-01", effectiveEndDate: "2026-12-31", currentRentCents: 100000, statusLabel: "Active",
+    currentTenants: [{ tenantId: tenant.id, displayName: "Ann Lee", isPrimary: primary }, { tenantId: "other", displayName: "Bo", isPrimary: !primary }],
+  });
+  const { root, calls } = await mount(`/tenants/${tenant.id}`, async (url) =>
+    url.startsWith("/api/leases") ? json({ data: [row("l1", "A1", true), row("l2", "B2", false)], page: 1, pageSize: 200, total: 2 }) : json(tenant));
+  const query = calls.find((c) => c.url.startsWith("/api/leases"))?.url ?? "";
+  expect(query).toContain(`tenantId=${tenant.id}`);
+  expect(query).toContain("archived=true");
+  const rows = Array.from(document.querySelectorAll("table[aria-label=Leases] tbody tr")).map((r) => Array.from(r.querySelectorAll("td")).map((c) => c.textContent));
+  expect(rows).toEqual([
+    ["Oak House", "A1", "Jan 1, 2026", "Dec 31, 2026", "Active", "Yes"],
+    ["Oak House", "B2", "Jan 1, 2026", "Dec 31, 2026", "Active", "No"],
+  ]);
+  await act(async () => root.unmount());
+});
+
+it("detail: a tenant on no lease says so", async () => {
+  const { root } = await mount(`/tenants/${tenant.id}`, async (url) => (url.startsWith("/api/leases") ? json({ data: [], page: 1, pageSize: 200, total: 0 }) : json(tenant)));
+  expect(document.querySelector("table[aria-label=Leases]")?.textContent).toContain("This tenant is not on any lease.");
   await act(async () => root.unmount());
 });
 
@@ -194,6 +219,19 @@ it("detail: archiving posts the version and says 'Tenant archived.'", async () =
   expect(post?.url).toBe(`/api/tenants/${tenant.id}/archive`);
   expect(JSON.parse(String(post?.init?.body))).toEqual({ version: 3 });
   expect(document.querySelector("[role=status]")?.textContent).toBe("Tenant archived.");
+  await act(async () => root.unmount());
+});
+
+it("detail: a double-click on Archive tenant sends only one request", async () => {
+  const { root, calls } = await mount(`/tenants/${tenant.id}`, async (url, init) => (init?.method === "POST" ? json({ ...tenant, version: 4 }) : url.startsWith("/api/leases") ? json({ data: [], page: 1, pageSize: 200, total: 0 }) : json(tenant)));
+  const button = buttonNamed("Archive tenant") as HTMLButtonElement;
+  await act(async () => {
+    button.click();
+    button.click();
+  });
+  await settle();
+  expect(calls.filter((c) => c.init?.method === "POST")).toHaveLength(1);
+  expect(document.querySelector("[role=alert]")).toBeNull();
   await act(async () => root.unmount());
 });
 

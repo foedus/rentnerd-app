@@ -17,7 +17,7 @@ const row = {
   statusLabel: "Active · Archived",
 };
 
-async function mount() {
+async function mount(path = "/leases") {
   const urls: string[] = [];
   vi.stubGlobal("fetch", async (url: string) => {
     if (url === "/api/me") return Response.json(me);
@@ -30,7 +30,7 @@ async function mount() {
   await act(async () => {
     createRoot(document.getElementById("root") as HTMLElement).render(
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter>
+        <MemoryRouter initialEntries={[path]}>
           <Leases />
         </MemoryRouter>
       </QueryClientProvider>,
@@ -74,5 +74,23 @@ it("shows no leases without asking the server when every status is unchecked", a
     await new Promise((r) => setTimeout(r, 20));
   });
   expect(urls.slice(before).every((u) => u.includes("status="))).toBe(true);
-  expect(urls.at(-1)).toBe("/api/leases?page=1&archived=false&status=needs_decision");
+  expect(urls.at(-1)).toBe("/api/leases?page=1&archived=false&sort=property&order=asc&status=needs_decision");
+});
+
+it("reads its filters from the address", async () => {
+  const urls = await mount("/leases?status=Ended&archived=1&property=33333333-3333-4333-8333-333333333333&page=2");
+  expect(urls[0]).toBe("/api/leases?page=2&archived=true&sort=property&order=asc&status=ended&status=ended_superseded&propertyId=33333333-3333-4333-8333-333333333333");
+  expect(box("Ended").checked).toBe(true);
+  expect(box("Active").checked).toBe(false);
+  expect(box("Show archived").checked).toBe(true);
+});
+
+it("ignores a property in the address that is not an id", async () => {
+  const urls = await mount("/leases?property=nope");
+  expect(urls[0]).not.toContain("propertyId");
+});
+
+it("moves to the last page when the address asks for one past the end", async () => {
+  const urls = await mount("/leases?page=9");
+  expect(urls.at(-1)).toContain("page=1");
 });
