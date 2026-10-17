@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createExtensionSchema } from "./schemas";
 import { draftFromExtension, extensionBody, extensionIssues, newExtensionDraft } from "./extension-form";
 
 const today = "2027-01-01";
@@ -64,5 +65,18 @@ describe("extension form", () => {
     const d = draftFromExtension({ startDate: "2027-11-01", endDate: "2028-10-31", baseRentCents: 225000, increaseType: "percent", increasePercent: 2.5, rentSteps: [], notes: null });
     expect(d.term).toMatchObject({ startDate: "2027-11-01", increasePercent: "2.5", baseRentCents: 225000 });
     expect(d.notes).toBe("");
+  });
+});
+
+describe("extension request version", () => {
+  const message = (version: unknown) => {
+    const r = createExtensionSchema.safeParse({ endDate: "2028-10-31", baseRentCents: 225000, version });
+    return r.success ? null : r.error.issues[0]?.message;
+  };
+  it("asks for a version when missing and for a positive whole number when it is 0 or fractional", () => {
+    expect(message(undefined)).toBe("version is required");
+    expect(message(0)).toBe("version must be a positive whole number");
+    expect(message(1.5)).toBe("version must be a positive whole number");
+    expect(message(2)).toBeNull();
   });
 });

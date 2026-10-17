@@ -86,30 +86,30 @@ function ExtensionsSection({ lease }: { lease: LeaseDetailRecord }) {
   const latest = rows.at(-1)?.id;
   const canAdd = canWrite && !ENDED_STATUSES.includes(lease.status) && !lease.moveOutDate;
   const columns: Column<ExtensionRecord>[] = [
-    { key: "start", header: "Start", cell: (e) => formatDate(e.startDate) },
+    {
+      key: "start",
+      header: "Start",
+      // The actions sit under the date so a narrow phone shows them without scrolling sideways.
+      cell: (e) => (
+        <>
+          {formatDate(e.startDate)}
+          {canWrite && e.id === latest && (
+            <span className="mt-1 flex gap-2">
+              <Button aria-label={`Edit extension starting ${formatDate(e.startDate)}`} onPress={() => navigate(`/extensions/${e.id}/edit`)} className="min-h-6 rounded border px-3 py-1">
+                Edit
+              </Button>
+              <Button aria-label={`Delete extension starting ${formatDate(e.startDate)}`} onPress={() => setDeleting(e)} className="min-h-6 rounded border px-3 py-1 select-none">
+                Delete
+              </Button>
+            </span>
+          )}
+        </>
+      ),
+    },
     { key: "end", header: "End", cell: (e) => formatDate(e.endDate) },
     { key: "tenants", header: "Tenants", cell: (e) => e.tenants.map((t) => t.displayName).filter(Boolean).join(", ") || "–" },
     { key: "rent", header: "Monthly rent", cell: (e) => formatCents(e.baseRentCents) },
     { key: "notes", header: "Notes", cell: (e) => e.notes || "–" },
-    ...(canWrite
-      ? [
-          {
-            key: "actions",
-            header: "Actions",
-            cell: (e: ExtensionRecord) =>
-              e.id === latest ? (
-                <span className="flex gap-2">
-                  <Button aria-label={`Edit extension starting ${formatDate(e.startDate)}`} onPress={() => navigate(`/extensions/${e.id}/edit`)} className="min-h-6 rounded border px-3 py-1">
-                    Edit
-                  </Button>
-                  <Button aria-label={`Delete extension starting ${formatDate(e.startDate)}`} onPress={() => setDeleting(e)} className="min-h-6 rounded border px-3 py-1 select-none">
-                    Delete
-                  </Button>
-                </span>
-              ) : null,
-          },
-        ]
-      : []),
   ];
   return (
     <Section title="Extensions">

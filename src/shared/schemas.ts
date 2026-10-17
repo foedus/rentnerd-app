@@ -422,7 +422,7 @@ export const createLeaseSchema = leaseFieldsSchema.omit({ unitId: true }).extend
 
 /** A field schema without its `.default(...)`, so a PATCH leaves omitted fields alone. */
 const withoutDefault = (schema: z.ZodType): z.ZodType => (schema instanceof z.ZodDefault ? (schema.def.innerType as z.ZodType) : schema);
-const versionField = z.number({ error: "version is required" }).int("version is required").min(1, "version is required");
+const versionField = z.number({ error: "version is required" }).int("version must be a positive whole number").min(1, "version must be a positive whole number");
 
 /** PATCH /leases/{id} (§14.2): any lease field except the unit; omitted fields keep their value, `tenants` and `rentSteps` replace the lists. */
 export const updateLeaseSchema = z
