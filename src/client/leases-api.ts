@@ -1,4 +1,5 @@
 import type { EditableLease } from "../shared/lease-edit";
+import type { TermValues } from "../shared/extension-form";
 import { FieldErrorsError, TOO_MANY, TooManyRequestsError } from "./api";
 import { FormMessageError, VersionConflictError } from "./components/forms";
 
@@ -32,17 +33,9 @@ export async function createLease(unitId: string, body: Record<string, unknown>)
 }
 
 /** One extension as the API returns it (§6.10); `displayName` is only present on the lease detail. */
-export interface ExtensionRecord {
+export interface ExtensionRecord extends TermValues {
   id: string;
   leaseId: string;
-  startDate: string;
-  endDate: string;
-  baseRentCents: number;
-  increaseType: EditableLease["increaseType"];
-  increasePercent: number | null;
-  rentSteps: { effectiveDate: string; amountCents: number }[];
-  notes: string | null;
-  tenants: { tenantId: string; isPrimary: boolean; displayName?: string }[];
 }
 
 export interface LeaseDetailRecord extends EditableLease {

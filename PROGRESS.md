@@ -817,3 +817,11 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 - Not yet (T061 / T090): the Tenants section, the collapsed "Change other terms (optional)" section, **Extension template** and **Save and generate PDF** on this form.
 - Also fixed after QA: Edit and Delete now sit under the start date, so they show on a 320 px phone without scrolling sideways; a lease version of 0 sent to the extension API now says "version must be a positive whole number". Firefox and WebKit weren't checked by hand.
 - Nothing for the owner to do.
+
+### 2026-10-17 — T061: Extension form – Tenants and other terms
+- The Add / Edit extension page now has a **Tenants** section filled in with the previous term's tenants and primary contact. You can add an existing tenant, remove one, and choose the **Primary contact**. If no tenant from the original lease would be left, saving shows "At least one tenant from the original lease must stay. To change all tenants, end this lease and create a new lease." and nothing is saved.
+- A collapsed **Change other terms (optional)** button ("Everything else stays the same unless you change it here") opens Rent terms (Security deposit, Rent due day, Late fee, Late fee grace period), parking, special terms and, for commercial units, the tax terms, all filled in from the previous term. A mistake in a closed section opens it when you press Save. The form now sends every term, so a changed Parking charge applies from the extension's start (Other income shows $100.00 before and $150.00 during the extension).
+- AC-EXT-07 and AC-EXT-08 pass. verify.sh passes. The reviewer approved. QA found and I fixed: when the only problem was with the tenants, keyboard focus stayed on Save (now it moves to the Tenants section).
+- Left as is: removing a tenant drops keyboard focus to the page top (same as the New lease wizard); the other-terms headings are "Rent terms" and "Other income and special terms" instead of three separate groups; with errors in both groups there are two "There is a problem" boxes; no **Add new tenant** button here (only existing tenants can be added); Firefox and WebKit weren't checked by hand.
+- Not yet (T090): **Extension template**, "Used in this template" marks and **Save and generate PDF**.
+- Nothing for the owner to do.

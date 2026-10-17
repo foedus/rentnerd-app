@@ -11,14 +11,24 @@ import { ExtensionForm } from "./ExtensionForm";
 afterEach(() => vi.unstubAllGlobals());
 
 const json = (v: unknown, status = 200) => Response.json(v, { status });
-const lease = { id: "l1", version: 4, extensions: [{ id: "e1", startDate: "2027-11-01" }], status: "active", moveOutDate: null, propertyName: "Court Plaza", unitLabel: "2R", effectiveEndDate: "2027-10-31" };
-const extension = { id: "e1", leaseId: "l1", startDate: "2027-11-01", endDate: "2028-10-31", baseRentCents: 225000, increaseType: "none", increasePercent: null, rentSteps: [], notes: "Renewal", tenants: [] };
+const terms = {
+  baseRentCents: 200000, increaseType: "none", increasePercent: null, rentSteps: [], securityDepositCents: 215000, rentDueDay: 5, lateFeeCents: 5000, lateFeeGraceDays: 5,
+  pets: "One cat", parking: "Space #4", parkingChargeCents: 10000, childrenReside: true, breakClause: null, otherTerms: null, baseTaxYear: null, taxSharePercent: null,
+};
+const ann = { tenantId: "t1", isPrimary: true, displayName: "Ann Lee" };
+const bo = { tenantId: "t2", isPrimary: false, displayName: "Bo Lee" };
+const extension = { ...terms, id: "e1", leaseId: "l1", startDate: "2027-11-01", endDate: "2028-10-31", baseRentCents: 225000, notes: "Renewal", tenants: [ann, bo] };
+const lease = {
+  ...terms, id: "l1", version: 4, extensions: [extension], status: "active", moveOutDate: null, propertyName: "Court Plaza", unitLabel: "2R", unitUse: "Residential", propertyId: "p1",
+  effectiveEndDate: "2028-10-31", startDate: "2026-11-01", endDate: "2027-10-31", masterTenants: [ann, bo],
+};
+const noExtensions = { extensions: [], effectiveEndDate: "2027-10-31" };
 
 async function mount(path: string, route: string, handle: (url: string, init?: RequestInit) => Response | undefined = () => undefined, over: object = {}) {
   vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
     const custom = handle(url, init);
     if (custom) return custom;
-    if (url === "/api/leases/l1") return json({ ...lease, ...over });
+    if (url === "/api/leases/l1") return json({ ...lease, ...(path.endsWith("/new") ? noExtensions : {}), ...over });
     if (url === "/api/extensions/e1") return json(extension);
     return json({ error: { message: "x" } }, 404);
   });
@@ -73,7 +83,7 @@ it("refuses an empty form without calling the server", async () => {
   expect(posts).toHaveLength(0);
 });
 
-it("posts only dates, rent, increases, notes and the lease version, then returns to the lease", async () => {
+it("posts the tenants and every term, pre-filled from the previous term, then returns to the lease", async () => {
   const posts: { url: string; body: Record<string, unknown> }[] = [];
   await mount("/leases/l1/extensions/new", "/leases/:id/extensions/new", (url, init) => {
     if (init?.method !== "POST") return undefined;
@@ -85,7 +95,12 @@ it("posts only dates, rent, increases, notes and the lease version, then returns
   await press(button("Save extension"));
   expect(posts).toHaveLength(1);
   expect(posts[0]?.url).toBe("/api/leases/l1/extensions");
-  expect(posts[0]?.body).toEqual({ startDate: "2027-11-01", endDate: "2028-10-31", baseRentCents: 225000, increaseType: "none", increasePercent: null, rentSteps: [], notes: null, version: 4 });
+  expect(posts[0]?.body).toEqual({
+    tenants: [{ tenantId: "t1", isPrimary: true }, { tenantId: "t2", isPrimary: false }],
+    startDate: "2027-11-01", endDate: "2028-10-31", baseRentCents: 225000, increaseType: "none", increasePercent: null, rentSteps: [], securityDepositCents: 215000, rentDueDay: 5,
+    lateFeeCents: 5000, lateFeeGraceDays: 5, pets: "One cat", parking: "Space #4", parkingChargeCents: 10000, childrenReside: true, breakClause: null, otherTerms: null,
+    baseTaxYear: null, taxSharePercent: null, notes: null, version: 4,
+  });
   expect(document.body.textContent).toContain("Lease page");
 });
 
@@ -142,7 +157,90 @@ it("shows a missing extension's message", async () => {
 });
 
 it("won't edit an extension that is not the latest", async () => {
-  await mount("/extensions/e1/edit", "/extensions/:id/edit", () => undefined, { extensions: [{ id: "e1", startDate: "2027-11-01" }, { id: "e2", startDate: "2028-11-01" }] });
+  await mount("/extensions/e1/edit", "/extensions/:id/edit", () => undefined, { extensions: [extension, { ...extension, id: "e2", startDate: "2028-11-01" }] });
   expect(document.querySelector('[role="alert"]')?.textContent).toBe("Only the latest extension can be edited.");
   expect(button("Save extension")).toBeUndefined();
+});
+
+const rowOf = (name: string) => Array.from(document.querySelectorAll("tbody tr")).find((r) => r.textContent?.includes(name));
+const openOther = () => press(button("Change other terms (optional)"));
+
+it("lists the previous term's tenants, the primary contact chosen, and keeps the other terms hidden until opened", async () => {
+  await mount("/leases/l1/extensions/new", "/leases/:id/extensions/new");
+  expect(rowOf("Ann Lee")).toBeTruthy();
+  expect(rowOf("Bo Lee")).toBeTruthy();
+  expect((rowOf("Ann Lee")?.querySelector('input[type="radio"]') as HTMLInputElement).checked).toBe(true);
+  const toggle = button("Change other terms (optional)");
+  expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+  expect(document.body.textContent).toContain("Everything else stays the same unless you change it here");
+  expect(input("Security deposit")).toBeUndefined();
+  await openOther();
+  expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+  expect(input("Security deposit").value).toBe("$2,150.00");
+  expect(input("Rent due day").value).toBe("5");
+  expect(input("Late fee").value).toBe("$50.00");
+  expect(input("Late fee grace period").value).toBe("5");
+  expect(input("Parking").value).toBe("Space #4");
+  expect(input("Parking charge").value).toBe("$100.00");
+  expect(input("Pets").value).toBe("One cat");
+});
+
+it("removes a tenant and posts the rest; sends changed other terms", async () => {
+  const posts: Record<string, unknown>[] = [];
+  await mount("/leases/l1/extensions/new", "/leases/:id/extensions/new", (_url, init) => {
+    if (init?.method !== "POST") return undefined;
+    posts.push(JSON.parse(String(init.body)));
+    return json({ id: "e2" }, 201);
+  });
+  await press(Array.from(rowOf("Bo Lee")?.querySelectorAll("button") ?? []).find((b) => b.textContent === "Remove"));
+  expect(rowOf("Bo Lee")).toBeUndefined();
+  await openOther();
+  await type(input("Parking charge"), "150");
+  await type(input("Extension end date"), "2028-10-31");
+  await type(input("Monthly rent"), "2250");
+  await press(button("Save extension"));
+  expect(posts[0]).toMatchObject({ tenants: [{ tenantId: "t1", isPrimary: true }], parkingChargeCents: 15000 });
+});
+
+it("needs at least one tenant before it calls the server", async () => {
+  const posts: string[] = [];
+  await mount("/leases/l1/extensions/new", "/leases/:id/extensions/new", (url, init) => (init?.method === "POST" ? (posts.push(url), undefined) : undefined));
+  await type(input("Extension end date"), "2028-10-31");
+  await type(input("Monthly rent"), "2250");
+  for (const name of ["Ann Lee", "Bo Lee"]) await press(Array.from(rowOf(name)?.querySelectorAll("button") ?? []).find((b) => b.textContent === "Remove"));
+  await press(button("Save extension"));
+  expect(document.body.textContent).toContain("Add at least one tenant.");
+  expect(posts).toHaveLength(0);
+  expect(document.activeElement?.contains(rowOf("Ann Lee") ?? null) ?? false).toBe(false);
+  expect(document.activeElement?.textContent).toContain("Add existing tenant");
+});
+
+it("opens the other terms and shows the problem when one of them is wrong", async () => {
+  await mount("/leases/l1/extensions/new", "/leases/:id/extensions/new");
+  await type(input("Extension end date"), "2028-10-31");
+  await type(input("Monthly rent"), "2250");
+  await openOther();
+  await type(input("Rent due day"), "40");
+  await press(button("Change other terms (optional)"));
+  expect(input("Rent due day")).toBeUndefined();
+  await press(button("Save extension"));
+  expect(input("Rent due day").value).toBe("40");
+  expect(document.body.textContent).toContain("Enter a whole number from 1 to 28.");
+});
+
+it("shows the server's master-tenant message under Tenants", async () => {
+  const message = "At least one tenant from the original lease must stay. To change all tenants, end this lease and create a new lease.";
+  await mount("/leases/l1/extensions/new", "/leases/:id/extensions/new", (_url, init) => (init?.method === "POST" ? json({ error: { message: "Check the fields.", fields: { tenants: message } } }, 422) : undefined));
+  await type(input("Extension end date"), "2028-10-31");
+  await type(input("Monthly rent"), "2250");
+  await press(button("Save extension"));
+  expect(document.body.textContent).toContain(message);
+});
+
+it("edits the latest extension with its own tenants and terms", async () => {
+  await mount("/extensions/e1/edit", "/extensions/:id/edit", () => undefined, { extensions: [{ ...extension, tenants: [ann], parkingChargeCents: 15000 }] });
+  expect(rowOf("Ann Lee")).toBeTruthy();
+  expect(rowOf("Bo Lee")).toBeUndefined();
+  await openOther();
+  expect(input("Parking charge").value).toBe("$150.00");
 });
