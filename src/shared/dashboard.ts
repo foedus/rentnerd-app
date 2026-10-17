@@ -1,4 +1,5 @@
 /** Dashboard lease tables (SPEC §11.6, D-32): leases needing a decision and leases ending soon. */
+import { complianceStatus, type ComplianceStatusInput } from "./compliance";
 import { addDays, daysBetween } from "./dates";
 import { effectiveEndDate, leaseRentOn, type LeaseStatusResult, type UnitLease } from "./lease";
 
@@ -19,4 +20,13 @@ export function endingSoonRow(lease: UnitLease, status: LeaseStatusResult, today
   const endDate = lease.moveOutDate ?? effectiveEndDate(lease);
   if (endDate < today || endDate > addDays(today, ENDING_SOON_DAYS)) return null;
   return { endDate, daysLeft: daysBetween(today, endDate), currentRentCents: leaseRentOn(lease, today) };
+}
+
+/**
+ * Which Dashboard compliance table an item belongs in: "overdue" (due before today) or "dueSoon" (due today … today + 30 days).
+ * Not-applicable items and items with no due date never qualify (SPEC §9.2 status rules).
+ */
+export function complianceDashboardTable(item: ComplianceStatusInput, today: string): "overdue" | "dueSoon" | null {
+  const status = complianceStatus(item, today);
+  return status === "Overdue" ? "overdue" : status === "Due soon" ? "dueSoon" : null;
 }

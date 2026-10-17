@@ -1,15 +1,17 @@
-import { and, asc, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import type { Hono } from "hono";
 import type { Db } from "../db/client";
-import { lease, property, propertyTax, propertyValue, tenant, unit } from "../db/schema";
+import { complianceItemType, lease, property, propertyComplianceItem, propertyResponsible, propertyTax, propertyValue, tenant, unit, user } from "../db/schema";
 import { todayNy } from "../shared/dates";
-import { endingSoonRow, needsDecisionRow } from "../shared/dashboard";
+import { complianceDashboardTable, endingSoonRow, needsDecisionRow } from "../shared/dashboard";
 import { unitLeaseStatuses } from "../shared/lease";
 import { currentTermSource, leaseTermsOf } from "../shared/lease-view";
 import { propertyType } from "../shared/schemas";
 import { computeStats, yieldNote, type StatLease, type StatProperty } from "../shared/stats";
 import { presentLeases, type LeasePresentation } from "./lease-store";
 import { tenantDisplayName } from "./tenant-routes";
+
+type ComplianceRow = { itemId: string; propertyId: string; propertyName: string; itemName: string; dueDate: string; responsible: string[] };
 
 const otherTerms = (t: { parkingChargeCents: number | null; baseTaxYear: number | null; taxSharePercent: number | null }) => ({
   parkingChargeCents: t.parkingChargeCents,
@@ -72,6 +74,33 @@ export function mountDashboardRoutes(app: Hono, db: Db) {
         if (soon) endingSoon.push({ ...base, ...soon });
       });
     }
+    const itemRows = ids.length === 0 ? [] : await db
+      .select({ id: propertyComplianceItem.id, propertyId: propertyComplianceItem.propertyId, itemName: complianceItemType.name, scheduleType: complianceItemType.scheduleType, dueDate: propertyComplianceItem.nextDueDate })
+      .from(propertyComplianceItem)
+      .innerJoin(complianceItemType, eq(complianceItemType.id, propertyComplianceItem.typeId))
+      .where(and(inArray(propertyComplianceItem.propertyId, ids), eq(propertyComplianceItem.applicable, true), isNotNull(propertyComplianceItem.nextDueDate), isNull(complianceItemType.archivedAt)));
+    const responsibleRows = ids.length === 0 ? [] : await db
+      .select({ propertyId: propertyResponsible.propertyId, name: user.name })
+      .from(propertyResponsible)
+      .innerJoin(user, eq(user.id, propertyResponsible.userId))
+      .where(inArray(propertyResponsible.propertyId, ids))
+      .orderBy(asc(user.name), asc(user.id));
+    const overdueCompliance: ComplianceRow[] = [];
+    const complianceDueSoon: ComplianceRow[] = [];
+    for (const i of itemRows) {
+      const table = complianceDashboardTable({ applicable: true, scheduleType: i.scheduleType, nextDueDate: i.dueDate, completionCount: 0 }, today);
+      if (table === null) continue;
+      const row = {
+        itemId: i.id,
+        propertyId: i.propertyId,
+        propertyName: properties.find((p) => p.id === i.propertyId)?.name ?? "",
+        itemName: i.itemName,
+        dueDate: i.dueDate!,
+        responsible: responsibleRows.filter((r) => r.propertyId === i.propertyId).map((r) => r.name),
+      };
+      (table === "overdue" ? overdueCompliance : complianceDueSoon).push(row);
+    }
+    const byDue = (a: ComplianceRow, b: ComplianceRow) => a.dueDate.localeCompare(b.dueDate) || a.propertyName.localeCompare(b.propertyName) || a.itemName.localeCompare(b.itemName);
     const by = (key: string) => (a: object, b: object) => String((a as Record<string, unknown>)[key]).localeCompare(String((b as Record<string, unknown>)[key]));
     const summary = computeStats([...statProperties.values()], today);
     return c.json({
@@ -80,6 +109,8 @@ export function mountDashboardRoutes(app: Hono, db: Db) {
       byProperty,
       leasesNeedingDecision: needingDecision.sort(by("endedOn")),
       leasesEndingSoon: endingSoon.sort(by("endDate")),
+      overdueCompliance: overdueCompliance.sort(byDue),
+      complianceDueSoon: complianceDueSoon.sort(byDue),
     });
   });
 }

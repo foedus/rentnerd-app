@@ -831,3 +831,10 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 - verify.sh passes (129 acceptance tests). The reviewer approved. No screens changed, so no QA pass.
 - Note: the first verify run failed once on an existing Dashboard screen test ("stays put and re-checks the signed-in user when signing out fails") while the machine was busy; it passes alone and on the re-run. It looks like a timing flake and is not related to this task.
 - Nothing for the owner to do.
+
+### 2026-10-17 — T071: Dashboard compliance tables
+- The Dashboard now has two more tables, **Overdue compliance** and **Compliance due in the next 30 days**, each with Property, Item, Due date and Responsible landlords ("None." when empty). Overdue means due before today; the other table covers today up to 30 days ahead. Items marked not applicable, items without a due date, archived item types and archived properties are left out. The Property name links to that property's Compliance tab.
+- AC-CMP-07 passes. verify.sh passes (130 acceptance tests). The reviewer approved. QA found no problems (including a 320 px phone screen and keyboard use).
+- One existing screen test said "None." must not appear anywhere on the Dashboard; with the new tables that is no longer true, so it now checks only the "Leases needing a decision" table (same check, narrower place).
+- Left as is: a deactivated landlord who is still listed as responsible for a property is still shown in Responsible landlords; Firefox and WebKit weren't checked by hand; archived properties could not be tried by hand because archiving comes in a later task (it is covered by an automated test).
+- Nothing for the owner to do.

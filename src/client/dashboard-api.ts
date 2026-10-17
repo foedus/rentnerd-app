@@ -11,6 +11,15 @@ interface LeaseRowBase {
   currentRentCents: number;
 }
 
+interface ComplianceRowBase {
+  itemId: string;
+  propertyId: string;
+  propertyName: string;
+  itemName: string;
+  dueDate: string;
+  responsible: string[];
+}
+
 export interface DashboardRecord {
   asOf: string;
   summary: Stats & { yieldNote: string };
@@ -21,6 +30,8 @@ export interface DashboardRecord {
   })[];
   leasesNeedingDecision: (LeaseRowBase & { endedOn: string })[];
   leasesEndingSoon: (LeaseRowBase & { endDate: string; daysLeft: number })[];
+  overdueCompliance: ComplianceRowBase[];
+  complianceDueSoon: ComplianceRowBase[];
 }
 
 export async function fetchDashboard(): Promise<DashboardRecord> {

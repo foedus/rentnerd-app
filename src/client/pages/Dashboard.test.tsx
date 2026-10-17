@@ -152,7 +152,10 @@ it("lists a lease needing a decision with its end date and last rent, linking th
   expect(row?.querySelectorAll("a")[1]?.getAttribute("href")).toBe(
     "/leases/l9",
   );
-  expect(document.body.textContent).not.toContain("None.");
+  expect(
+    document.querySelector('table[aria-label="Leases needing a decision"]')
+      ?.textContent,
+  ).not.toContain("None.");
 });
 
 it("shows an error with Try again when loading fails", async () => {
@@ -241,4 +244,33 @@ it("stays put and re-checks the signed-in user when signing out fails", async ()
   expect(document.querySelector('[role="alert"]')?.textContent).toBe(
     "Something went wrong. Please try again.",
   );
+});
+
+it("lists overdue and soon-due compliance items with a link to the property's Compliance tab", async () => {
+  const row = {
+    itemId: "i1",
+    propertyId: "p1",
+    propertyName: "Property A",
+    itemName: "Boiler inspection",
+    dueDate: "2026-10-01",
+    responsible: ["Ann Lee", "Bo Chan"],
+  };
+  await mount(async () =>
+    Response.json({
+      ...dashboard,
+      overdueCompliance: [row],
+      complianceDueSoon: [],
+    }),
+  );
+  const overdue = rowText("Overdue compliance", "Boiler inspection");
+  expect(
+    [...(overdue?.querySelectorAll("td") ?? [])].map((c) => c.textContent),
+  ).toEqual(["Property A", "Boiler inspection", "Oct 1, 2026", "Ann Lee, Bo Chan"]);
+  expect(overdue?.querySelector("a")?.getAttribute("href")).toBe(
+    "/properties/p1?tab=compliance",
+  );
+  expect(
+    document.querySelector('table[aria-label="Compliance due in the next 30 days"]')
+      ?.textContent,
+  ).toContain("None.");
 });

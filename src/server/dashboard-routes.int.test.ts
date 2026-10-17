@@ -3,6 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createDb } from "../db/client";
 import { createApp } from "./app";
 import { createAuth } from "./auth";
+import { seedComplianceCatalog } from "./compliance-items";
 import { addDays, todayNy } from "../shared/dates";
 
 const url = "postgres://rentnerd:rentnerd@localhost:5432/rentnerd_test";
@@ -61,6 +62,8 @@ interface Dash {
   byProperty: ({ name: string; propertyType: string } & Record<string, number | string | null>)[];
   leasesNeedingDecision: { leaseId: string; propertyName: string; unitLabel: string; tenants: string[]; endedOn: string; currentRentCents: number }[];
   leasesEndingSoon: { leaseId: string; endDate: string; daysLeft: number; currentRentCents: number }[];
+  overdueCompliance: { propertyName: string; itemName: string; dueDate: string; responsible: string[] }[];
+  complianceDueSoon: { propertyName: string; itemName: string; dueDate: string; responsible: string[] }[];
 }
 
 describe("GET /api/dashboard", () => {
@@ -135,5 +138,30 @@ describe("GET /api/dashboard", () => {
     expect(d.byProperty).toEqual([]);
     expect(d.leasesEndingSoon).toEqual([]);
     expect(d.summary).toMatchObject({ units: 0 });
+  });
+
+  it("lists overdue and due-in-30-days compliance items, leaving out not-applicable and archived ones (AC-CMP-07)", async () => {
+    const f = await setup();
+    const p = await f.property("P");
+    const archivedProperty = await f.property("Old");
+    await seedComplianceCatalog(db);
+    await pool.query(
+      `update property_compliance_item set applicable = true, next_due_date = null where property_id = any($1::uuid[])`,
+      [[p, archivedProperty]],
+    );
+    const items = (await pool.query("select i.id, t.name from property_compliance_item i join compliance_item_type t on t.id = i.type_id where i.property_id = $1 order by t.name", [p])).rows as { id: string; name: string }[];
+    expect(items.length).toBeGreaterThanOrEqual(4);
+    const setDue = (id: string, due: string | null, applicable = true) => pool.query("update property_compliance_item set next_due_date = $2, applicable = $3 where id = $1", [id, due, applicable]);
+    await setDue(items[0]!.id, addDays(today, -11));
+    await setDue(items[1]!.id, addDays(today, 30));
+    await setDue(items[2]!.id, addDays(today, 31));
+    await setDue(items[3]!.id, addDays(today, -5), false);
+    const d = await f.dashboard();
+    expect(d.overdueCompliance).toEqual([expect.objectContaining({ propertyName: "P", itemName: items[0]!.name, dueDate: addDays(today, -11), responsible: ["Name of admin@example.com"] })]);
+    expect(d.complianceDueSoon).toEqual([expect.objectContaining({ itemName: items[1]!.name, dueDate: addDays(today, 30) })]);
+    await pool.query("update property set archived_at = now()");
+    const gone = await f.dashboard();
+    expect(gone.overdueCompliance).toEqual([]);
+    expect(gone.complianceDueSoon).toEqual([]);
   });
 });

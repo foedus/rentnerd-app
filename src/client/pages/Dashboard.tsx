@@ -14,6 +14,7 @@ import { linkClass } from "./Owners";
 type PropertyRow = DashboardRecord["byProperty"][number];
 type DecisionRow = DashboardRecord["leasesNeedingDecision"][number];
 type EndingRow = DashboardRecord["leasesEndingSoon"][number];
+type ComplianceRow = DashboardRecord["overdueCompliance"][number];
 
 /** Bounds the Property column: a long name wraps instead of widening the table or squeezing into a tall sliver. */
 const propertyLinkClass = `${linkClass} min-w-40 max-w-64 [overflow-wrap:anywhere]`;
@@ -106,6 +107,28 @@ const endingColumns: Column<LeaseRow>[] = [
   },
   { key: "days", header: "Days left", cell: (r) => (r as EndingRow).daysLeft },
   rentColumn,
+];
+
+const complianceColumns: Column<ComplianceRow>[] = [
+  {
+    key: "property",
+    header: "Property",
+    cell: (r) => (
+      <Link
+        to={`/properties/${r.propertyId}?tab=compliance`}
+        className={propertyLinkClass}
+      >
+        {r.propertyName}
+      </Link>
+    ),
+  },
+  { key: "item", header: "Item", cell: (r) => r.itemName },
+  { key: "due", header: "Due date", cell: (r) => formatDate(r.dueDate) },
+  {
+    key: "responsible",
+    header: "Responsible landlords",
+    cell: (r) => r.responsible.join(", ") || "—",
+  },
 ];
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -215,6 +238,24 @@ export function Dashboard() {
               columns={endingColumns}
               rows={data?.leasesEndingSoon ?? []}
               rowKey={(r) => r.leaseId}
+              emptyMessage={data ? "None." : undefined}
+            />
+          </Section>
+          <Section title="Overdue compliance">
+            <DataTable
+              name="Overdue compliance"
+              columns={complianceColumns}
+              rows={data?.overdueCompliance ?? []}
+              rowKey={(r) => r.itemId}
+              emptyMessage={data ? "None." : undefined}
+            />
+          </Section>
+          <Section title="Compliance due in the next 30 days">
+            <DataTable
+              name="Compliance due in the next 30 days"
+              columns={complianceColumns}
+              rows={data?.complianceDueSoon ?? []}
+              rowKey={(r) => r.itemId}
               emptyMessage={data ? "None." : undefined}
             />
           </Section>

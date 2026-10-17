@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { endingSoonRow, needsDecisionRow } from "./dashboard";
+import { complianceDashboardTable, endingSoonRow, needsDecisionRow } from "./dashboard";
 import { unitLeaseStatuses, type UnitLease } from "./lease";
 
 const today = "2026-06-15";
@@ -44,5 +44,23 @@ describe("needsDecisionRow", () => {
     expect(decision(lease("m", "2025-01-01", "2026-05-31", { monthToMonth: true }))).toBeNull();
     expect(decision(lease("s", "2025-01-01", "2026-05-31"), [lease("later", "2026-06-01", "2027-05-31")])).toBeNull();
     expect(decision(lease("a", "2025-01-01", "2026-12-31"))).toBeNull();
+  });
+});
+
+describe("complianceDashboardTable", () => {
+  const item = (nextDueDate: string | null, over: Partial<Parameters<typeof complianceDashboardTable>[0]> = {}) =>
+    complianceDashboardTable({ applicable: true, scheduleType: "interval", nextDueDate, completionCount: 0, ...over }, today);
+  it("puts an item due before today in overdue", () => {
+    expect(item("2026-06-14")).toBe("overdue");
+  });
+  it("puts items due today … today + 30 in dueSoon, and later ones nowhere", () => {
+    expect(item(today)).toBe("dueSoon");
+    expect(item("2026-07-15")).toBe("dueSoon");
+    expect(item("2026-07-16")).toBeNull();
+  });
+  it("leaves out not-applicable, unscheduled and completed one-time items", () => {
+    expect(item("2026-06-01", { applicable: false })).toBeNull();
+    expect(item(null)).toBeNull();
+    expect(item(null, { scheduleType: "one_time", completionCount: 1 })).toBeNull();
   });
 });
