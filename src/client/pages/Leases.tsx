@@ -47,6 +47,8 @@ const columns: Column<LeaseListRow>[] = [
   { key: "status", header: "Status", cell: (l) => l.statusLabel },
 ];
 
+const NO_LEASES = { data: [], page: 1, pageSize: 50, total: 0 };
+
 export function Leases() {
   const [checked, setChecked] = useState<string[]>(DEFAULT_CHECKED);
   const [archived, setArchived] = useState(false);
@@ -54,12 +56,15 @@ export function Leases() {
   const [page, setPage] = useState(1);
   const status = STATUS_FILTERS.filter((f) => checked.includes(f.label)).flatMap((f) => f.codes);
   const properties = useQuery({ queryKey: ["compliance-property-names"], queryFn: fetchPropertyNames });
-  // Nothing checked would mean "no filter" to the server, so it is answered here with an empty list.
+  // Nothing checked would mean "no filter" to the server, so it is answered here, at once, with an empty list.
+  const noStatus = status.length === 0;
   const leases = useQuery({
     queryKey: ["leases", status, archived, propertyId, page],
-    queryFn: () => (status.length === 0 ? Promise.resolve({ data: [], page: 1, pageSize: 50, total: 0 }) : fetchLeases({ status, propertyId, archived, page })),
+    queryFn: () => fetchLeases({ status, propertyId, archived, page }),
     placeholderData: (previous) => previous,
+    enabled: !noStatus,
   });
+  const data = noStatus ? NO_LEASES : leases.data;
   return (
     <Page title="Leases">
       <div className="mb-4 flex flex-wrap items-end gap-4">
@@ -113,14 +118,14 @@ export function Leases() {
         </div>
       </div>
       <p role="status" className="sr-only">
-        {leases.data ? `${leases.data.total} ${leases.data.total === 1 ? "lease" : "leases"} shown.` : ""}
+        {data ? `${data.total} ${data.total === 1 ? "lease" : "leases"} shown.` : ""}
       </p>
-      {leases.isPending && <p role="status">Loading…</p>}
-      {leases.isError && <p role="alert">{leases.error instanceof Error ? leases.error.message : UNEXPECTED_MESSAGE}</p>}
-      {leases.data && (
+      {!noStatus && leases.isPending && <p role="status">Loading…</p>}
+      {!noStatus && leases.isError && <p role="alert">{leases.error instanceof Error ? leases.error.message : UNEXPECTED_MESSAGE}</p>}
+      {data && (
         <>
-          <DataTable name="Leases" columns={columns} rows={leases.data.data} rowKey={(l) => l.id} emptyMessage="No leases match these filters." />
-          <Pagination page={leases.data.page} pageSize={leases.data.pageSize} total={leases.data.total} onPageChange={setPage} />
+          <DataTable name="Leases" columns={columns} rows={data.data} rowKey={(l) => l.id} emptyMessage="No leases match these filters." />
+          <Pagination page={data.page} pageSize={data.pageSize} total={data.total} onPageChange={setPage} />
         </>
       )}
     </Page>

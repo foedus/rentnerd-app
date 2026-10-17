@@ -1,5 +1,6 @@
 import type pg from "pg";
 import { setClockOffset } from "../shared/clock";
+import { changeClock } from "./test-clock";
 
 type Queryable = Pick<pg.Pool, "query">;
 
@@ -8,6 +9,10 @@ type Queryable = Pick<pg.Pool, "query">;
  * and every queued pg-boss job. Schemas, queues and schedules stay; startup seeding refills the rest.
  */
 export async function resetAppData(pool: Queryable): Promise<void> {
+  await changeClock(() => emptyAppData(pool));
+}
+
+async function emptyAppData(pool: Queryable): Promise<void> {
   const { rows } = await pool.query<{ name: string }>(
     "select format('%I.%I', schemaname, tablename) as name from pg_tables where schemaname = 'public'",
   );

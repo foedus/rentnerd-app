@@ -47,7 +47,11 @@ export async function renewBrowserSessions() {
         headers: { Origin: APP_URL },
       });
       if (r.status() === 200) login.at = appNow();
-      else browserLogins.delete(ctx);
+      else {
+        // Diagnostics only: the context is left signed out, as before, but say why.
+        console.warn(`[renewBrowserSessions] sign-in again for ${login.email} refused: ${r.status()} ${await r.text().catch(() => '')}`);
+        browserLogins.delete(ctx);
+      }
     } catch {
       browserLogins.delete(ctx); // context already closed
     }

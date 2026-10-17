@@ -14,6 +14,23 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 
 ## Log
 
+### 2026-10-17 — Owner session: the "suddenly signed out" test failures (cause found and fixed; not committed)
+- **Cause:** when a test moves the app's pretend clock, the website changes its own clock and saves it, and separately
+  re-reads the saved clock four times a second. Now and then a re-read that started just before the save finished
+  just after it and put the clock back to the old date for up to a quarter of a second. A sign-in in that moment got a
+  session dated from the old day, and once the clock caught up that session looked a week out of date, so the user
+  was "signed out". It was not caused by tests running at the same time: they run one at a time.
+- Shown on the old code: 3 of 300 sign-ins straight after a clock move were lost; AC-CMP-05 repeated alone landed on
+  the Sign in page on its 8th try. With the fix: 0 of 1,200 lost. This also explains the CI failure of AC-LEASE-19
+  (signed out just after its clock move) and of AC-USR-04 (the invitation still looked valid) on 2026-10-17.
+- **Fix** (`src/db/test-clock.ts`, `src/db/reset.ts`): a re-read that overlaps a clock change is thrown away. New unit
+  tests replay the exact timing and fail on the old code. This code only runs in test mode, never in production.
+- A second, separate flaky check (the Leases page unit test, about 1 run in 8) also stopped verify: with every
+  status unchecked the page waited a moment before showing "No leases match these filters." and briefly showed the old
+  rows. It now shows the empty list at once (`src/client/pages/Leases.tsx`).
+- Test suite: one diagnostics-only change, logged in `tests/acceptance/CHANGELOG.md` (a refused sign-in again after a
+  clock move is now reported instead of hidden). No assertion was changed. Three full verify runs in a row passed (115).
+
 ### 2026-10-16 — T048F: Flaky AC-CMP-05 sign-out (did not reproduce; closed on the owner's test)
 - The task's test for "done" is two full `verify.sh` runs in a row passing: they did, both before and after the change below (108 acceptance tests each). Six extra runs of the API, sign-in and Compliance tests together also all passed, so I never saw the failure itself.
 - **One change, a hardening and not a proven fix:** the sign-in, invitation, import and password-reset attempt counters measured their time windows with the app clock. When the test clock jumps (as the acceptance tests do constantly), attempts could age out early or stay stuck in the future, which could refuse a legitimate sign-in. They now use real time. A unit test (clock jumps a year back and forward) covers it and fails without the change.

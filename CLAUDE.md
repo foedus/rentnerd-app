@@ -75,6 +75,8 @@ for rentnerd-app only. Don't try other fly commands, other apps, or reading secr
    the later task's title in docs/tasks.json (and move any criteria IDs that depend on it), record the move
    in PROGRESS.md, and mark the task done. Use this only when the later work literally cannot be built yet;
    never to skip something hard.
+   If verify fails only on a test unrelated to your task, re-run once. If it fails again, do not keep retrying:
+   record the test name and failure in PROGRESS.md, set your task to blocked citing the flaky test, commit and stop.
 8. Never commit secrets. `.env` holds production values for scripts only; don't print it.
 9. Never run destructive commands against production (no deletes, no database writes).
 
