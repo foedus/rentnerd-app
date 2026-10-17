@@ -131,17 +131,11 @@ export const ProblemSummary = forwardRef<HTMLDivElement, { items: { name: string
   );
 });
 
-/** Step 2 of the New lease wizard (SPEC §11.12): term and rent. `issues` are shown after Next was refused. */
-export function TermStep({ draft, setDraft, issues, today, focusSignal }: { draft: TermStepDraft; setDraft: (d: TermStepDraft) => void; issues: Record<string, string>; today: string; focusSignal: number }) {
-  const set = (patch: Partial<TermStepDraft>) => setDraft({ ...draft, ...patch });
-  const summary = useRef<HTMLDivElement>(null);
+/** The "Rent increases" radio group with its percentage or custom-schedule rows (SPEC §11.12, §11.14). */
+export function RentIncreaseFields({ draft, set, issues }: { draft: TermStepDraft; set: (patch: Partial<TermStepDraft>) => void; issues: Record<string, string> }) {
   const addButton = useRef<HTMLButtonElement>(null);
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const [removed, setRemoved] = useState(0);
-  const messages = Object.entries(issues);
-  useEffect(() => {
-    if (focusSignal > 0) summary.current?.focus();
-  }, [focusSignal]);
   useEffect(() => {
     if (focusKey) document.getElementById(fieldId(`steps.${focusKey}.date`))?.focus();
   }, [focusKey]);
@@ -150,27 +144,7 @@ export function TermStep({ draft, setDraft, issues, today, focusSignal }: { draf
   }, [removed]);
   const updateStep = (key: string, patch: Partial<TermStepDraft["steps"][number]>) => set({ steps: draft.steps.map((s) => (s.key === key ? { ...s, ...patch } : s)) });
   return (
-    <section aria-labelledby="step-heading" className="max-w-xl space-y-4">
-      <ProblemSummary
-        ref={summary}
-        items={messages.map(([name, message]) => ({ name, text: `${stepLabel(name, draft)}${message}` }))}
-        targetId={(name) => (name === "increaseType" || name === "steps" ? fieldId("increaseType") : fieldId(name))}
-      />
-      <Field name="startDate" label="Lease start date" required error={issues.startDate}>
-        {(p) => <input {...p} type="date" value={draft.startDate} onChange={(e) => set({ startDate: e.target.value })} />}
-      </Field>
-      <Field name="endDate" label="Lease end date" required error={issues.endDate}>
-        {(p) => <input {...p} type="date" value={draft.endDate} onChange={(e) => set({ endDate: e.target.value })} />}
-      </Field>
-      <Money name="baseRentCents" label="Monthly rent" required value={draft.baseRentCents} onChange={(v) => set({ baseRentCents: v })} error={issues.baseRentCents} />
-      <Money name="securityDepositCents" label="Security deposit" value={draft.securityDepositCents} onChange={(v) => set({ securityDepositCents: v })} error={issues.securityDepositCents} />
-      <Field name="rentDueDay" label="Rent due day" required error={issues.rentDueDay}>
-        {(p) => <input {...p} type="text" inputMode="numeric" autoComplete="off" value={draft.rentDueDay} onChange={(e) => set({ rentDueDay: e.target.value })} />}
-      </Field>
-      <Money name="lateFeeCents" label="Late fee" value={draft.lateFeeCents} onChange={(v) => set({ lateFeeCents: v })} error={issues.lateFeeCents} />
-      <Field name="lateFeeGraceDays" label="Late fee grace period (days)" error={issues.lateFeeGraceDays}>
-        {(p) => <input {...p} type="text" inputMode="numeric" autoComplete="off" value={draft.lateFeeGraceDays} onChange={(e) => set({ lateFeeGraceDays: e.target.value })} />}
-      </Field>
+    <>
       <fieldset id={fieldId("increaseType")} role="radiogroup" tabIndex={-1} aria-invalid={issues.steps ? true : undefined} aria-describedby={issues.steps ? errorId("steps") : undefined} className="space-y-1">
         <legend>Rent increases</legend>
         {issues.steps && (
@@ -218,6 +192,41 @@ export function TermStep({ draft, setDraft, issues, today, focusSignal }: { draf
           </Button>
         </div>
       )}
+    </>
+  );
+}
+
+/** Step 2 of the New lease wizard (SPEC §11.12): term and rent. `issues` are shown after Next was refused. */
+export function TermStep({ draft, setDraft, issues, today, focusSignal }: { draft: TermStepDraft; setDraft: (d: TermStepDraft) => void; issues: Record<string, string>; today: string; focusSignal: number }) {
+  const set = (patch: Partial<TermStepDraft>) => setDraft({ ...draft, ...patch });
+  const summary = useRef<HTMLDivElement>(null);
+  const messages = Object.entries(issues);
+  useEffect(() => {
+    if (focusSignal > 0) summary.current?.focus();
+  }, [focusSignal]);
+  return (
+    <section aria-labelledby="step-heading" className="max-w-xl space-y-4">
+      <ProblemSummary
+        ref={summary}
+        items={messages.map(([name, message]) => ({ name, text: `${stepLabel(name, draft)}${message}` }))}
+        targetId={(name) => (name === "increaseType" || name === "steps" ? fieldId("increaseType") : fieldId(name))}
+      />
+      <Field name="startDate" label="Lease start date" required error={issues.startDate}>
+        {(p) => <input {...p} type="date" value={draft.startDate} onChange={(e) => set({ startDate: e.target.value })} />}
+      </Field>
+      <Field name="endDate" label="Lease end date" required error={issues.endDate}>
+        {(p) => <input {...p} type="date" value={draft.endDate} onChange={(e) => set({ endDate: e.target.value })} />}
+      </Field>
+      <Money name="baseRentCents" label="Monthly rent" required value={draft.baseRentCents} onChange={(v) => set({ baseRentCents: v })} error={issues.baseRentCents} />
+      <Money name="securityDepositCents" label="Security deposit" value={draft.securityDepositCents} onChange={(v) => set({ securityDepositCents: v })} error={issues.securityDepositCents} />
+      <Field name="rentDueDay" label="Rent due day" required error={issues.rentDueDay}>
+        {(p) => <input {...p} type="text" inputMode="numeric" autoComplete="off" value={draft.rentDueDay} onChange={(e) => set({ rentDueDay: e.target.value })} />}
+      </Field>
+      <Money name="lateFeeCents" label="Late fee" value={draft.lateFeeCents} onChange={(v) => set({ lateFeeCents: v })} error={issues.lateFeeCents} />
+      <Field name="lateFeeGraceDays" label="Late fee grace period (days)" error={issues.lateFeeGraceDays}>
+        {(p) => <input {...p} type="text" inputMode="numeric" autoComplete="off" value={draft.lateFeeGraceDays} onChange={(e) => set({ lateFeeGraceDays: e.target.value })} />}
+      </Field>
+      <RentIncreaseFields draft={draft} set={set} issues={issues} />
       <RentSchedule draft={draft} />
       {showsMoveOut(draft, today) && (
         <>

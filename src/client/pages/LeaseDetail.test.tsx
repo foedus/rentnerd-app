@@ -20,6 +20,7 @@ const lease = {
     pets: "One cat", parking: null, parkingChargeCents: null, childrenReside: false, breakClause: null, otherTerms: null,
     baseTaxYear: null, taxSharePercent: null, taxReimbursementCents: null, taxReimbursementExplanation: null,
   },
+  extensions: [],
   rentSchedule: [{ periodStart: "2026-11-01", periodEnd: "2027-10-31", rentCents: 215000, term: "Master lease" }],
 };
 
@@ -202,4 +203,65 @@ it("Mark month-to-month refuses a blank rent instead of using the last rent", as
   });
   expect(sent).toEqual([]);
   expect(dialog.textContent).toContain("Enter an amount");
+});
+
+const ext = (id: string, start: string, end: string, rent: number) => ({
+  id, leaseId: "l1", startDate: start, endDate: end, baseRentCents: rent, notes: id === "e2" ? "Renewal" : null,
+  tenants: [{ tenantId: "t", isPrimary: true, displayName: "Ann Lee" }],
+});
+const extended = { ...active, extensions: [ext("e2", "2028-11-01", "2029-10-31", 235000), ext("e1", "2027-11-01", "2028-10-31", 225000)] };
+const press = async (el: Element | undefined) => {
+  await act(async () => void el?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+  await act(async () => void (await new Promise((r) => setTimeout(r, 50))));
+};
+
+it("lists the extensions oldest first, with Edit and Delete on the latest only", async () => {
+  await mount(json(extended));
+  const rows = Array.from(section("Extensions")?.querySelectorAll('table[aria-label="Extensions"] tbody tr') ?? []);
+  expect(rows).toHaveLength(2);
+  expect(rows[0]?.textContent).toContain("Nov 1, 2027");
+  expect(rows[0]?.textContent).toContain("$2,250.00");
+  expect(rows[0]?.querySelectorAll("button")).toHaveLength(0);
+  expect(rows[1]?.textContent).toContain("Ann Lee");
+  expect(rows[1]?.textContent).toContain("Renewal");
+  expect(Array.from(rows[1]?.querySelectorAll("button") ?? []).map((b) => b.textContent)).toEqual(["Edit", "Delete"]);
+});
+
+it("offers Add extension unless the lease is ended or has a move-out date, and never to the Smoke user", async () => {
+  await mount(json(active));
+  expect(labels()).toContain("Add extension");
+  expect(section("Extensions")?.textContent).toContain("No extensions.");
+  for (const over of [{ status: "ended" }, { status: "ended_superseded" }, { moveOutDate: "2026-11-30" }]) {
+    await mount(json({ ...active, ...over }));
+    expect(labels(), JSON.stringify(over)).not.toContain("Add extension");
+  }
+  await mount(json(active), "smoke");
+  expect(labels()).not.toContain("Add extension");
+  await mount(json(extended), "smoke");
+  expect(section("Extensions")?.querySelectorAll("button")).toHaveLength(0);
+});
+
+it("deletes the latest extension with the lease version after confirming", async () => {
+  const calls: { url: string; init?: RequestInit }[] = [];
+  await mount(json(extended), "admin", (url, init) => {
+    if (init?.method !== "DELETE") return undefined;
+    calls.push({ url, init });
+    return new Response(null, { status: 204 });
+  });
+  await press(Array.from(section("Extensions")?.querySelectorAll("button") ?? []).find((b) => b.textContent === "Delete"));
+  expect(document.body.textContent).toContain("Delete this extension? This cannot be undone.");
+  expect(calls).toHaveLength(0);
+  await press(Array.from(document.querySelectorAll("button")).find((b) => b.textContent === "Delete extension"));
+  expect(calls).toHaveLength(1);
+  expect(calls[0]?.url).toBe("/api/extensions/e2");
+  expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ version: 3 });
+});
+
+it("shows the stale-version message when the delete is refused as out of date", async () => {
+  await mount(json(extended), "admin", (_url, init) =>
+    init?.method === "DELETE" ? json({ error: { message: "This lease was changed by someone else. Reload to see the latest version." } }, 409) : undefined,
+  );
+  await press(Array.from(section("Extensions")?.querySelectorAll("button") ?? []).find((b) => b.textContent === "Delete"));
+  await press(Array.from(document.querySelectorAll("button")).find((b) => b.textContent === "Delete extension"));
+  expect(section("Extensions")?.querySelector('[role="alert"]')?.textContent).toBe("Someone else changed this record. Reload to see the latest version.");
 });

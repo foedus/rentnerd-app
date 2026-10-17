@@ -31,7 +31,22 @@ export async function createLease(unitId: string, body: Record<string, unknown>)
   throw new Error(GENERIC);
 }
 
+/** One extension as the API returns it (§6.10); `displayName` is only present on the lease detail. */
+export interface ExtensionRecord {
+  id: string;
+  leaseId: string;
+  startDate: string;
+  endDate: string;
+  baseRentCents: number;
+  increaseType: EditableLease["increaseType"];
+  increasePercent: number | null;
+  rentSteps: { effectiveDate: string; amountCents: number }[];
+  notes: string | null;
+  tenants: { tenantId: string; isPrimary: boolean; displayName?: string }[];
+}
+
 export interface LeaseDetailRecord extends EditableLease {
+  extensions: ExtensionRecord[];
   id: string;
   version: number;
   unitId: string;
@@ -201,4 +216,49 @@ export async function fetchTenantLeases(tenantId: string): Promise<LeaseListRow[
   if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
   if (!res.ok) throw new Error(GENERIC);
   return ((await res.json()) as LeaseListPage).data;
+}
+
+export async function fetchExtension(id: string): Promise<ExtensionRecord> {
+  const res = await fetch(`/api/extensions/${encodeURIComponent(id)}`, { headers: { accept: "application/json" } }).catch(() => {
+    throw new Error(GENERIC);
+  });
+  if (res.ok) return (await res.json()) as ExtensionRecord;
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  throw new Error(res.status === 404 ? "Extension not found." : GENERIC);
+}
+
+/** Adds (POST /leases/{id}/extensions) or edits (PATCH /extensions/{id}) an extension (§14.2); refusals as in updateLease. */
+export async function saveExtension(target: { leaseId: string } | { extensionId: string }, body: Record<string, unknown>): Promise<void> {
+  const add = "leaseId" in target;
+  const res = await fetch(add ? `/api/leases/${encodeURIComponent(target.leaseId)}/extensions` : `/api/extensions/${encodeURIComponent(target.extensionId)}`, {
+    method: add ? "POST" : "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  }).catch(() => {
+    throw new Error(GENERIC);
+  });
+  if (res.ok) return;
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  const parsed = (await res.json().catch(() => null)) as { error?: { message?: string; fields?: Record<string, string> } } | null;
+  const fields = parsed?.error?.fields;
+  if ((res.status === 422 || res.status === 409) && fields && Object.keys(fields).length > 0) throw new FieldErrorsError(fields);
+  if (res.status === 409 && parsed?.error?.message?.startsWith(STALE_PREFIX)) throw new VersionConflictError();
+  if ((res.status === 409 || res.status === 404) && parsed?.error?.message) throw new Error(parsed.error.message);
+  throw new Error(GENERIC);
+}
+
+/** Deletes the latest extension (§11.13); a stale lease version comes back as VersionConflictError. */
+export async function deleteExtension(id: string, version: number): Promise<void> {
+  const res = await fetch(`/api/extensions/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ version }),
+  }).catch(() => {
+    throw new Error(GENERIC);
+  });
+  if (res.ok || res.status === 404) return;
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  const parsed = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+  if (res.status === 409 && parsed?.error?.message?.startsWith(STALE_PREFIX)) throw new VersionConflictError();
+  throw new Error(res.status === 409 && parsed?.error?.message ? parsed.error.message : GENERIC);
 }

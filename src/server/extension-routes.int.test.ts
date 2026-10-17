@@ -299,3 +299,25 @@ describe("PATCH and DELETE /api/extensions/{id}", () => {
     expect((await getLease(f, l.id)).extensions).toHaveLength(0);
   });
 });
+
+describe("GET /api/extensions/{id} and the extension names on the lease", () => {
+  it("returns one extension, 404s for unknown ids and needs a session", async () => {
+    const f = await fixture();
+    const l = await lease(f);
+    const e = await json<Ext>(await extend(f, l.id));
+    const res = await call(f.cookie, "GET", `/api/extensions/${e.id}`);
+    expect(res.status).toBe(200);
+    expect(await json<Ext & { leaseId: string }>(res)).toMatchObject({ id: e.id, leaseId: l.id, baseRentCents: 225000 });
+    expect((await call(f.cookie, "GET", `/api/extensions/${UUID}`)).status).toBe(404);
+    expect((await call(f.cookie, "GET", "/api/extensions/nope")).status).toBe(404);
+    expect((await app.request(`/api/extensions/${e.id}`)).status).toBe(401);
+  });
+
+  it("names the extension's tenants on the lease detail", async () => {
+    const f = await fixture();
+    const l = await lease(f);
+    await extend(f, l.id);
+    const after = await json<{ extensions: { tenants: { tenantId: string; displayName: string }[] }[] }>(await call(f.cookie, "GET", `/api/leases/${l.id}`));
+    expect(after.extensions[0]!.tenants).toMatchObject([{ tenantId: f.t1, displayName: "Ann Lee" }]);
+  });
+});

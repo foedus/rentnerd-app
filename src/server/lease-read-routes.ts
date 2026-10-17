@@ -68,7 +68,8 @@ export function mountLeaseReadRoutes(app: Hono, db: Db) {
         const p = person.get(t.tenantId);
         return { tenantId: t.tenantId, isPrimary: t.isPrimary, displayName: p ? tenantDisplayName(p) : "" };
       });
-      return { ...base, masterTenants, current: { ...current, taxReimbursementCents: tax?.cents ?? null, taxReimbursementExplanation: tax?.explanation ?? null }, rentSchedule: leaseRentSchedule(l) };
+      const extensions = l.extensions.map((e) => ({ ...e, tenants: e.tenants.map((t) => ({ ...t, displayName: person.has(t.tenantId) ? tenantDisplayName(person.get(t.tenantId)!) : "" })) }));
+      return { ...base, masterTenants, extensions, current: { ...current, taxReimbursementCents: tax?.cents ?? null, taxReimbursementExplanation: tax?.explanation ?? null }, rentSchedule: leaseRentSchedule(l) };
     }));
   };
 

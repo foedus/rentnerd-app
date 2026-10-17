@@ -7,7 +7,7 @@ import { formatCents, formatDate } from "../shared/format";
 import { createExtensionSchema, termRuleIssues, updateExtensionSchema } from "../shared/schemas";
 import { apiError } from "./api-guard";
 import { clashesWithOthers, decimal, describeChanges, fieldErrors, isUuid, leaseMutator, OVERLAP, statusOf, summarize, tenantNames, termsOf, type LeaseChange, type Tx } from "./lease-change-routes";
-import type { LeasePresentation } from "./lease-store";
+import { loadLease, type LeasePresentation } from "./lease-store";
 import { validateBody } from "./validation";
 
 type Extension = LeasePresentation["extensions"][number];
@@ -123,6 +123,15 @@ export function mountExtensionRoutes(app: Hono, db: Db) {
       return change(tx, before, ext, sorted.at(-2) ?? before, u);
     }, row.leaseId);
   };
+
+  /** One extension, for the edit form (§11.14); `leaseId` says which lease (and version) it belongs to. */
+  app.get("/api/extensions/:id", async (c) => {
+    const id = c.req.param("id") ?? "";
+    if (!isUuid(id)) return notFound(c);
+    const [row] = await db.select({ leaseId: leaseExtension.leaseId }).from(leaseExtension).where(eq(leaseExtension.id, id));
+    const found = row && (await loadLease(db, row.leaseId))?.extensions.find((e) => e.id === id);
+    return found ? c.json(found) : notFound(c);
+  });
 
   app.patch("/api/extensions/:id", async (c) => {
     const parsed = await validateBody(c, updateExtensionSchema);

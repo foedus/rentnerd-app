@@ -1,14 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { CONFLICT_MESSAGE } from "../../shared/form-messages";
+import { VersionConflictError } from "../components/forms";
 import { Button } from "react-aria-components";
 import { Link, useNavigate, useParams } from "react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { formatCents, formatDate, formatDateTime } from "../../shared/format";
 import { formatSharePercent } from "../../shared/income";
-import { fetchLease, fetchLeaseVersions, type LeaseDetailRecord, type LeaseVersionRow } from "../leases-api";
+import { deleteExtension, fetchLease, fetchLeaseVersions, type ExtensionRecord, type LeaseDetailRecord, type LeaseVersionRow } from "../leases-api";
 import { useCanWrite } from "../me";
 import { LeaseActions } from "./LeaseActions";
 import { Page } from "../components/Page";
-import { DataTable, type Column } from "../components/ui";
+import { ConfirmDialog, DataTable, type Column } from "../components/ui";
 
 type Tenant = LeaseDetailRecord["current"]["tenants"][number];
 type Period = LeaseDetailRecord["rentSchedule"][number];
@@ -67,6 +70,75 @@ function Facts({ rows }: { rows: [string, string][] }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+const ENDED_STATUSES = ["ended", "ended_superseded"];
+
+function ExtensionsSection({ lease }: { lease: LeaseDetailRecord }) {
+  const canWrite = useCanWrite();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [deleting, setDeleting] = useState<ExtensionRecord | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const rows = [...lease.extensions].sort((a, b) => a.startDate.localeCompare(b.startDate));
+  const latest = rows.at(-1)?.id;
+  const canAdd = canWrite && !ENDED_STATUSES.includes(lease.status) && !lease.moveOutDate;
+  const columns: Column<ExtensionRecord>[] = [
+    { key: "start", header: "Start", cell: (e) => formatDate(e.startDate) },
+    { key: "end", header: "End", cell: (e) => formatDate(e.endDate) },
+    { key: "tenants", header: "Tenants", cell: (e) => e.tenants.map((t) => t.displayName).filter(Boolean).join(", ") || "–" },
+    { key: "rent", header: "Monthly rent", cell: (e) => formatCents(e.baseRentCents) },
+    { key: "notes", header: "Notes", cell: (e) => e.notes || "–" },
+    ...(canWrite
+      ? [
+          {
+            key: "actions",
+            header: "Actions",
+            cell: (e: ExtensionRecord) =>
+              e.id === latest ? (
+                <span className="flex gap-2">
+                  <Button aria-label={`Edit extension starting ${formatDate(e.startDate)}`} onPress={() => navigate(`/extensions/${e.id}/edit`)} className="min-h-6 rounded border px-3 py-1">
+                    Edit
+                  </Button>
+                  <Button aria-label={`Delete extension starting ${formatDate(e.startDate)}`} onPress={() => setDeleting(e)} className="min-h-6 rounded border px-3 py-1 select-none">
+                    Delete
+                  </Button>
+                </span>
+              ) : null,
+          },
+        ]
+      : []),
+  ];
+  return (
+    <Section title="Extensions">
+      {error && <p role="alert" className="mb-2 text-red-700">{error}</p>}
+      <DataTable name="Extensions" columns={columns} rows={rows} rowKey={(e) => e.id} emptyMessage="No extensions." />
+      {canAdd && (
+        <Button onPress={() => navigate(`/leases/${lease.id}/extensions/new`)} className="mt-2 min-h-6 rounded border px-4 py-1">
+          Add extension
+        </Button>
+      )}
+      <ConfirmDialog
+        isOpen={deleting !== null}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        title="Delete extension"
+        confirmLabel="Delete extension"
+        onConfirm={() => {
+          const target = deleting;
+          if (!target || busy) return;
+          setError(null);
+          setBusy(true);
+          deleteExtension(target.id, lease.version)
+            .then(() => queryClient.invalidateQueries())
+            .catch((err: unknown) => setError(err instanceof VersionConflictError ? CONFLICT_MESSAGE : err instanceof Error ? err.message : "Something went wrong. Please try again."))
+            .finally(() => setBusy(false));
+        }}
+      >
+        <p>Delete this extension? This cannot be undone.</p>
+      </ConfirmDialog>
+    </Section>
   );
 }
 
@@ -146,6 +218,7 @@ function LeaseView({ lease }: { lease: LeaseDetailRecord }) {
         />
         {commercial && c.taxReimbursementExplanation && <p className="mt-1 text-slate-700">{c.taxReimbursementExplanation}</p>}
       </Section>
+      <ExtensionsSection lease={lease} />
       <VersionsSection leaseId={lease.id} />
     </Page>
   );
