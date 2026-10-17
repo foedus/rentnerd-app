@@ -825,3 +825,9 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 - Left as is: Firefox and WebKit weren't checked by hand.
 - Not yet (T090): **Extension template**, "Used in this template" marks and **Save and generate PDF**.
 - Nothing for the owner to do.
+
+### 2026-10-17 — T064: Dashboard lease tables
+- The two Dashboard tables **Leases needing a decision** (Property, Unit, Tenants, Ended on, Current rent; "None." when empty) and **Leases ending in the next 90 days** (with Days left, using the move-out date when there is one; month-to-month, upcoming and later leases left out) were already built together with the Dashboard in T063, so this task needed no app changes. I confirmed AC-DASH-04, AC-LEASE-10 and AC-LEASE-11 pass and added a screen test for a filled "Leases needing a decision" row.
+- verify.sh passes (129 acceptance tests). The reviewer approved. No screens changed, so no QA pass.
+- Note: the first verify run failed once on an existing Dashboard screen test ("stays put and re-checks the signed-in user when signing out fails") while the machine was busy; it passes alone and on the re-run. It looks like a timing flake and is not related to this task.
+- Nothing for the owner to do.

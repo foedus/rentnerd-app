@@ -121,6 +121,40 @@ it("lists properties with links, a dash for a missing yield, and the lease table
   ).toContain("None.");
 });
 
+it("lists a lease needing a decision with its end date and last rent, linking the unit to the lease", async () => {
+  await mount(async () =>
+    Response.json({
+      ...dashboard,
+      leasesNeedingDecision: [
+        {
+          leaseId: "l9",
+          propertyId: "p1",
+          propertyName: "Property A",
+          unitId: "u9",
+          unitLabel: "ND1",
+          tenants: ["Ann Lee", "Bo Chan"],
+          currentRentCents: 200000,
+          endedOn: "2026-12-31",
+        },
+      ],
+    }),
+  );
+  const row = rowText("Leases needing a decision", "ND1");
+  expect(
+    [...(row?.querySelectorAll("td") ?? [])].map((c) => c.textContent),
+  ).toEqual([
+    "Property A",
+    "ND1",
+    "Ann Lee, Bo Chan",
+    "Dec 31, 2026",
+    "$2,000.00",
+  ]);
+  expect(row?.querySelectorAll("a")[1]?.getAttribute("href")).toBe(
+    "/leases/l9",
+  );
+  expect(document.body.textContent).not.toContain("None.");
+});
+
 it("shows an error with Try again when loading fails", async () => {
   await mount(async () => new Response("", { status: 500 }));
   expect(document.querySelector('[role="alert"]')?.textContent).toBe(
