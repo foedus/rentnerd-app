@@ -158,3 +158,35 @@ export async function fetchLeaseVersion(id: string, n: string): Promise<LeaseVer
   if (res.ok) return (await res.json()) as LeaseVersionRecord;
   throw new Error(res.status === 404 ? "Version not found." : GENERIC);
 }
+
+export interface LeaseListRow {
+  id: string;
+  propertyName: string | null;
+  unitId: string;
+  unitLabel: string | null;
+  currentTenants: { tenantId: string; displayName: string }[];
+  startDate: string;
+  effectiveEndDate: string;
+  currentRentCents: number;
+  statusLabel: string;
+}
+
+export interface LeaseListPage {
+  data: LeaseListRow[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+/** GET /leases (§14.2); `status` is sent once per lease status code. */
+export async function fetchLeases(params: { status: readonly string[]; propertyId: string; archived: boolean; page: number }): Promise<LeaseListPage> {
+  const qs = new URLSearchParams({ page: String(params.page), archived: String(params.archived) });
+  for (const s of params.status) qs.append("status", s);
+  if (params.propertyId) qs.set("propertyId", params.propertyId);
+  const res = await fetch(`/api/leases?${qs}`, { headers: { accept: "application/json" } }).catch(() => {
+    throw new Error(GENERIC);
+  });
+  if (res.status === 429) throw new TooManyRequestsError(TOO_MANY);
+  if (!res.ok) throw new Error(GENERIC);
+  return (await res.json()) as LeaseListPage;
+}

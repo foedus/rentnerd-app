@@ -780,3 +780,9 @@ know or do. The task list and statuses live in `docs/tasks.json`.
 - AC-LEASE-09 and AC-LEASE-19 pass. verify.sh passes (114 acceptance tests). The reviewer approved. QA found and I fixed: the old overlap error stayed on screen after confirming; keyboard focus was lost after confirming (now goes to Save lease).
 - Left as is: if a replace save is refused again as an overlap, the Replace button stays hidden until the dates change. Firefox and WebKit weren't checked by hand.
 - Nothing for the owner to do.
+
+### 2026-10-17 — T058: Leases list
+- The **Leases** page (`/leases`) now lists leases with the columns Property, Unit, Tenants, Start, Effective end, Current rent and Status (an archived lease shows " · Archived"). Filters: a **Status** group of checkboxes (Upcoming, Active, Month-to-month, Needs decision, Ended; all checked except Ended), **Show archived** (off by default) and **Property**. Checking **Ended** also brings back leases that ended because a later lease replaced them. Property links to the lease, Unit to the unit page. Unchecking every status shows "No leases match these filters."
+- AC-LEASE-18 passes. verify.sh passes (115 acceptance tests). The reviewer approved. QA found and I fixed: very long property names pushed the other columns off screen; screen readers weren't told when the list changed (now "N leases shown."); every Property link had the same spoken name (now includes the unit).
+- Left as is: filters are not kept in the web address, so Back or Reload resets them; the list isn't sortable (newest start first); Show archived adds archived leases to the others; Firefox and WebKit weren't checked by hand.
+- Nothing for the owner to do.

@@ -24,6 +24,7 @@ import { PropertyForm } from "./pages/PropertyForm";
 import { PropertyDetail } from "./pages/PropertyDetail";
 import { EditLease } from "./pages/EditLease";
 import { LeaseDetail } from "./pages/LeaseDetail";
+import { Leases } from "./pages/Leases";
 import { LeaseVersion } from "./pages/LeaseVersion";
 import { NewLease } from "./pages/NewLease";
 import { Login } from "./pages/Login";
@@ -52,6 +53,7 @@ function pageElement(path: string, title: string, me: Me) {
   if (path === "/units/:id") return <UnitDetail />;
   if (path === "/properties/:id/units/new" || path === "/units/:id/edit") return <UnitForm />;
   if (path === "/units/:id/leases/new") return <NewLease />;
+  if (path === "/leases") return <Leases />;
   if (path === "/leases/:id") return <LeaseDetail />;
   if (path === "/leases/:id/edit") return <EditLease />;
   if (path === "/leases/:id/versions/:n") return <LeaseVersion />;
