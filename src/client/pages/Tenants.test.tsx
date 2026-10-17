@@ -176,7 +176,7 @@ it("detail: shows contact details, the Leases table and the action buttons", asy
 
 it("detail: the Leases table lists each lease from the tenant's lease list with a Primary contact Yes/No", async () => {
   const row = (id: string, unit: string, primary: boolean) => ({
-    id, propertyName: "Oak House", unitId: `u-${id}`, unitLabel: unit, startDate: "2026-01-01", effectiveEndDate: "2026-12-31", currentRentCents: 100000, statusLabel: "Active",
+    id, propertyId: "p-1", propertyName: "Oak House", unitId: `u-${id}`, unitLabel: unit, startDate: "2026-01-01", effectiveEndDate: "2026-12-31", currentRentCents: 100000, statusLabel: "Active",
     currentTenants: [{ tenantId: tenant.id, displayName: "Ann Lee", isPrimary: primary }, { tenantId: "other", displayName: "Bo", isPrimary: !primary }],
   });
   const { root, calls } = await mount(`/tenants/${tenant.id}`, async (url) =>
@@ -185,6 +185,7 @@ it("detail: the Leases table lists each lease from the tenant's lease list with 
   expect(query).toContain(`tenantId=${tenant.id}`);
   expect(query).toContain("archived=true");
   const rows = Array.from(document.querySelectorAll("table[aria-label=Leases] tbody tr")).map((r) => Array.from(r.querySelectorAll("td")).map((c) => c.textContent));
+  expect(document.querySelector("table[aria-label=Leases] a[href='/properties/p-1']")?.textContent).toBe("Oak House");
   expect(rows).toEqual([
     ["Oak House", "A1", "Jan 1, 2026", "Dec 31, 2026", "Active", "Yes"],
     ["Oak House", "B2", "Jan 1, 2026", "Dec 31, 2026", "Active", "No"],

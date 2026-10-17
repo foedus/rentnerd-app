@@ -13,7 +13,15 @@ import { deleteTenant, fetchTenant, tenantAction, type TenantAction, type Tenant
 const ON_LEASE_DELETE = "Tenants on a lease can only be archived";
 
 const leaseColumns = (tenantId: string): Column<LeaseListRow>[] => [
-  { key: "property", header: "Property", cell: (l) => <span className="block max-w-48 break-words">{l.propertyName ?? "–"}</span> },
+  { key: "property", header: "Property", cell: (l) =>
+      l.propertyId ? (
+        <Link to={`/properties/${l.propertyId}`} className="block max-w-48 break-words underline">
+          {l.propertyName ?? "–"}
+        </Link>
+      ) : (
+        <span className="block max-w-48 break-words">{l.propertyName ?? "–"}</span>
+      ),
+  },
   {
     key: "unit",
     header: "Unit",
@@ -76,9 +84,10 @@ function TenantView({ tenant }: { tenant: TenantRecord }) {
       setNotice(action === "archive" ? "Tenant archived." : "Tenant restored.");
     } catch (err) {
       setProblem(err instanceof Error ? err.message : UNEXPECTED_MESSAGE);
+    } finally {
+      busy.current = false;
     }
     await refresh();
-    busy.current = false;
     outcome.current?.focus();
   };
   const remove = async () => {
@@ -118,15 +127,15 @@ function TenantView({ tenant }: { tenant: TenantRecord }) {
       </div>
       {canWrite && (
         <div className="flex flex-wrap gap-2">
-          <Button onPress={() => navigate(`/tenants/${tenant.id}/edit`)} className="min-h-6 rounded border px-4 py-1">
+          <Button onPress={() => navigate(`/tenants/${tenant.id}/edit`)} className="min-h-6 select-none rounded border px-4 py-1">
             Edit tenant
           </Button>
           {tenant.archivedAt ? (
-            <Button onPress={() => void run("restore")} className="min-h-6 rounded border px-4 py-1">
+            <Button onPress={() => void run("restore")} className="min-h-6 select-none rounded border px-4 py-1">
               Restore tenant
             </Button>
           ) : (
-            <Button onPress={() => void run("archive")} className="min-h-6 rounded border px-4 py-1">
+            <Button onPress={() => void run("archive")} className="min-h-6 select-none rounded border px-4 py-1">
               Archive tenant
             </Button>
           )}

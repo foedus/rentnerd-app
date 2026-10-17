@@ -161,6 +161,7 @@ export async function fetchLeaseVersion(id: string, n: string): Promise<LeaseVer
 
 export interface LeaseListRow {
   id: string;
+  propertyId?: string | null;
   propertyName: string | null;
   unitId: string;
   unitLabel: string | null;
